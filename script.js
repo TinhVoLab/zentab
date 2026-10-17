@@ -873,6 +873,7 @@ function saveSettingsGroup(group) {
       flashSettingsSaved();
     });
   } else if (group === 'key') {
+    forgetGeminiModels();
     chrome.storage.sync.set({ geminiKey: document.getElementById('geminiKey').value.trim() }, () => {
       renderAll(true);
       refreshAiStatus();
@@ -925,6 +926,56 @@ document.getElementById('clearBirthBtn').addEventListener('click', () => {
   saveSettingsGroup('birth');
 });
 
+// ---- Gemini model selection ----
+// No hard-coded model: the newest stable Flash model this key can use is discovered via
+// models.list (cached 3 days), with Google's moving "latest" alias as the next choice.
+const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
+const GEMINI_ALIAS = 'gemini-flash-latest';
+const GEMINI_MODEL_TTL = 3 * 24 * 60 * 60 * 1000;
+
+// "gemini-3.10-flash" > "gemini-3.8-flash": compare dotted versions numerically
+function compareModelVersions(a, b) {
+  const va = a.match(/\d+/g).map(Number), vb = b.match(/\d+/g).map(Number);
+  for (let i = 0; i < Math.max(va.length, vb.length); i++) {
+    const d = (va[i] || 0) - (vb[i] || 0);
+    if (d) return d;
+  }
+  return 0;
+}
+
+async function listFlashModels(apiKey) {
+  const res = await fetch(`${GEMINI_API}/models?pageSize=1000`, { headers: { 'x-goog-api-key': apiKey } });
+  if (!res.ok) throw new Error(`models.list ${res.status}`);
+  const { models = [] } = await res.json();
+  return models
+    .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map(m => m.name.replace(/^models\//, ''))
+    // stable general-purpose Flash only: no lite/image/tts/live/preview variants
+    .filter(id => /^gemini-\d+(\.\d+)*-flash$/.test(id))
+    .sort((a, b) => compareModelVersions(b, a));
+}
+
+// Models to try, in order
+async function getGeminiModels(apiKey) {
+  const { geminiModels: cache } = await chrome.storage.local.get('geminiModels');
+  let found = cache && Date.now() - cache.at < GEMINI_MODEL_TTL ? cache.list : null;
+  if (!found) {
+    try {
+      found = await listFlashModels(apiKey);
+      chrome.storage.local.set({ geminiModels: { at: Date.now(), list: found } });
+    } catch (e) {
+      console.warn('ZenTab: could not list Gemini models,', e.message);
+      found = [];
+    }
+  }
+  return [...new Set([found[0], GEMINI_ALIAS, found[1]].filter(Boolean))];
+}
+
+// Re-discover on the next call (new key, or a model that no longer exists)
+function forgetGeminiModels() {
+  chrome.storage.local.remove('geminiModels');
+}
+
 // Test Gemini API Key Connectivity
 const testApiKeyBtn = document.getElementById('testApiKeyBtn');
 const apiKeyTestStatus = document.getElementById('apiKeyTestStatus');
@@ -948,21 +999,25 @@ if (testApiKeyBtn && apiKeyTestStatus) {
     apiKeyTestStatus.textContent = 'Đang gửi yêu cầu kiểm tra...';
 
     try {
-      const model = 'gemini-2.5-flash';
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: "Respond only with OK" }] }]
-        })
-      });
+      forgetGeminiModels();
+      const models = await getGeminiModels(apiKey);
+      let okModel = null, errMessage = '';
+      for (const model of models) {
+        const res = await fetch(`${GEMINI_API}/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify({ contents: [{ parts: [{ text: 'Respond only with OK' }] }] })
+        });
+        if (res.ok) { okModel = model; break; }
+        const data = await res.json().catch(() => ({}));
+        errMessage = data?.error?.message || `HTTP ${res.status}`;
+        if ([400, 401, 403].includes(res.status)) break; // a key problem, not a model problem
+      }
 
-      if (res.ok) {
+      if (okModel) {
         apiKeyTestStatus.style.color = '#10b981';
-        apiKeyTestStatus.textContent = '✓ Kết nối thành công! API hoạt động tốt.';
+        apiKeyTestStatus.textContent = `✓ Kết nối thành công · đang dùng ${okModel}`;
       } else {
-        const data = await res.json();
-        const errMessage = data?.error?.message || `HTTP ${res.status}`;
         apiKeyTestStatus.style.color = '#ef4444';
         apiKeyTestStatus.textContent = `✗ Thất bại: ${errMessage}`;
       }
@@ -1576,20 +1631,21 @@ EXAMPLES (do NOT copy, use as style reference):
 ADVICE:`;
 
     const delays = [5000, 15000, 30000];
-    const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
 
     (async () => {
+      const models = await getGeminiModels(apiKey);
       let result = null;
       for (const model of models) {
         for (let i = 0; i < 3; i++) {
           try {
             console.log(`ZenTab: calling ${model} (attempt ${i+1})`);
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`, {
+            const res = await fetch(`${GEMINI_API}/models/${model}:generateContent`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
               body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
+                // newer models count their thinking against this budget
+                generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
               })
             });
             const body = await res.text();
@@ -1600,6 +1656,7 @@ ADVICE:`;
             }
             if (!res.ok) {
               console.warn(`ZenTab: ${model} ${res.status}:`, body.slice(0, 200));
+              if (res.status === 404) forgetGeminiModels();
               break;
             }
             const data = JSON.parse(body);
@@ -2936,18 +2993,23 @@ async function sendUserMessage(text) {
         });
       });
       
-      const model = 'gemini-2.5-flash';
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify({
-          contents,
-          generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
-        })
-      });
+      let res = null;
+      for (const model of await getGeminiModels(apiKey)) {
+        res = await fetch(`${GEMINI_API}/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify({
+            contents,
+            generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
+          })
+        });
+        if (res.ok) break;
+        if (res.status === 404) forgetGeminiModels();
+        else break; // only a missing model is worth trying the next one
+      }
       
-      if (!res.ok) {
-        throw new Error(`API error: ${res.status}`);
+      if (!res || !res.ok) {
+        throw new Error(`API error: ${res ? res.status : 'no model'}`);
       }
       
       const resData = await res.json();
@@ -3190,14 +3252,14 @@ function callGemini(prompt, temperature, maxTokens) {
     chrome.storage.sync.get('geminiKey', async (data) => {
       const apiKey = data.geminiKey;
       if (!apiKey) { resolve({ error: 'no-key' }); return; }
-      const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+      const models = await getGeminiModels(apiKey);
       const delays = [5000, 15000, 30000];
       let result = null;
       let errorMsg = null;
       for (const model of models) {
         for (let i = 0; i < 3; i++) {
           try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`, {
+            const res = await fetch(`${GEMINI_API}/models/${model}:generateContent`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
               body: JSON.stringify({
@@ -3210,7 +3272,11 @@ function callGemini(prompt, temperature, maxTokens) {
               if (i < 2) await new Promise(r => setTimeout(r, delays[i]));
               continue;
             }
-            if (!res.ok) { errorMsg = `${res.status}: ${body.slice(0, 200)}`; break; }
+            if (!res.ok) {
+              errorMsg = `${res.status}: ${body.slice(0, 200)}`;
+              if (res.status === 404) forgetGeminiModels();
+              break;
+            }
             const parsed = JSON.parse(body);
             result = parsed?.candidates?.[0]?.content?.parts?.[0]?.text || null;
             if (result) break;
