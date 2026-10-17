@@ -8,7 +8,8 @@
   const panes = {
     breath: document.getElementById('relaxBreath'),
     bubbles: document.getElementById('relaxBubbles'),
-    garden: document.getElementById('relaxGarden')
+    garden: document.getElementById('relaxGarden'),
+    lantern: document.getElementById('relaxLantern')
   };
   const endPanel = document.getElementById('relaxEnd');
   const breakLeft = document.getElementById('relaxBreakLeft');
@@ -56,6 +57,7 @@
   function close() {
     stopBreath();
     garden.stop();
+    lanterns.stop();
     clearInterval(tickTimer);
     modal.style.display = 'none';
     syncInvite();
@@ -71,6 +73,7 @@
     if (tab !== 'breath') stopBreath();
     if (tab === 'bubbles' && !bubbleSheet.children.length) newSheet();
     if (tab === 'garden') garden.init();
+    if (tab === 'lantern') lanterns.start(); else lanterns.stop();
   }
   document.querySelectorAll('#relaxTabs [data-relax-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.relaxTab)));
   document.getElementById('closeRelaxBtn').addEventListener('click', close);
@@ -371,6 +374,187 @@
     setTool('rake');
 
     return { init, stop: endStroke };
+  })();
+
+  // ---- Thả đèn hoa đăng: write a worry, set it on the river, watch it drift away ----
+  // Nothing written here is stored or sent anywhere; it only exists on the canvas.
+  const lanterns = (() => {
+    const stage = document.getElementById('lanternStage');
+    const canvas = document.getElementById('lanternCanvas');
+    const ctx = canvas.getContext('2d');
+    const form = document.getElementById('lanternForm');
+    const input = document.getElementById('lanternText');
+    const countEl = document.getElementById('lanternCount');
+    const DRIFT_MS = 16000;
+    let w = 0, h = 0, raf = null, released = 0;
+    const floating = [];
+    // Fixed starfield so it doesn't reshuffle every frame
+    const stars = Array.from({ length: 60 }, () => ({ x: Math.random(), y: Math.random() * 0.36, r: Math.random() * 1.2 + 0.3, p: Math.random() * 6 }));
+
+    function size() {
+      const cw = stage.offsetWidth, ch = stage.offsetHeight;
+      if (!cw || (cw === w && ch === h)) return;
+      const dpr = window.devicePixelRatio || 1;
+      w = cw; h = ch;
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function drawScene(t) {
+      const horizon = h * 0.42;
+      // Sky
+      const sky = ctx.createLinearGradient(0, 0, 0, horizon);
+      sky.addColorStop(0, '#0b1026');
+      sky.addColorStop(1, '#23264a');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, w, horizon);
+      stars.forEach(st => {
+        ctx.globalAlpha = 0.45 + 0.4 * Math.sin(t / 900 + st.p);
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(st.x * w, st.y * h, st.r, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+      // Moon with a soft halo
+      const mx = w * 0.78, my = h * 0.16;
+      const halo = ctx.createRadialGradient(mx, my, 6, mx, my, 70);
+      halo.addColorStop(0, 'rgba(255,240,200,0.35)');
+      halo.addColorStop(1, 'rgba(255,240,200,0)');
+      ctx.fillStyle = halo;
+      ctx.fillRect(mx - 70, my - 70, 140, 140);
+      ctx.fillStyle = '#fbf3da';
+      ctx.beginPath(); ctx.arc(mx, my, 16, 0, Math.PI * 2); ctx.fill();
+      // Far bank
+      ctx.fillStyle = '#141833';
+      ctx.beginPath();
+      ctx.moveTo(0, horizon);
+      for (let x = 0; x <= w; x += 20) ctx.lineTo(x, horizon - 6 - 8 * Math.abs(Math.sin(x / 90)) - 10 * Math.max(0, Math.sin(x / 260)));
+      ctx.lineTo(w, horizon); ctx.closePath(); ctx.fill();
+      // Water
+      const water = ctx.createLinearGradient(0, horizon, 0, h);
+      water.addColorStop(0, '#1b2244');
+      water.addColorStop(1, '#0a0f24');
+      ctx.fillStyle = water;
+      ctx.fillRect(0, horizon, w, h - horizon);
+      // Moonlight on the water: broken, shimmering strokes
+      for (let i = 0; i < 26; i++) {
+        const y = horizon + 6 + i * ((h - horizon) / 26);
+        const spread = 6 + i * 2.2;
+        const a = 0.12 + 0.12 * Math.sin(t / 500 + i * 1.7);
+        ctx.strokeStyle = `rgba(255,236,190,${a})`;
+        ctx.lineWidth = 1.2;
+        const off = Math.sin(t / 700 + i) * 4;
+        ctx.beginPath(); ctx.moveTo(mx - spread + off, y); ctx.lineTo(mx + spread + off, y); ctx.stroke();
+      }
+      // Gentle ripples across the river
+      ctx.strokeStyle = 'rgba(160,180,255,0.07)';
+      for (let i = 0; i < 9; i++) {
+        const y = horizon + 14 + i * ((h - horizon) / 9) + Math.sin(t / 1300 + i) * 2;
+        ctx.beginPath(); ctx.moveTo(0, y);
+        for (let x = 0; x <= w; x += 24) ctx.lineTo(x, y + Math.sin(x / 60 + t / 900 + i) * 1.5);
+        ctx.stroke();
+      }
+    }
+
+    function drawLantern(l, t) {
+      const k = Math.min(1, (t - l.born) / DRIFT_MS);
+      const ease = 1 - Math.pow(1 - k, 2);
+      const horizon = h * 0.42;
+      const y = h * 0.86 + (horizon + 10 - h * 0.86) * ease;
+      const s = 1 - 0.78 * ease;
+      const x = l.x0 + (l.x1 - l.x0) * ease + Math.sin(t / 900 + l.seed) * 6 * s;
+      const fade = k > 0.85 ? 1 - (k - 0.85) / 0.15 : Math.min(1, (t - l.born) / 500);
+      const flicker = 0.85 + 0.15 * Math.sin(t / 90 + l.seed * 3) * Math.sin(t / 37 + l.seed);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, fade);
+      // Reflection
+      const refl = ctx.createRadialGradient(x, y + 10 * s, 0, x, y + 10 * s, 46 * s);
+      refl.addColorStop(0, `rgba(255,190,110,${0.35 * flicker})`);
+      refl.addColorStop(1, 'rgba(255,190,110,0)');
+      ctx.fillStyle = refl;
+      ctx.save(); ctx.translate(x, y + 12 * s); ctx.scale(1, 0.35); ctx.translate(-x, -(y + 12 * s));
+      ctx.beginPath(); ctx.arc(x, y + 12 * s, 46 * s, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      // Glow
+      const glow = ctx.createRadialGradient(x, y - 6 * s, 0, x, y - 6 * s, 42 * s);
+      glow.addColorStop(0, `rgba(255,214,140,${0.55 * flicker})`);
+      glow.addColorStop(1, 'rgba(255,214,140,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(x, y - 6 * s, 42 * s, 0, Math.PI * 2); ctx.fill();
+      // Leaf base
+      ctx.fillStyle = '#2f6b4f';
+      ctx.beginPath(); ctx.ellipse(x, y + 4 * s, 22 * s, 6 * s, 0, 0, Math.PI * 2); ctx.fill();
+      // Lotus petals: an outer and an inner ring
+      [[8, 17, 9, '#f2a6c4'], [6, 12, 7, '#f9c9dc']].forEach(([n, len, wid, color], ring) => {
+        ctx.fillStyle = color;
+        for (let i = 0; i < n; i++) {
+          const a = Math.PI + (i / (n - 1)) * Math.PI; // upper half fan
+          ctx.save();
+          ctx.translate(x, y - ring * 2 * s);
+          ctx.rotate(a + Math.PI / 2);
+          ctx.beginPath(); ctx.ellipse(0, -len * s * 0.55, wid * s * 0.5, len * s * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+      });
+      // Candle flame
+      ctx.fillStyle = `rgba(255,230,150,${flicker})`;
+      ctx.beginPath(); ctx.ellipse(x, y - 9 * s, 2.6 * s, 5.5 * s * flicker, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      l.pos = { x, y, s, k, fade };
+      return k < 1;
+    }
+
+    // The worry, fading as the lantern leaves
+    function drawWords(l) {
+      const { x, y, s, k, fade } = l.pos;
+      const textAlpha = Math.max(0, 1 - k / 0.45);
+      ctx.save();
+      if (textAlpha > 0 && l.text) {
+        ctx.globalAlpha = textAlpha * Math.max(0, fade);
+        ctx.font = `italic ${Math.round(15 * Math.max(0.7, s))}px "New York", ui-serif, Georgia, serif`;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#fff2dc';
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 6;
+        ctx.fillText(l.text, x, y - 34 * s - k * 30);
+      }
+      ctx.restore();
+    }
+
+    function frame(t) {
+      size();
+      drawScene(t);
+      for (let i = floating.length - 1; i >= 0; i--) {
+        if (!drawLantern(floating[i], t)) floating.splice(i, 1);
+      }
+      floating.forEach(drawWords);
+      raf = requestAnimationFrame(frame);
+    }
+
+    function start() {
+      if (raf) return;
+      raf = requestAnimationFrame(frame);
+      setTimeout(() => input.focus(), 50);
+    }
+    function stop() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = null;
+    }
+
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) { input.focus(); return; }
+      size();
+      const lane = [0.5, 0.3, 0.7][released % 3];
+      const x0 = w * lane + (Math.random() - 0.5) * 40;
+      floating.push({ text, born: performance.now(), x0, x1: x0 + (Math.random() - 0.5) * w * 0.2, seed: Math.random() * 10 });
+      input.value = '';
+      released += 1;
+      countEl.textContent = `Đã thả ${released} đèn · `;
+      sound('lanternRelease');
+    });
+
+    return { start, stop };
   })();
 
   // ---- Break over ----

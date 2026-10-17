@@ -330,6 +330,28 @@
       };
     },
 
+    // Setting a lantern on the water: a soft drop followed by a distant bell
+    lanternRelease() {
+      ensureContext();
+      const t = ctx.currentTime;
+      const out = ctx.createGain();
+      out.gain.value = 0.35;
+      out.connect(ctx.destination);
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(900, t);
+      osc.frequency.exponentialRampToValueAtTime(260, t + 0.18);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.5, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+      osc.connect(g).connect(out);
+      osc.start(t);
+      osc.stop(t + 0.3);
+      setTimeout(() => bowl(523, 0.18, 5, out), 350);
+      setTimeout(() => out.disconnect(), 6000);
+    },
+
     // Quiet bowl tap marking a breathing phase change (higher when breathing in)
     breathCue(rising) {
       ensureContext();

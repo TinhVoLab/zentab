@@ -453,6 +453,7 @@
                   <button type="button" class="relax-chip" data-relax-open="breath">🌬 Thở</button>
                   <button type="button" class="relax-chip" data-relax-open="bubbles">🫧 Bong bóng</button>
                   <button type="button" class="relax-chip" data-relax-open="garden">🪨 Vườn cát</button>
+                  <button type="button" class="relax-chip" data-relax-open="lantern">🪷 Thả đèn</button>
                   <button type="button" class="link-btn" id="relaxInviteDismiss">Bỏ qua</button>
                 </div>
               </div>
@@ -677,13 +678,16 @@
   <div id="relaxModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="relaxTitle">
     <div class="modal-card relax-card">
       <div class="modal-header-row">
-        <h3 class="modal-title" id="relaxTitle">Góc thư giãn</h3>
+        <div class="relax-title-block">
+          <h3 class="modal-title" id="relaxTitle">Góc thư giãn</h3>
+          <span class="relax-break-left" id="relaxBreakLeft"></span>
+        </div>
         <div class="segmented" id="relaxTabs" role="tablist" aria-label="Hoạt động">
           <button type="button" role="tab" data-relax-tab="breath">🌬 Thở</button>
           <button type="button" role="tab" data-relax-tab="bubbles">🫧 Bong bóng</button>
           <button type="button" role="tab" data-relax-tab="garden">🪨 Vườn cát</button>
+          <button type="button" role="tab" data-relax-tab="lantern">🪷 Thả đèn</button>
         </div>
-        <span class="relax-break-left" id="relaxBreakLeft"></span>
         <button class="modal-close-btn" id="closeRelaxBtn" aria-label="Đóng">✕</button>
       </div>
 
@@ -723,6 +727,17 @@
           </div>
           <button type="button" class="modal-btn modal-btn-secondary" id="gardenSmooth">Làm phẳng</button>
         </div>
+      </section>
+
+      <section class="relax-pane" id="relaxLantern" role="tabpanel" hidden>
+        <div class="lantern-stage" id="lanternStage">
+          <canvas id="lanternCanvas" aria-label="Dòng sông đêm, nơi những chiếc đèn hoa đăng trôi đi"></canvas>
+        </div>
+        <form class="lantern-form" id="lanternForm" autocomplete="off">
+          <input type="text" id="lanternText" maxlength="60" placeholder="Điều gì đang làm bạn nặng lòng?" aria-label="Điều bạn muốn thả trôi">
+          <button type="submit" class="modal-btn">Thả đèn</button>
+        </form>
+        <p class="lantern-note"><span id="lanternCount"></span>Điều bạn viết chỉ ở lại trên dòng sông: không được lưu, không gửi đi đâu.</p>
       </section>
 
       <div class="relax-end" id="relaxEnd" hidden>
