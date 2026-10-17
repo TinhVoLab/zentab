@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZenTab</title>
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="liquid-glass.css">
+  <script src="iztro.min.js" defer></script>
+</head>
+<body>
+  <div id="particles"></div>
+  <div class="overlay"></div>
+
+  <div class="app-layout">
+    <!-- Left Navigation Sidebar -->
+    <aside class="sidebar-left">
+      <div class="sidebar-top">
+        <div class="logo-container">
+          <svg viewBox="0 0 100 100" class="logo-lotus" xmlns="http://www.w3.org/2000/svg">
+            <path d="M50 15 C45 35, 30 45, 10 50 C30 55, 45 65, 50 85 C55 65, 70 55, 90 50 C70 45, 55 35, 50 15 Z" fill="url(#lotus-grad)"/>
+            <path d="M50 25 C47 40, 37 47, 20 50 C37 53, 47 60, 50 75 C53 60, 63 53, 80 50 C63 47, 53 40, 50 25 Z" fill="url(#lotus-grad-inner)" opacity="0.8"/>
+            <defs>
+              <linearGradient id="lotus-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#c084fc" />
+                <stop offset="100%" stop-color="#db2777" />
+              </linearGradient>
+              <linearGradient id="lotus-grad-inner" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#e879f9" />
+                <stop offset="100%" stop-color="#fb7185" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="home" title="Trang chủ">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+          </svg>
+          <span>Trang chủ</span>
+        </button>
+        <button class="nav-item" data-tab="focus" title="Tập trung">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span>Tập trung</span>
+        </button>
+        <button class="nav-item" data-tab="tasks" title="Nhiệm vụ">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+          </svg>
+          <span>Nhiệm vụ</span>
+        </button>
+        <button class="nav-item" data-tab="ai" title="AI Mentor">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 113.536 0V21h2v-2.243a4.973 4.973 0 013.536 0V21h-2v-2a1 1 0 00-1-1h-2a1 1 0 00-1 1v2H9v-2.243z"/>
+          </svg>
+          <span>AI Mentor</span>
+        </button>
+        <button class="nav-item" data-tab="stats" title="Thống kê">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z"/>
+          </svg>
+          <span>Thống kê</span>
+        </button>
+        <button class="nav-item" id="settingsBtn" title="Cài đặt">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          <span>Cài đặt</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="profile-container">
+          <img src="icons/icon128.png" alt="Avatar" class="user-avatar" id="userAvatar" title="Cài đặt">
+        </div>
+      </div>
+    </aside>
+
+    <!-- Views Wrapper -->
+    <main class="main-content-wrapper">
+      
+      <!-- VIEW 1: HOME DASHBOARD -->
+      <div id="view-home" class="dashboard-view active">
+        <!-- Dashboard Header Utilities -->
+        <div class="dashboard-header">
+          <div class="header-left">
+            <!-- Weather widget (minimal inline) with expandable detailed card -->
+            <div class="weather-wrapper-relative">
+              <button type="button" class="weather-widget-minimal" id="weatherWidget" title="Xem chi tiết thời tiết">
+                <span id="weatherIconEmoji" class="weather-icon">☀️</span>
+                <span class="weather-temp" id="weatherTempDisplay">Đang tải thời tiết…</span>
+                <span class="weather-desc" id="weatherDescDisplay"></span>
+              </button>
+              
+              <!-- Dropdown chi tiết thời tiết -->
+              <div class="weather-detailed-card glass-card" id="weatherDetailedCard" style="display:none;">
+                <div class="weather-details-grid">
+                  <div class="weather-detail-item">
+                    <span class="wd-label">Cảm giác như</span>
+                    <span class="wd-val" id="wdFeelsLike">--°C</span>
+                  </div>
+                  <div class="weather-detail-item">
+                    <span class="wd-label">Độ ẩm</span>
+                    <span class="wd-val" id="wdHumidity">--%</span>
+                  </div>
+                  <div class="weather-detail-item">
+                    <span class="wd-label">Bình minh</span>
+                    <span class="wd-val" id="wdSunrise">--:--</span>
+                  </div>
+                  <div class="weather-detail-item">
+                    <span class="wd-label">Hoàng hôn</span>
+                    <span class="wd-val" id="wdSunset">--:--</span>
+                  </div>
+                </div>
+                <div class="weather-zen-quote" id="weatherZenQuote">
+                  Đang tìm kiếm sự cân bằng của tiết trời...
+                </div>
+                <div class="weather-forecast-3day" id="weatherForecast3Day">
+                  <!-- Injected via JS -->
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="header-right">
+            <!-- Zen Control Buttons -->
+            <div class="zen-controls-bar">
+              <button id="toggleLeftBtn" class="zen-control-btn" aria-label="Lá số Tử Vi" title="Lá số Tử Vi (Trái)">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a4.5 4.5 0 0 1 0 9 4.5 4.5 0 0 0 0 9"/><circle cx="12" cy="7.5" r="0.9" fill="currentColor"/><circle cx="12" cy="16.5" r="0.9"/></svg>
+              </button>
+              <button id="toggleTasksBtn" class="zen-control-btn" aria-label="Nhiệm vụ hôm nay" title="Nhiệm vụ hôm nay">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M3.5 6l1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2"/></svg>
+              </button>
+              <button id="toggleRightBtn" class="zen-control-btn" aria-label="Pomodoro và tiện ích" title="Pomodoro & Tiện ích (Phải)">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M10 2h4M12 2v3"/></svg>
+              </button>
+              <button id="toggleZenBtn" class="zen-control-btn main-zen-toggle" aria-label="Chế độ Zen" title="Chế độ tập trung (Zen Mode)">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="main-dashboard-new">
+          <!-- CENTER VIEWPORT: Main Focus -->
+          <div class="main-focus-center">
+            <!-- Greetings and Time -->
+            <header class="center-header">
+              <h2 class="greeting" id="greeting">Chào buổi sáng, <span id="userName" class="name-editable">Tinh</span> 💜</h2>
+              <div id="clock" class="clock">00:00</div>
+              <div id="date" class="date"></div>
+              <div id="sparkline" class="sparkline"></div>
+
+            </header>
+
+            <!-- Focus Intention -->
+            <div class="intention-container glass-card">
+              <div id="journalReflection" class="journal-section" style="display:none">
+                <p class="journal-label">Hôm qua bạn đã viết:</p>
+                <p class="journal-entry" id="reflectionEntry"></p>
+                <p class="journal-prompt">Bạn đã làm được chưa?</p>
+                <div class="journal-actions">
+                  <button class="journal-btn" data-honored="true">Rồi</button>
+                  <button class="journal-btn" data-honored="false">Chưa</button>
+                </div>
+              </div>
+
+              <div id="journalIntention" class="journal-section">
+                <p class="journal-label" id="intentionLabel">Điều gì quan trọng nhất hôm nay?</p>
+                <div class="journal-input-row" id="journalInputRow">
+                  <input type="text" id="journalInput" placeholder="Hôm nay bạn muốn tập trung vào điều gì?" autocomplete="off">
+                  <button class="intention-submit-btn" id="intentionSubmitBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </button>
+                </div>
+                <p id="journalTodayEntry" class="journal-entry" style="display:none"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BOTTOM DOCK: Ambient Audio & Quote -->
+        <div class="bottom-dock">
+          <div class="dock-quote-section">
+            <p id="quoteText" class="quote-text">"Cách để bắt đầu là ngừng nói và bắt tay vào làm."</p>
+            <div class="quote-meta">
+              <span id="quoteAuthor" class="quote-author">— Walt Disney</span>
+              <button type="button" id="expandQuoteBtn" class="quote-expand-btn" title="Xem đầy đủ lời khuyên">Xem đầy đủ</button>
+            </div>
+          </div>
+          
+          <div class="dock-player-controls">
+            <button class="player-btn" id="prevQuoteBtn" title="Câu trước">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button class="player-btn play-pause-btn" id="playBtn" title="Phát nhạc thư giãn">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" id="playIcon">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+            <button class="player-btn" id="nextQuoteBtn" title="Câu tiếp theo">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            <select id="ambientSoundSelect" class="ambient-sound-select">
+              <option value="forest">🌲 Gió rừng</option>
+              <option value="rain">🌧️ Tiếng mưa</option>
+              <option value="ocean">🌊 Sóng biển</option>
+              <option value="lofi">🎧 Nhạc Lo-fi</option>
+              <option value="zen">🧘 Thiền định</option>
+              <option value="custom" id="customAudioOpt" style="display:none">🎵 Nhạc cá nhân</option>
+            </select>
+          </div>
+          <audio id="relaxingAudio" loop src="https://cdn.jsdelivr.net/gh/karthiknvd/noctune/sounds/forest.mp3"></audio>
+        </div>
+
+        <!-- SIDE DRAWERS / OVERLAY PANELS -->
+        
+        <!-- Left Side Drawer (Tử Vi) -->
+        <div id="leftDrawer" class="side-drawer left-drawer">
+          <div class="drawer-header">
+            <span class="drawer-title">Lá Số & Tử Vi</span>
+            <button class="drawer-close-btn" id="closeLeftDrawerBtn">✕</button>
+          </div>
+          <div class="drawer-content">
+            <!-- Astrology / Horoscope panel (Tử Vi) -->
+            <div class="astro-panel glass-card" id="astroPanel">
+              <div class="astro-header">
+                <svg class="astro-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M12 3v18M3 12h18M12 12m-9 0a9 9 0 1 0 18 0 9 9 0 1 0 -18 0" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M12 2a10 10 0 0 1 10 10M12 22a10 10 0 0 1 -10 -10"/>
+                </svg>
+                <span class="astro-title">Ngày của bạn</span>
+              </div>
+
+              <div class="astro-date-title" id="astroDateTitle">Bính Tý</div>
+              <div class="astro-date-sub" id="astroDateSub">17 / 05 / 2026</div>
+
+              <div class="astro-element-row">
+                <span class="nh-pill" id="nhPill">Mệnh Kim</span>
+              </div>
+              
+              <div class="astro-divider" id="astroDivider" style="display:none"></div>
+              
+              <div class="astro-summary">
+                <span class="section-label">Tổng quan hôm nay</span>
+                <p id="todayInsight" class="astro-advice-text">Vui lòng thiết lập ngày sinh trong Cài đặt để hiển thị thông tin Tử Vi và lời khuyên cá nhân hóa của bạn.</p>
+              </div>
+              
+              <div id="zodiacInfo" class="astro-body" style="display:none"></div>
+              <div class="astro-divider" id="tvDivider" style="display:none"></div>
+              <div id="tuviInfo" class="astro-body" style="display:none"></div>
+
+              <button class="glass-btn detail-btn" id="openAstroDetailsBtn">
+                <span>Xem chi tiết</span>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:14px;height:14px;margin-left:6px;">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Side Drawer (Pomodoro & Tools) -->
+        <div id="rightDrawer" class="side-drawer right-drawer">
+          <div class="drawer-header">
+            <span class="drawer-title">Tập Trung & Tiện Ích</span>
+            <button class="drawer-close-btn" id="closeRightDrawerBtn">✕</button>
+          </div>
+
+          <!-- Quick Tool Panel inside right side drawer (Direct child to prevent layout clipping and allow side-by-side display) -->
+          <div id="quickToolPanel" class="quick-tool-panel glass-card" style="display:none">
+            <div class="panel-header">
+              <span class="panel-title" id="quickToolTitle">Ghi chú</span>
+              <button class="panel-close-btn" id="closeQuickToolBtn">✕</button>
+            </div>
+            <div class="panel-body" id="quickToolBody"></div>
+          </div>
+
+          <div class="drawer-content">
+            <!-- Pomodoro widget -->
+            <div class="pomodoro-widget glass-card" id="pomodoro">
+              <div class="pomodoro-header">
+                <span class="pomodoro-title">Thời gian tập trung</span>
+                <button class="timer-expand-btn" title="Mở rộng" aria-label="Mở rộng">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
+                  </svg>
+                </button>
+              </div>
+
+              <div class="timer-circle-wrapper">
+                <svg class="timer-svg" viewBox="0 0 100 100">
+                  <circle class="timer-track" cx="50" cy="50" r="44" />
+                  <circle class="timer-progress" id="timerProgressRing" cx="50" cy="50" r="44" />
+                </svg>
+                <div class="timer-center">
+                  <span class="timer-mode-label">Tập trung</span>
+                  <div class="timer-display">25:00</div>
+                </div>
+              </div>
+
+              <div class="timer-controls">
+                <button id="timerStart" class="timer-main-btn">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  </svg>
+                  <span>Bắt đầu</span>
+                </button>
+                <button id="timerReset" class="timer-sub-btn" title="Đặt lại" aria-label="Đặt lại">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.2" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div class="timer-footer">
+                <select class="timer-mode-select" id="timerModeSelect">
+                  <option value="pomodoro">Pomodoro</option>
+                  <option value="short">Nghỉ ngắn</option>
+                  <option value="long">Nghỉ dài</option>
+                </select>
+                <div class="timer-footer-icons">
+                  <button class="timer-icon-btn" title="Âm thanh báo">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                    </svg>
+                  </button>
+                  <button class="timer-icon-btn" title="Cài đặt đếm ngược">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick tools grid -->
+            <div class="quick-tools-grid">
+              <button class="tool-btn glass-card" data-tool="notes">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <span>Ghi chú</span>
+              </button>
+              <button class="tool-btn glass-card" data-tool="habits">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Thói quen</span>
+              </button>
+              <button class="tool-btn glass-card" data-tool="ideas">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 113.536 0V21h2v-2.243a4.973 4.973 0 013.536 0V21h-2v-2a1 1 0 00-1-1h-2a1 1 0 00-1 1v2H9v-2.243z" />
+                </svg>
+                <span>Ý tưởng</span>
+              </button>
+              <button class="tool-btn glass-card" data-tool="charts">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 3.055A9.003 9.003 0 1020.945 13H11V3.055z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                </svg>
+                <span>Biểu đồ</span>
+              </button>
+            </div>
+
+            <!-- Floating quote -->
+            <div class="top-quote-container">
+              <svg class="quote-icon-small" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M14.017 21v-7.391c0-5.704 3.748-9.762 9-10.161v3.327c-2.887.281-4.837 1.487-4.837 4.103h4.837v10.122h-9zm-11 0v-7.391c0-5.704 3.748-9.762 9-10.161v3.327c-2.887.281-4.837 1.487-4.837 4.103h4.837v10.122h-9z"/>
+              </svg>
+              <p class="top-quote-text">Mỗi ngày là một trang giấy trắng, bạn là người quyết định câu chuyện.</p>
+              <span class="top-quote-author">— Khuyết danh</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Right Side Drawer (Today's Tasks) -->
+        <div id="tasksDrawer" class="side-drawer tasks-drawer">
+          <div class="drawer-header">
+            <span class="drawer-title">Nhiệm Vụ Hôm Nay</span>
+            <button class="drawer-close-btn" id="closeTasksDrawerBtn">✕</button>
+          </div>
+          <div class="drawer-content">
+            <div class="tasks-card glass-card">
+              <div class="tasks-header">
+                <div class="tasks-title-group">
+                  <span class="tasks-title">Danh sách công việc</span>
+                  <span class="tasks-count-badge" id="tasksCountBadge">0</span>
+                </div>
+                <div class="tasks-actions-top">
+                  <div class="task-input-row">
+                    <input type="text" id="taskInput" placeholder="Thêm nhiệm vụ mới..." autocomplete="off">
+                    <button id="taskAddBtn" class="task-add-btn" title="Thêm">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div id="taskList" class="task-list"></div>
+              <div class="tasks-progress-container" id="tasksProgressContainer" style="display:none">
+                <div class="tasks-progress-info">
+                  <span id="tasksProgressText">Hoàn thành 0/0 nhiệm vụ</span>
+                  <span id="tasksProgressPercent">0%</span>
+                </div>
+                <div class="tasks-progress-bar-bg">
+                  <div class="tasks-progress-bar-fill" id="tasksProgressBarFill" style="width: 0%;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- VIEW 2: ZEN FOCUS MODE -->
+      <div id="view-focus" class="dashboard-view">
+        <div class="zen-focus-container">
+          <div id="focusClock" class="clock focus-clock">00:00</div>
+          <div id="focusDate" class="date focus-date">Thứ Tư, 17 tháng 5, 2026</div>
+          <p class="focus-intention-display" id="focusIntentionDisplay">Hôm nay hãy tập trung hoàn thành mục tiêu của bạn.</p>
+          
+          <div class="focus-timer-large">
+            <div class="timer-circle-wrapper large-timer">
+              <svg class="timer-svg" viewBox="0 0 100 100">
+                <circle class="timer-track" cx="50" cy="50" r="44" />
+                <circle class="timer-progress" id="focusTimerProgressRing" cx="50" cy="50" r="44" />
+              </svg>
+              <div class="timer-center">
+                <span class="timer-mode-label focus-mode-label">Tập trung</span>
+                <div class="timer-display focus-timer-display">25:00</div>
+              </div>
+            </div>
+            
+            <div class="timer-controls focus-timer-controls">
+              <button id="focusTimerStart" class="timer-main-btn focus-main-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                </svg>
+                <span>Bắt đầu</span>
+              </button>
+              <button id="focusTimerReset" class="timer-sub-btn" title="Đặt lại" aria-label="Đặt lại">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.2" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- VIEW 3: KANBAN BOARD TASK MANAGER -->
+      <div id="view-tasks" class="dashboard-view">
+        <div class="tasks-manager-container">
+          <header class="view-header">
+            <h2 class="view-title">Quản Lý Công Việc</h2>
+            <p class="view-subtitle">Kéo thả thẻ nhiệm vụ để cập nhật trạng thái làm việc</p>
+          </header>
+          
+          <div class="kanban-board">
+            <!-- Column 1: To Do -->
+            <div class="kanban-column glass-card" data-status="todo">
+              <div class="kanban-column-header">
+                <span class="column-dot dot-todo"></span>
+                <span class="column-title">Cần làm</span>
+                <span class="column-count" id="kanbanTodoCount">0</span>
+              </div>
+              <div class="kanban-input-row">
+                <input type="text" class="kanban-task-input" id="kanbanTodoInput" placeholder="Thêm việc cần làm..." autocomplete="off">
+                <button class="kanban-add-btn" data-column="todo">+</button>
+              </div>
+              <div class="kanban-cards-container" id="kanbanTodoContainer"></div>
+            </div>
+            
+            <!-- Column 2: In Progress -->
+            <div class="kanban-column glass-card" data-status="progress">
+              <div class="kanban-column-header">
+                <span class="column-dot dot-progress"></span>
+                <span class="column-title">Đang làm</span>
+                <span class="column-count" id="kanbanProgressCount">0</span>
+              </div>
+              <div class="kanban-input-row">
+                <input type="text" class="kanban-task-input" id="kanbanProgressInput" placeholder="Thêm việc đang làm..." autocomplete="off">
+                <button class="kanban-add-btn" data-column="progress">+</button>
+              </div>
+              <div class="kanban-cards-container" id="kanbanProgressContainer"></div>
+            </div>
+            
+            <!-- Column 3: Completed -->
+            <div class="kanban-column glass-card" data-status="completed">
+              <div class="kanban-column-header">
+                <span class="column-dot dot-completed"></span>
+                <span class="column-title">Đã xong</span>
+                <span class="column-count" id="kanbanCompletedCount">0</span>
+              </div>
+              <div class="kanban-input-row">
+                <input type="text" class="kanban-task-input" id="kanbanCompletedInput" placeholder="Thêm việc đã xong..." autocomplete="off">
+                <button class="kanban-add-btn" data-column="completed">+</button>
+              </div>
+              <div class="kanban-cards-container" id="kanbanCompletedContainer"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- VIEW 4: AI MENTOR CHAT -->
+      <div id="view-ai" class="dashboard-view">
+        <div class="ai-mentor-container">
+          <!-- Context Panel Left -->
+          <aside class="ai-context-panel glass-card">
+            <div class="context-header">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="context-icon" style="width:16px;height:16px;color:var(--accent)">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+              </svg>
+              <span>Bản Mệnh & Công Việc</span>
+            </div>
+            <div class="context-body" id="aiContextInfo">
+              <p class="context-empty">Vui lòng thiết lập ngày sinh trong Cài đặt để AI Mentor nạp dữ liệu chiêm tinh học của bạn.</p>
+            </div>
+          </aside>
+          
+          <!-- Chat Panel Right -->
+          <div class="ai-chat-board glass-card">
+            <div class="chat-header">
+              <div class="chat-avatar-status">
+                <div class="ai-avatar-glow">☯</div>
+                <div class="ai-status-info">
+                  <span class="ai-name">AI Mentor</span>
+                  <span class="ai-status">Đang trực tuyến</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="chat-messages-thread" id="chatMessagesThread">
+              <div class="chat-bubble ai">
+                Xin chào! Tôi là AI Mentor của bạn. Tôi đã đọc qua lá số Tử Vi, Bát Tự cũng như danh sách nhiệm vụ của bạn hôm nay. Hãy hỏi tôi bất cứ điều gì bạn cần tư vấn để làm việc hiệu quả và cân bằng cuộc sống nhé!
+              </div>
+            </div>
+
+            <!-- Quick Action Suggestion Chips -->
+            <div class="chat-quick-chips" id="chatQuickChips"></div>
+            
+            <div class="chat-input-bar">
+              <input type="text" id="chatInputField" placeholder="Hỏi AI Mentor về công việc hoặc lá số của bạn..." autocomplete="off">
+              <button id="chatSendBtn">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- VIEW 5: STATS DASHBOARD -->
+      <div id="view-stats" class="dashboard-view">
+        <div class="stats-dashboard-container">
+          <header class="view-header">
+            <h2 class="view-title">Thống Kê Năng Suất</h2>
+            <p class="view-subtitle">Phân tích tiến trình học tập và rèn luyện thói quen của bạn</p>
+          </header>
+          
+          <div class="stats-main-grid">
+            <!-- Card 1: Task Productivity -->
+            <div class="stats-card-large glass-card">
+              <h3 class="card-large-title">Hiệu Suất Công Việc</h3>
+              <div class="stats-flex-row">
+                <div class="stats-ring-visual">
+                  <svg class="stats-ring-svg" viewBox="0 0 50 50">
+                    <circle class="stats-ring-track" cx="25" cy="25" r="22" />
+                    <circle class="stats-ring-fill" id="statsTaskRing" cx="25" cy="25" r="22" />
+                  </svg>
+                  <div class="stats-ring-text" id="statsTaskPercent">0%</div>
+                </div>
+                <div class="stats-details-list">
+                  <div class="stats-detail-item">
+                    <span class="detail-label">Tổng số nhiệm vụ:</span>
+                    <span class="detail-value" id="statsTotalTasks">0</span>
+                  </div>
+                  <div class="stats-detail-item">
+                    <span class="detail-label">Đã hoàn thành:</span>
+                    <span class="detail-value" id="statsCompletedTasks">0</span>
+                  </div>
+                  <div class="stats-detail-item">
+                    <span class="detail-label">Còn lại:</span>
+                    <span class="detail-value" id="statsPendingTasks">0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Card 2: Habits Analytics -->
+            <div class="stats-card-large glass-card">
+              <h3 class="card-large-title">Tần Suất Thói Quen</h3>
+              <div class="habits-analytics-list" id="statsHabitsList">
+                <!-- Injected dynamically via JS -->
+              </div>
+            </div>
+          </div>
+          
+          <div class="stats-highlight-row">
+            <div class="highlight-metric glass-card">
+              <span class="metric-num" id="statsTasksDoneCount">0</span>
+              <span class="metric-label">Công việc đã hoàn thành hôm nay</span>
+            </div>
+            <div class="highlight-metric glass-card">
+              <span class="metric-num" id="statsActiveHabitsCount">0</span>
+              <span class="metric-label">Thói quen tốt tích lũy hôm nay</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Detailed Horoscope / Tử Vi Modal -->
+  <div id="astroDetailsModal" class="modal-overlay" style="display:none">
+    <div class="modal-card astro-detail-card">
+      <div class="modal-header-row">
+        <h3 class="modal-title">Chi Tiết Tử Vi & Bát Tự</h3>
+        <button class="modal-close-btn" id="closeAstroDetailsBtn">✕</button>
+      </div>
+      <div class="modal-scroll-body">
+        <div id="modalZodiacInfo" class="modal-astro-section"></div>
+        <div class="modal-astro-divider"></div>
+        <div id="modalTuviInfo" class="modal-astro-section"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal (Birth Info & Key) -->
+  <div id="settingsModal" class="modal-overlay" style="display:none">
+    <div class="modal-card settings-card">
+      <h3 class="modal-title">Cài đặt</h3>
+      <p class="modal-sub">Nhập ngày giờ sinh để xem Bát Tự, Tử Vi và lời khuyên cá nhân hoá mỗi ngày.</p>
+      
+      <!-- Row 1: Name & Gender -->
+      <div class="modal-row">
+        <div class="modal-field flex-2">
+          <label for="settingsUserName">Họ tên / Biệt danh</label>
+          <input type="text" id="settingsUserName" placeholder="Nhập tên hiển thị của bạn..." autocomplete="off">
+        </div>
+        <div class="modal-field" style="flex:1">
+          <label for="birthGender">Giới tính</label>
+          <select id="birthGender">
+            <option value="male">Nam</option>
+            <option value="female">Nữ</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Row 2: Birth Date & Time (5 inputs combined) -->
+      <div class="modal-row">
+        <div class="modal-field">
+          <label for="birthDay">Ngày</label>
+          <select id="birthDay"></select>
+        </div>
+        <div class="modal-field">
+          <label for="birthMonth">Tháng</label>
+          <select id="birthMonth"></select>
+        </div>
+        <div class="modal-field" style="flex:1.2">
+          <label for="birthYear">Năm</label>
+          <select id="birthYear"></select>
+        </div>
+        <div class="modal-field">
+          <label for="birthHour">Giờ</label>
+          <select id="birthHour"></select>
+        </div>
+        <div class="modal-field">
+          <label for="birthMin">Phút</label>
+          <select id="birthMin"></select>
+        </div>
+      </div>
+      
+      <!-- Row 3: API Key & Custom Audio URL & Weather Location -->
+      <div class="modal-row">
+        <div class="modal-field" style="flex:1.2">
+          <label for="geminiKey">Gemini API Key</label>
+          <div class="field-with-btn">
+            <input type="password" id="geminiKey" placeholder="Dán API Key…" autocomplete="off">
+            <button id="testApiKeyBtn" class="modal-btn modal-btn-secondary btn-sm">Thử</button>
+          </div>
+          <span id="apiKeyTestStatus" class="field-status"></span>
+        </div>
+        <div class="modal-field" style="flex:1.2">
+          <label for="customAudioUrl">Link nhạc riêng (.mp3…)</label>
+          <input type="text" id="customAudioUrl" placeholder="Dán link nhạc nền trực tuyến..." autocomplete="off">
+        </div>
+        <div class="modal-field" style="flex:1">
+          <label for="settingsWeatherLocation">Địa phương (Thời tiết)</label>
+          <input type="text" id="settingsWeatherLocation" placeholder="Ví dụ: Hanoi, Tokyo..." autocomplete="off">
+        </div>
+      </div>
+
+      <!-- Row 4: Avatar Selection & Custom Background (Side-by-side) -->
+      <!-- Appearance: theme + wallpaper (applied instantly, saved locally) -->
+      <div class="appearance-section">
+        <div class="appearance-head">
+          <span class="appearance-label">Giao diện</span>
+          <div class="segmented" id="themeSegmented" role="radiogroup" aria-label="Chế độ giao diện">
+            <button type="button" data-theme-option="auto" role="radio">Tự động</button>
+            <button type="button" data-theme-option="light" role="radio">Sáng</button>
+            <button type="button" data-theme-option="dark" role="radio">Tối</button>
+          </div>
+        </div>
+        <span class="appearance-label">Hình nền</span>
+        <div class="wallpaper-grid" id="wallpaperGrid" role="radiogroup" aria-label="Hình nền">
+            <button type="button" class="wallpaper-tile" data-wallpaper="lotus" role="radio" aria-checked="false"><span class="wallpaper-swatch wp-lotus"></span><span class="wallpaper-name">Hoa sen</span></button>
+            <button type="button" class="wallpaper-tile" data-wallpaper="tahoe" role="radio" aria-checked="false"><span class="wallpaper-swatch wp-tahoe"></span><span class="wallpaper-name">Hoàng hôn</span></button>
+            <button type="button" class="wallpaper-tile" data-wallpaper="aurora" role="radio" aria-checked="false"><span class="wallpaper-swatch wp-aurora"></span><span class="wallpaper-name">Cực quang</span></button>
+            <button type="button" class="wallpaper-tile" data-wallpaper="ocean" role="radio" aria-checked="false"><span class="wallpaper-swatch wp-ocean"></span><span class="wallpaper-name">Đại dương</span></button>
+            <button type="button" class="wallpaper-tile" data-wallpaper="forest" role="radio" aria-checked="false"><span class="wallpaper-swatch wp-forest"></span><span class="wallpaper-name">Rừng sâu</span></button>
+            <button type="button" class="wallpaper-tile" data-wallpaper="ember" role="radio" aria-checked="false"><span class="wallpaper-swatch wp-ember"></span><span class="wallpaper-name">Than hồng</span></button>
+            <button type="button" class="wallpaper-tile" data-wallpaper="graphite" role="radio" aria-checked="false"><span class="wallpaper-swatch wp-graphite"></span><span class="wallpaper-name">Than chì</span></button>
+            <button type="button" class="wallpaper-tile" data-wallpaper="sunrise" role="radio" aria-checked="false"><span class="wallpaper-swatch wp-sunrise"></span><span class="wallpaper-name">Bình minh</span></button>
+            <button type="button" class="wallpaper-tile" data-wallpaper="lavender" role="radio" aria-checked="false"><span class="wallpaper-swatch wp-lavender"></span><span class="wallpaper-name">Oải hương</span></button>
+            <button type="button" class="wallpaper-tile" data-wallpaper="sand" role="radio" aria-checked="false"><span class="wallpaper-swatch wp-sand"></span><span class="wallpaper-name">Cát trắng</span></button>
+        </div>
+      </div>
+
+      <div class="modal-row modal-row-split">
+        <!-- Left: Avatar -->
+        <div class="modal-field split-left">
+          <label>Hình đại diện (Avatar)</label>
+          <div class="avatar-presets-grid">
+            <div role="button" tabindex="0" class="avatar-preset preset-lotus active" data-preset="lotus" title="Hoa Sen">🪷</div>
+            <div role="button" tabindex="0" class="avatar-preset preset-yinyang" data-preset="yinyang" title="Thái Cực">☯</div>
+            <div role="button" tabindex="0" class="avatar-preset preset-sun" data-preset="sun" title="Mặt Trời">☀️</div>
+            <div role="button" tabindex="0" class="avatar-preset preset-moon" data-preset="moon" title="Mặt Trăng">🌙</div>
+            <div role="button" tabindex="0" class="avatar-preset preset-wave" data-preset="wave" title="Sóng Biển">🌊</div>
+            <div role="button" tabindex="0" class="avatar-preset preset-custom" data-preset="custom" id="avatarCustomIndicator" title="Ảnh cá nhân">🖼️</div>
+          </div>
+          <div class="file-row">
+            <input type="file" id="avatarFileInput" accept="image/*" style="display:none">
+            <button id="avatarFileSelectBtn" class="modal-btn modal-btn-secondary btn-sm">Tải ảnh</button>
+            <span id="avatarFileName" class="file-name">Dùng preset</span>
+          </div>
+        </div>
+        
+        <!-- Right: Background -->
+        <div class="modal-field split-right">
+          <label>Ảnh nền & Độ mờ</label>
+          <div class="file-row">
+            <input type="file" id="bgFileInput" accept="image/*" style="display:none">
+            <button id="bgFileSelectBtn" class="modal-btn modal-btn-secondary btn-sm">Chọn ảnh nền</button>
+            <button id="bgFileResetBtn" class="modal-btn modal-btn-secondary btn-sm btn-destructive" style="display:none">Xoá</button>
+            <span id="bgFileName" class="file-name">Chưa chọn</span>
+          </div>
+          <div>
+            <label for="bgBlurRange" class="range-label">Độ mờ nền <span id="bgBlurValue">2px</span></label>
+            <div class="range-row">
+              <input type="range" id="bgBlurRange" min="0" max="25" step="1" value="2">
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-actions">
+        <button id="saveBirthBtn" class="modal-btn">Lưu</button>
+        <button id="clearBirthBtn" class="modal-btn modal-btn-secondary">Xoá ngày sinh</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mindmap Canvas Modal -->
+  <div id="mindmapModal" class="modal-overlay" style="display:none">
+    <div class="modal-card mindmap-card">
+      <div class="mindmap-header">
+        <div class="mindmap-header-top">
+          <div class="mindmap-title-wrap">
+            <span class="mindmap-title-mark">◎</span>
+            <h3 class="modal-title" id="mindmapTitle" style="white-space:nowrap;">Sơ đồ ý tưởng</h3>
+            <button class="mindmap-chip" id="mindmapSyntaxHint" title="Nhập nhanh nhiều ý tưởng theo cây">＋ Nhập nhanh</button>
+          </div>
+          <div class="mindmap-header-right">
+            <span class="mindmap-ai-status" id="mindmapAiStatus"></span>
+            <button class="modal-close-btn" id="closeMindmapBtn" title="Đóng (Esc)">✕</button>
+          </div>
+        </div>
+
+        <div class="mindmap-toolbar" id="mindmapToolbar">
+          <div class="mm-tool-group">
+            <span class="mindmap-toolbar-label">Sáng tạo</span>
+            <button class="mindmap-tool-btn accent" id="mindmapScamperBtn" title="Mở rộng node đang chọn theo SCAMPER"><i>✦</i><span>SCAMPER</span></button>
+            <button class="mindmap-tool-btn accent" id="mindmapSixHatsBtn" title="Đánh giá node theo 6 mũ tư duy"><i>🕮</i><span>6 mũ</span></button>
+          </div>
+          <div class="mm-tool-group">
+            <span class="mindmap-toolbar-label">Biên tập</span>
+            <button class="mindmap-tool-btn" id="mindmapFastOpenBtn" title="Nhập nhanh nhiều ý tưởng">＋ Nhập nhanh</button>
+            <button class="mindmap-tool-btn" id="mindmapAutoLayoutBtn" title="Tự động sắp xếp cây (Cmd+Shift+L)">⇅ Auto</button>
+            <button class="mindmap-tool-btn" id="mindmapCollapseBtn" title="Thu gọn / mở rộng node (C)">▶◀ Gọn</button>
+            <button class="mindmap-tool-btn" id="mindmapUndoBtn" title="Hoàn tác (Cmd+Z)" disabled>↩</button>
+          </div>
+          <div class="mm-tool-spacer"></div>
+          <span class="mindmap-kbd-hint">Kéo nền để di chuyển · Cuộn để zoom</span>
+        </div>
+      </div>
+
+      <div class="mindmap-body">
+        <div class="mindmap-canvas-wrap">
+          <div class="mindmap-viewport" id="mindmapViewport">
+            <div class="mindmap-canvas" id="mindmapCanvas">
+              <svg id="mindmapSvg">
+                <defs>
+                  <linearGradient id="line-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="rgba(167, 139, 250, 0.45)" />
+                    <stop offset="100%" stop-color="rgba(236, 72, 153, 0.45)" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div id="mindmapNodes"></div>
+            </div>
+
+            <div class="mindmap-empty-hint" id="mindmapEmptyHint" style="display:none;">
+              <div class="mme-icon">◎</div>
+              <div class="mme-title">Bắt đầu từ một ý tưởng</div>
+              <div class="mme-sub">Nhấn ✦ SCAMPER để mở rộng, hoặc ＋ Nhập nhanh để dựng cây trong vài giây</div>
+            </div>
+
+            <div class="mindmap-zoom" id="mindmapZoom">
+              <button class="mz-btn" id="mmZoomOut" title="Thu nhỏ (Cmd+−)">−</button>
+              <span class="mz-label" id="mmZoomLabel">100%</span>
+              <button class="mz-btn" id="mmZoomIn" title="Phóng to (Cmd++)">＋</button>
+              <span class="mz-divider"></span>
+              <button class="mz-btn fit" id="mmZoomFit" title="Khớp toàn cảnh (F)">⤢</button>
+            </div>
+
+            <div class="mindmap-canvas-tip" id="mindmapCanvasTip">Giữ Shift + kéo nút để di chuyển cả nhánh</div>
+          </div>
+        </div>
+
+        <aside class="mindmap-inspector" id="mindmapInspector">
+          <div class="mi-header">
+            <span class="mi-title" id="mindmapPanelTitle">Chọn một node</span>
+            <button class="mi-close" id="mmClosePanel" title="Đóng panel">✕</button>
+          </div>
+
+          <div class="mi-scroll">
+            <div class="mi-section">
+              <div class="mi-label">Phân loại</div>
+              <div class="mi-field">
+                <label>Nhãn khả thi</label>
+                <select id="mmLabelSel">
+                  <option value="">— chưa đánh giá —</option>
+                  <option value="viable">Khả thi</option>
+                  <option value="verify">Cần kiểm chứng</option>
+                  <option value="kill">Loại bỏ</option>
+                </select>
+              </div>
+              <div class="mi-field">
+                <label>Loại node</label>
+                <select id="mmTagSel">
+                  <option value="">—</option>
+                  <option value="problem">Vấn đề</option>
+                  <option value="solution">Giải pháp</option>
+                  <option value="risk">Rủi ro</option>
+                  <option value="resource">Tài nguyên</option>
+                  <option value="insight">Góc nhìn mới</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="mi-section">
+              <div class="mi-label">Ưu tiên (do bạn nhập số liệu thật)</div>
+              <div class="mi-scores">
+                <div class="mi-score">
+                  <label>Reach</label>
+                  <input type="number" id="mmReach" min="0" step="1" placeholder="0">
+                </div>
+                <div class="mi-score">
+                  <label>Impact</label>
+                  <input type="number" id="mmImpact" min="1" max="3" step="1" value="1">
+                </div>
+                <div class="mi-score">
+                  <label>Confidence %</label>
+                  <input type="number" id="mmConfidence" min="1" max="100" step="5" value="50">
+                </div>
+                <div class="mi-score">
+                  <label>Effort</label>
+                  <input type="number" id="mmEffort" min="1" max="3" step="1" value="1">
+                </div>
+              </div>
+              <div class="mi-rice">
+                <div class="mi-rice-item"><span class="mi-rice-k">RICE</span><span class="mi-rice-v" id="mmRice">—</span></div>
+                <div class="mi-rice-item"><span class="mi-rice-k">ICE</span><span class="mi-rice-v" id="mmIce">—</span></div>
+              </div>
+            </div>
+
+            <div class="mi-section">
+              <div class="mi-label">Bằng chứng / ghi chú</div>
+              <textarea id="mmEvidence" rows="3" placeholder="Số liệu khảo sát, link, tài liệu thật..."></textarea>
+            </div>
+
+            <div class="mi-section" id="mmHatsSection" style="display:none;">
+              <div class="mi-label">Đánh giá 6 mũ tư duy</div>
+              <div class="mm-hats-grid" id="mmHatsBody"></div>
+            </div>
+
+            <div class="mi-section">
+              <button class="mi-action accent" id="mmInspectorScamperBtn"><i>✦</i> Mở rộng SCAMPER</button>
+              <button class="mi-action accent" id="mmInspectorSixHatsBtn"><i>🕮</i> Đánh giá 6 mũ</button>
+              <button class="mi-action danger" id="mmInspectorDeleteBtn">Xóa nhánh</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Fast input overlay panel -->
+      <div class="mindmap-fastinput" id="mindmapFastInput">
+        <div class="mindmap-fastinput-head">
+          <span>Nhập nhanh nhiều ý tưởng theo cây</span>
+          <button class="modal-close-btn" id="mmFastClose">✕</button>
+        </div>
+        <div class="mm-fast-syntax">
+          <code>tên ý</code> tạo nhánh · <code>&gt;</code> con của nhánh trước · <code>-</code> ghi chú/bằng chứng · <code>!</code> rủi ro
+        </div>
+        <textarea id="mmFastText" rows="7" placeholder="Ví dụ:
+Chợ online thực phẩm
+&gt; Bán sỉ cho quán ăn
+&gt; App giao hàng nội thành
+- Cần chạy thử MVP tại 3 quận
+! Đối thủ lớn có sẵn vốn"></textarea>
+        <div class="mindmap-fastinput-actions">
+          <button class="mindmap-tool-btn" id="mmFastCancel">Hủy (Esc)</button>
+          <button class="mindmap-tool-btn accent" id="mmFastOk">Tạo nodes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
