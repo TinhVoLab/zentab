@@ -2209,6 +2209,14 @@ select[aria-invalid] { box-shadow: 0 0 0 2px var(--red, #ff453a); }
 #kanbanProgressContainer:empty::before { content: 'Kéo thẻ vào đây, hoặc bấm ▶ Tập trung trên một việc.'; }
 #kanbanCompletedContainer:empty::before { content: 'Việc xong sẽ nằm ở đây.'; }
 
+/* ---------- Tiện ích drawer: focus launcher (the timer itself lives in the Focus view) ---------- */
+.focus-launch { display: flex; flex-direction: column; gap: 12px; }
+.focus-launch-info { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.focus-launch-state { font-size: 13px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.focus-launch-state .timer-mode-label { font: inherit; color: inherit; letter-spacing: 0; text-transform: none; }
+.focus-launch-state .timer-display { font: inherit; font-weight: 600; color: var(--text); }
+.focus-launch .timer-main-btn { width: 100%; justify-content: center; }
+
 /* ---------- Kanban: start a focus session on a card ---------- */
 .kanban-focus-btn {
   display: inline-flex;

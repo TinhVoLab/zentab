@@ -1791,8 +1791,6 @@ const timerChime = {
 };
 
 const timerDisplay = document.querySelector('.timer-display');
-const timerStart = document.getElementById('timerStart');
-const timerReset = document.getElementById('timerReset');
 const timerModeSelect = document.getElementById('timerModeSelect');
 const timerProgressRing = document.getElementById('timerProgressRing');
 
@@ -1867,6 +1865,8 @@ function toggleTimerUIEffects(isPlaying) {
   
   // CSS dims the surrounding chrome while a focus session runs
   document.documentElement.classList.toggle('timer-is-running', isPlaying);
+  const drawerBtn = document.getElementById('drawerFocusBtn');
+  if (drawerBtn) drawerBtn.textContent = isPlaying ? 'Mở màn Tập trung' : '▶ Bắt đầu phiên';
   document.documentElement.dataset.timerMode = timerMode;
   if (!isPlaying) document.title = 'ZenTab';
   updateFocusMeta();
@@ -1968,17 +1968,12 @@ document.getElementById('focusTimerStart')?.addEventListener('click', toggleTime
 document.getElementById('timerReset')?.addEventListener('click', resetTimer);
 document.getElementById('focusTimerReset')?.addEventListener('click', resetTimer);
 
-const timerExpandBtn = document.querySelector('.timer-expand-btn');
-if (timerExpandBtn) {
-  timerExpandBtn.addEventListener('click', () => {
-    // Nếu Pomodoro đang mở trong bảng bên phải, tự động đóng bảng đó lại
-    const closeRightDrawerBtn = document.getElementById('closeRightDrawerBtn');
-    if (closeRightDrawerBtn) closeRightDrawerBtn.click();
-    
-    // Chuyển toàn bộ màn hình sang tab Focus
-    if (typeof switchTab === 'function') switchTab('focus');
-  });
-}
+// Drawer launcher: start a session (or return to the running one) in the Focus view
+document.getElementById('drawerFocusBtn')?.addEventListener('click', () => {
+  document.getElementById('closeRightDrawerBtn')?.click();
+  if (isTimerRunning) switchTab('focus');
+  else startFocusSession();
+});
 
 // ---- Quotes Carousel & Audio Player ----
 const quotes = [
