@@ -482,32 +482,41 @@
               </button>
             </div>
 
-            <div class="focus-sessions">
-              <div class="session-dots" id="focusSessionDots" aria-hidden="true"></div>
-              <span class="focus-session-text" id="focusSessionText">Chưa có phiên nào hôm nay</span>
+            <!-- Context slot: session progress while focusing; relaxation invite on a break -->
+            <div class="focus-context">
+              <div class="focus-sessions">
+                <div class="session-dots" id="focusSessionDots" aria-hidden="true"></div>
+                <span class="focus-session-text" id="focusSessionText">Chưa có phiên nào hôm nay</span>
+              </div>
+              <!-- Break-only: invite to a short relaxation activity -->
+              <div class="relax-invite" id="relaxInvite" hidden>
+                <span class="relax-invite-text">Giờ nghỉ rồi. Thư giãn một chút nhé?</span>
+                <div class="relax-invite-actions">
+                  <button type="button" class="relax-chip" data-relax-open="breath">🌬 Thở</button>
+                  <button type="button" class="relax-chip" data-relax-open="bubbles">🫧 Bong bóng</button>
+                  <button type="button" class="relax-chip" data-relax-open="garden">🪨 Vườn cát</button>
+                  <button type="button" class="link-btn" id="relaxInviteDismiss">Bỏ qua</button>
+                </div>
+              </div>
             </div>
           </section>
 
           <footer class="focus-footer">
-            <!-- Break-only: invite to a short relaxation activity -->
-            <div class="relax-invite" id="relaxInvite" hidden>
-              <span class="relax-invite-text">Giờ nghỉ rồi. Thư giãn một chút nhé?</span>
-              <div class="relax-invite-actions">
-                <button type="button" class="relax-chip" data-relax-open="breath">🌬 Thở</button>
-                <button type="button" class="relax-chip" data-relax-open="bubbles">🫧 Bong bóng</button>
-                <button type="button" class="relax-chip" data-relax-open="garden">🪨 Vườn cát</button>
-                <button type="button" class="link-btn" id="relaxInviteDismiss">Bỏ qua</button>
+            <div class="footer-pop">
+              <button type="button" class="footer-pill" id="soundPickerBtn" aria-haspopup="true" aria-expanded="false" aria-controls="focusSounds">🎧 <span id="soundPickerLabel">Tắt tiếng</span> <span aria-hidden="true">▾</span></button>
+              <div class="focus-sounds focus-popover" id="focusSounds" role="radiogroup" aria-label="Âm thanh nền" hidden>
+                <button type="button" data-sound="off" role="radio">Tắt tiếng</button>
+                <button type="button" data-sound="forest" role="radio">🌲 Gió rừng</button>
+                <button type="button" data-sound="rain" role="radio">🌧️ Mưa</button>
+                <button type="button" data-sound="ocean" role="radio">🌊 Sóng biển</button>
+                <button type="button" data-sound="brown" role="radio">🎧 Ồn nâu</button>
+                <button type="button" data-sound="zen" role="radio">🧘 Thiền</button>
               </div>
             </div>
-            <div class="focus-sounds" id="focusSounds" role="radiogroup" aria-label="Âm thanh nền">
-              <button type="button" data-sound="off" role="radio">Tắt tiếng</button>
-              <button type="button" data-sound="forest" role="radio">🌲 Gió rừng</button>
-              <button type="button" data-sound="rain" role="radio">🌧️ Mưa</button>
-              <button type="button" data-sound="ocean" role="radio">🌊 Sóng biển</button>
-              <button type="button" data-sound="brown" role="radio">🎧 Ồn nâu</button>
-              <button type="button" data-sound="zen" role="radio">🧘 Thiền</button>
+            <div class="footer-pop">
+              <button type="button" class="footer-pill footer-pill-icon" id="kbdHelpBtn" aria-haspopup="true" aria-expanded="false" aria-controls="focusKbdHint" title="Phím tắt">⌨</button>
+              <p class="focus-kbd-hint focus-popover" id="focusKbdHint" hidden><kbd>Space</kbd> bắt đầu/tạm dừng · <kbd>R</kbd> đặt lại · <kbd>1</kbd>–<kbd>3</kbd> đổi chế độ · <kbd>F</kbd> toàn màn hình</p>
             </div>
-            <p class="focus-kbd-hint"><kbd>Space</kbd> bắt đầu/tạm dừng · <kbd>R</kbd> đặt lại · <kbd>1</kbd>–<kbd>3</kbd> đổi chế độ · <kbd>F</kbd> toàn màn hình</p>
           </footer>
         </div>
       </div>

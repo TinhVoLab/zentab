@@ -4096,7 +4096,8 @@ window.addEventListener('keydown', (e) => {
       markZenIdle();
       if (!data.zenHintSeen) showZenHint();
     } else {
-      if (data.leftDrawerActive) {
+      const roomForTwo = window.innerWidth >= 1440;
+      if (data.leftDrawerActive && (roomForTwo || !(data.rightDrawerActive || data.tasksDrawerActive))) {
         leftDrawer.classList.add('active');
         toggleLeftBtn.classList.add('active');
       }
@@ -4124,19 +4125,22 @@ window.addEventListener('keydown', (e) => {
     const isActive = drawer.classList.toggle('active');
     button.classList.toggle('active', isActive);
 
-    // Right and tasks drawers occupy the same edge: opening one closes the other
-    if (isActive && (drawer === rightDrawer || drawer === tasksDrawer)) {
-      const other = drawer === rightDrawer ? tasksDrawer : rightDrawer;
-      const otherBtn = drawer === rightDrawer ? toggleTasksBtn : toggleRightBtn;
-      if (other.classList.contains('active')) {
+    // Right and tasks drawers share the right edge, so they never coexist. On narrower
+    // screens any two drawers would cover the clock and intention: keep just one open.
+    if (isActive) {
+      const all = [[leftDrawer, toggleLeftBtn, 'leftDrawerActive'], [rightDrawer, toggleRightBtn, 'rightDrawerActive'], [tasksDrawer, toggleTasksBtn, 'tasksDrawerActive']];
+      const sameEdge = d => (drawer === rightDrawer || drawer === tasksDrawer) && (d === rightDrawer || d === tasksDrawer);
+      all.forEach(([other, otherBtn, key]) => {
+        if (other === drawer || !other.classList.contains('active')) return;
+        if (!sameEdge(other) && window.innerWidth >= 1440) return;
         other.classList.remove('active');
         otherBtn.classList.remove('active');
         if (other === rightDrawer) {
           const qp = document.getElementById('quickToolPanel');
           if (qp) qp.style.display = 'none';
         }
-        chrome.storage.local.set({ [other === rightDrawer ? 'rightDrawerActive' : 'tasksDrawerActive']: false });
-      }
+        chrome.storage.local.set({ [key]: false });
+      });
     }
     
     // Close quickToolPanel if closing the right drawer
@@ -4623,6 +4627,12 @@ function renderWeather(cache) {
   const info = getWeatherZenInfo(cache.weatherCode);
 
   // Update minimal view
+  const widget = document.getElementById('weatherWidget');
+  if (widget) {
+    widget.classList.remove('is-error');
+    widget.title = 'Xem chi tiết thời tiết';
+    widget.removeAttribute('aria-label');
+  }
   if (tempDisplay) tempDisplay.textContent = `${cache.cityName}, ${cache.temp}°C`;
   if (descDisplay) descDisplay.textContent = `· ${info.desc}`;
   if (iconEmoji) iconEmoji.textContent = info.emoji;
@@ -4649,10 +4659,18 @@ function renderWeather(cache) {
 }
 
 function setWeatherError(msg) {
+  const widget = document.getElementById('weatherWidget');
   const tempDisplay = document.getElementById('weatherTempDisplay');
   const descDisplay = document.getElementById('weatherDescDisplay');
-  if (tempDisplay) tempDisplay.textContent = msg;
+  const iconEmoji = document.getElementById('weatherIconEmoji');
+  if (tempDisplay) tempDisplay.textContent = '';
   if (descDisplay) descDisplay.textContent = '';
+  if (iconEmoji) iconEmoji.textContent = '🌫️';
+  if (widget) {
+    widget.classList.add('is-error');
+    widget.title = `${msg}. Kiểm tra mạng hoặc "Địa phương" trong Cài đặt.`;
+    widget.setAttribute('aria-label', msg);
+  }
 }
 
 // Initialise Weather
@@ -4885,8 +4903,39 @@ function syncFocusSounds() {
     const on = btn.dataset.sound === active;
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-checked', on);
+    if (on) {
+      const label = document.getElementById('soundPickerLabel');
+      if (label) label.textContent = btn.textContent.trim();
+    }
   });
 }
+
+// Focus footer popovers (sound picker, keyboard shortcuts): one open at a time,
+// closed by a second click, a click outside or Esc
+(function initFocusPopovers() {
+  const pairs = [['soundPickerBtn', 'focusSounds'], ['kbdHelpBtn', 'focusKbdHint']]
+    .map(([b, p]) => [document.getElementById(b), document.getElementById(p)])
+    .filter(([b, p]) => b && p);
+  const closeAll = except => pairs.forEach(([b, p]) => {
+    if (p === except) return;
+    p.hidden = true;
+    b.setAttribute('aria-expanded', 'false');
+  });
+  pairs.forEach(([btn, pop]) => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const open = pop.hidden;
+      closeAll(pop);
+      pop.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+    });
+    pop.addEventListener('click', e => e.stopPropagation());
+  });
+  document.addEventListener('click', () => closeAll());
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
+  // Picking a sound closes the picker
+  document.querySelectorAll('#focusSounds [data-sound]').forEach(b => b.addEventListener('click', () => setTimeout(() => closeAll(), 150)));
+})();
 
 (function initFocusSounds() {
   const selectEl = document.getElementById('ambientSoundSelect');

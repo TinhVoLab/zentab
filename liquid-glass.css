@@ -483,6 +483,15 @@ select option { background: var(--menu-bg); color: var(--text); }
   transform-origin: top left;
 }
 .side-drawer.right-drawer { right: 28px; transform: translateX(16px) scale(0.97); }
+.side-drawer.left-drawer,
+.side-drawer.right-drawer { max-height: calc(100vh - 76px - 110px); }
+/* Open drawers push the centrepiece instead of covering it: the clock and intention
+   re-centre in the space that is left (below 1200px drawers become full-width sheets) */
+@media (min-width: 1201px) {
+  #view-home .main-dashboard-new { transition: padding 0.45s var(--ease-spring); }
+  .app-layout:has(.side-drawer.left-drawer.active) #view-home .main-dashboard-new { padding-left: 380px; }
+  .app-layout:has(:is(.side-drawer.right-drawer, .side-drawer.tasks-drawer).active) #view-home .main-dashboard-new { padding-right: 380px; }
+}
 /* Tasks drops down from the controls bar like the other drawers and sizes to its content */
 .side-drawer.tasks-drawer {
   right: 28px;
@@ -1473,9 +1482,11 @@ html[data-wallpaper]:not([data-wallpaper="lotus"]):not([data-custom-bg]) #partic
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: clamp(16px, 3.2vh, 32px);
+  /* "safe": when space runs out, start from the top instead of overflowing both ways */
+  justify-content: safe center;
+  gap: clamp(10px, 2.4vh, 28px);
   min-height: 0;
+  overflow-y: auto;
 }
 
 /* Intention */
@@ -1518,8 +1529,10 @@ html[data-wallpaper]:not([data-wallpaper="lotus"]):not([data-custom-bg]) #partic
 /* Ring */
 .large-timer {
   position: relative;
-  width: clamp(260px, 44vh, 400px);
-  height: clamp(260px, 44vh, 400px);
+  /* Sized by height: office laptops are often only 720–800px tall */
+  width: clamp(200px, 40vh, 400px);
+  height: clamp(200px, 40vh, 400px);
+  flex-shrink: 0;
 }
 .large-timer::before {
   content: "";
@@ -1558,7 +1571,7 @@ html[data-timer-mode="short"], html[data-timer-mode="long"] {
 }
 .large-timer .timer-display {
   font-family: var(--font-rounded);
-  font-size: clamp(56px, 9vh, 92px);
+  font-size: clamp(46px, 8vh, 92px);
   font-weight: 600;
   letter-spacing: -0.035em;
   line-height: 1;
@@ -1613,8 +1626,48 @@ html[data-wp-tone="light"] .focus-round-btn.secondary { --btn-bg: rgba(118, 118,
 .session-dot.done { background: var(--accent); transform: scale(1.1); }
 .focus-session-text { font-size: 13px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 
-/* Footer: sound pills + shortcuts */
-.focus-footer { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* Context slot under the controls: session progress, or the relax invite on a break */
+.focus-context { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 52px; }
+.focus-context:has(.relax-invite:not([hidden])) .focus-sessions { display: none; }
+
+/* Footer: one row — sound picker left, shortcuts right, each opening a popover */
+.focus-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.footer-pop { position: relative; }
+.footer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 510;
+  color: var(--text);
+  background: var(--lg-fill);
+  backdrop-filter: var(--lg-blur);
+  -webkit-backdrop-filter: var(--lg-blur);
+  box-shadow: var(--lg-edge);
+  cursor: pointer;
+}
+.footer-pill:hover, .footer-pill[aria-expanded="true"] { background: var(--lg-fill-hover); }
+.footer-pill-icon { width: 34px; padding: 0; justify-content: center; font-size: 16px; }
+.focus-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  z-index: 20;
+  padding: 8px;
+  border-radius: 16px;
+  background: var(--sheet-2);
+  backdrop-filter: var(--lg-blur-heavy);
+  -webkit-backdrop-filter: var(--lg-blur-heavy);
+  box-shadow: var(--lg-edge), var(--lg-shadow);
+  animation: lgToolIn 0.25s var(--ease-spring);
+}
+.focus-popover[hidden] { display: none; }
+#focusSounds.focus-popover { left: 0; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 4px; min-width: 170px; }
+#focusKbdHint.focus-popover { right: 0; width: max-content; max-width: min(520px, 80vw); margin: 0; padding: 10px 14px; line-height: 1.8; }
 .focus-sounds { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .focus-sounds button {
   height: 34px;
@@ -1634,6 +1687,9 @@ html[data-wp-tone="light"] .focus-round-btn.secondary { --btn-bg: rgba(118, 118,
 .focus-sounds button:hover { background: var(--lg-fill-hover); }
 .focus-sounds button:active { transform: scale(0.95); }
 .focus-sounds button.active { background: var(--prominent-bg); color: var(--prominent-fg); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); }
+.focus-popover.focus-sounds button { text-align: left; box-shadow: none; background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.focus-popover.focus-sounds button:hover { background: var(--wash-2); }
+.focus-popover.focus-sounds button.active { background: var(--prominent-bg); }
 .focus-kbd-hint { font-size: 12px; color: var(--text-muted); }
 .focus-kbd-hint kbd {
   font: 600 11px var(--font);
@@ -1664,9 +1720,8 @@ html.timer-is-running[data-timer-mode="pomodoro"] .app-layout:has(#view-focus.ac
 html.timer-is-running[data-timer-mode="pomodoro"]:not([data-wp-tone="light"]) .app-layout:has(#view-focus.active)::before { opacity: 1; }
 html.is-fullscreen .app-layout:has(#view-focus.active) .sidebar-left { display: none; }
 
-@media (max-height: 720px) {
-  .focus-kbd-hint { display: none; }
-  .focus-round-btn { width: 70px; height: 70px; font-size: 14px; }
+@media (max-height: 820px) {
+  .focus-round-btn { width: 68px; height: 68px; font-size: 14px; }
 }
 @media (max-width: 760px) {
   .focus-topbar { grid-template-columns: 1fr auto; }
@@ -1910,8 +1965,8 @@ select[aria-invalid] { box-shadow: 0 0 0 2px var(--red, #ff453a); }
   animation: lgToolIn 0.4s var(--ease-spring);
 }
 .relax-invite[hidden] { display: none; }
-/* The running-timer dim is for focus time; on a break the footer (and its invite) stays readable */
-html.timer-is-running:not([data-timer-mode="pomodoro"]) #view-focus .focus-footer { opacity: 1; }
+.weather-widget-minimal.is-error { width: 38px; padding: 0; justify-content: center; }
+.weather-widget-minimal.is-error :is(.weather-temp, .weather-desc) { display: none; }
 .relax-invite-text { font-size: 14px; color: var(--text); }
 .relax-invite-actions { display: flex; align-items: center; gap: 8px; }
 .relax-chip {
