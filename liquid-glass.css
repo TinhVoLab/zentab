@@ -193,7 +193,7 @@ button { -webkit-tap-highlight-color: transparent; }
   box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.3), 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
-.app-layout.zen-active .sidebar-left {
+.app-layout.zen-active[data-view="home"] .sidebar-left {
   margin-left: 0;
   margin-right: 0;
 }
@@ -483,7 +483,29 @@ select option { background: var(--menu-bg); color: var(--text); }
   transform-origin: top left;
 }
 .side-drawer.right-drawer { right: 28px; transform: translateX(16px) scale(0.97); }
-.side-drawer.tasks-drawer { right: 28px; bottom: 22px; transform: translateY(16px) scale(0.97); transform-origin: bottom right; }
+/* Tasks drops down from the controls bar like the other drawers and sizes to its content */
+.side-drawer.tasks-drawer {
+  right: 28px;
+  top: 76px;
+  bottom: auto;
+  height: auto;
+  max-height: calc(100vh - 76px - 110px); /* stop above the dock player */
+  transform: translateX(16px) scale(0.97);
+  transform-origin: top right;
+}
+/* Narrow drawer: title gets the full width, category + time sit on a second line */
+.tasks-drawer .task-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  column-gap: 12px;
+  row-gap: 3px;
+  align-items: center;
+}
+.tasks-drawer .task-check { grid-row: 1 / 3; }
+.tasks-drawer .task-text { grid-column: 2 / 4; min-width: 0; }
+.tasks-drawer .task-del { grid-column: 4; grid-row: 1 / 3; }
+.tasks-drawer .task-category-pill { grid-row: 2; grid-column: 2; justify-self: start; padding: 1px 6px; }
+.tasks-drawer .task-time-val { grid-row: 2; grid-column: 3; justify-self: start; }
 .app-layout.zen-active .side-drawer.left-drawer { left: 28px; }
 
 .drawer-header {
@@ -531,14 +553,29 @@ select option { background: var(--menu-bg); color: var(--text); }
   box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.08);
 }
 .side-drawer .top-quote-container { border-top: none; padding-top: 4px; }
+/* A quick tool replaces the drawer's content in place (nested backdrop-filter
+   can't blur the page, so a separate floating sheet would be see-through) */
 .side-drawer .quick-tool-panel {
-  right: 376px;
+  inset: 0;
+  right: 0;
+  width: auto;
+  height: auto;
+  z-index: 2;
+  padding: 18px 18px 20px;
   border: none;
-  border-radius: var(--r-xl);
-  background: var(--sheet-3);
-  backdrop-filter: var(--lg-blur-heavy);
-  -webkit-backdrop-filter: var(--lg-blur-heavy);
-  box-shadow: var(--lg-edge), var(--lg-shadow-lg);
+  border-radius: inherit;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  animation: lgToolIn 0.35s var(--ease-spring);
+}
+.side-drawer:has(> .quick-tool-panel[style*="flex"]) > :not(.quick-tool-panel) { visibility: hidden; }
+.quick-tool-panel .panel-header { display: flex; align-items: center; gap: 8px; justify-content: flex-start; }
+.panel-back-btn svg { width: 18px; height: 18px; }
+@keyframes lgToolIn {
+  from { opacity: 0; transform: translateX(14px); }
+  to { opacity: 1; transform: none; }
 }
 .panel-title { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; text-transform: none; }
 
@@ -679,7 +716,7 @@ select option { background: var(--menu-bg); color: var(--text); }
 .tool-check-btn {
   width: 22px;
   height: 22px;
-  border: 1.5px solid rgba(235, 235, 245, 0.35);
+  border: 1.5px solid color-mix(in srgb, var(--text) 35%, transparent);
   font-size: 11px;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.35s var(--ease-bounce);
 }
@@ -1149,6 +1186,7 @@ input[type="range"]::-webkit-slider-thumb:active { transform: scale(1.12); }
    both appearances (like the Lock Screen); the mind-map canvas stays dark. */
 .center-header,
 .dock-quote-section,
+.intention-container :is(.journal-label, .journal-prompt, .journal-entry),
 #view-focus,
 .view-header,
 .mindmap-card {
@@ -1288,7 +1326,7 @@ html[data-wp-tone="light"] :is(.center-header, .dock-quote-section, #view-focus,
   --prominent-bg: rgba(28, 28, 30, 0.88);
   --prominent-fg: #fff;
 }
-html[data-wp-tone="light"] :is(.clock, .greeting, .date, .dock-quote-section .quote-text, .focus-clock, .view-title) {
+html[data-wp-tone="light"] :is(.clock, .greeting, .date, .dock-quote-section .quote-text, .focus-clock, .view-title, .intention-container .journal-label, .intention-container .journal-prompt, .intention-container .journal-entry) {
   text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4), 0 2px 24px rgba(255, 255, 255, 0.5);
 }
 html[data-wp-tone="light"] .main-focus-center::before {
@@ -1636,10 +1674,243 @@ html.is-fullscreen .app-layout:has(#view-focus.active) .sidebar-left { display: 
   .focus-modes button { min-width: 0; }
 }
 
+/* ---------- Zen: chrome fades out while the mouse rests ---------- */
+#view-home :is(.dashboard-header, .bottom-dock) { transition: opacity 0.6s ease; }
+.app-layout.zen-active.zen-idle #view-home :is(.dashboard-header, .bottom-dock):not(:focus-within):not(:has(.weather-detailed-card[style*="flex"])) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.zen-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  z-index: 50;
+  padding: 9px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--lg-fill);
+  backdrop-filter: var(--lg-blur);
+  -webkit-backdrop-filter: var(--lg-blur);
+  box-shadow: var(--lg-edge), var(--lg-shadow);
+  white-space: nowrap;
+  max-width: calc(100vw - 32px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transform: translate(-50%, 8px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  pointer-events: none;
+}
+.zen-hint.visible { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- Home: intention -> start a focus session ---------- */
+.intention-start-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px auto 0;
+  padding: 9px 18px 9px 14px;
+  border: none;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 590;
+  color: var(--prominent-fg);
+  background: var(--prominent-bg);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.35s var(--ease-bounce);
+}
+.intention-start-btn[hidden] { display: none; }
+.intention-start-btn:hover { transform: scale(1.03); }
+.intention-start-btn:active { transform: scale(0.95); }
+.intention-start-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.intention-start-btn svg { width: 14px; height: 14px; }
+#journalIntention { display: flex; flex-direction: column; align-items: center; }
+#journalIntention .journal-input-row { align-self: stretch; }
+
+/* Intention: the question sits on the wallpaper, only the input is a glass field */
+.intention-container,
+.intention-container:focus-within {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+.intention-container :is(.journal-label, .journal-prompt, .journal-entry) {
+  color: var(--text);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 18px rgba(0, 0, 0, 0.45);
+}
+.intention-container .journal-label {
+  font-size: 15px;
+  font-weight: 590;
+  letter-spacing: -0.01em;
+  margin-bottom: 12px;
+}
+.intention-container .journal-input-row {
+  padding: 8px 8px 8px 10px;
+  border-radius: 999px;
+  background: var(--field-bg);
+  backdrop-filter: var(--lg-blur);
+  -webkit-backdrop-filter: var(--lg-blur);
+  box-shadow: var(--lg-edge), 0 14px 40px -10px rgba(0, 0, 0, 0.4);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.intention-container .journal-input-row:focus-within {
+  background: var(--field-bg-focus);
+  box-shadow: var(--lg-edge), 0 0 0 4px rgba(255, 255, 255, 0.08), 0 18px 48px -10px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------- Setup states: say what's missing and offer the one fix ---------- */
+.ai-status.offline { color: var(--text-muted); }
+.ai-setup-btn,
+.astro-invite-btn {
+  display: inline-flex;
+  margin-top: 10px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 590;
+}
+.detail-btn[hidden] { display: none; }
+.astro-invite { display: block; font-size: 13px; color: var(--text-dim); line-height: 1.45; }
+select[aria-invalid] { box-shadow: 0 0 0 2px var(--red, #ff453a); }
+
+/* ---------- Kanban: start a focus session on a card ---------- */
+.kanban-focus-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 10px 0 8px;
+  border: none;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 590;
+  color: var(--prominent-fg);
+  background: var(--prominent-bg);
+  cursor: pointer;
+  transition: transform 0.3s var(--ease-bounce);
+}
+.kanban-focus-btn:hover { transform: scale(1.04); }
+.kanban-focus-btn:active { transform: scale(0.94); }
+.kanban-focus-btn svg { width: 10px; height: 10px; }
+
+/* ---------- Stats: headline tiles, week chart, intentions ---------- */
+.stats-dashboard-container { overflow-y: auto; padding-bottom: 8px; }
+.stats-dashboard-container > * { flex-shrink: 0; }
+.stats-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 20px 22px;
+  border-radius: 28px;
+}
+.stat-tile-label { font-size: 13px; font-weight: 600; color: var(--text-dim); }
+.stat-tile-value {
+  font-family: var(--font-rounded);
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.stat-tile-value small { font-family: var(--font-display); font-size: 15px; font-weight: 500; letter-spacing: 0; color: var(--text-dim); }
+.stat-tile-sub { font-size: 13px; color: var(--text-muted); }
+
+.stats-card-large .card-large-title { border-bottom: none; padding-bottom: 0; }
+.stats-week-card { min-height: 0; }
+.stats-week-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.stats-week-total { font-size: 13px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+.week-chart {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  height: 170px;
+  padding-top: 6px;
+  /* recessive baseline */
+  background: linear-gradient(var(--separator), var(--separator)) left calc(100% - 22px) / 100% 1px no-repeat;
+}
+.week-col { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; outline: none; }
+.week-bar-wrap { position: relative; flex: 1; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+.week-bar {
+  width: min(36px, 70%);
+  border-radius: 4px 4px 0 0;
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  transition: height 0.6s var(--ease-spring), background 0.2s ease;
+}
+.week-col.today .week-bar { background: var(--accent); }
+.week-col:hover .week-bar, .week-col:focus-visible .week-bar { background: var(--accent); }
+.week-value { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+.week-day { font-size: 12px; color: var(--text-muted); height: 14px; white-space: nowrap; }
+.week-col.today .week-day { color: var(--text); font-weight: 600; }
+/* Hover / keyboard tooltip — hit target is the whole column */
+.week-col::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% - 4px);
+  left: 50%;
+  transform: translate(-50%, 4px);
+  padding: 5px 9px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--prominent-fg);
+  background: var(--prominent-bg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 1;
+}
+.week-col:hover::after, .week-col:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+
+#statsHabitsList { display: block; max-height: none; overflow: visible; padding-right: 0; }
+.stats-empty { font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+.intent-summary { font-size: 14px; color: var(--text-dim); margin-bottom: 6px; }
+.intent-summary strong { font-size: 20px; color: var(--text); font-variant-numeric: tabular-nums; }
+.intent-summary span { color: var(--text-muted); }
+.intent-list { list-style: none; margin: 0; padding: 0; }
+.intent-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  box-shadow: inset 0 -0.5px 0 var(--separator);
+  font-size: 14px;
+}
+.intent-mark {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 30%, transparent);
+}
+.intent-mark.kept { color: #fff; background: var(--green); box-shadow: none; }
+.intent-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.intent-date { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 760px) {
+  .stats-tiles { grid-template-columns: 1fr; }
+  .stats-main-grid { grid-template-columns: 1fr; }
+}
+
 /* ---------- Accessibility: Reduce Transparency / Motion ---------- */
 @media (prefers-reduced-transparency: reduce) {
   .glass-card, .sidebar-left, .side-drawer, .modal-card, .dock-player-controls,
-  .zen-controls-bar, .weather-widget-minimal, .intention-container, .weather-detailed-card {
+  .zen-controls-bar, .weather-widget-minimal, .intention-container .journal-input-row, .weather-detailed-card {
     background: color-mix(in srgb, var(--menu-bg) 96%, transparent) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;

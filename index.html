@@ -13,7 +13,7 @@
   <div id="particles"></div>
   <div class="overlay"></div>
 
-  <div class="app-layout">
+  <div class="app-layout" data-view="home">
     <!-- Left Navigation Sidebar -->
     <aside class="sidebar-left">
       <div class="sidebar-top">
@@ -149,6 +149,8 @@
           </div>
         </div>
 
+        <div class="zen-hint" id="zenHint" role="status" hidden>Di chuột để hiện công cụ · nút ở góc phải trên để tắt chế độ tối giản</div>
+
         <div class="main-dashboard-new">
           <!-- CENTER VIEWPORT: Main Focus -->
           <div class="main-focus-center">
@@ -184,6 +186,10 @@
                   </button>
                 </div>
                 <p id="journalTodayEntry" class="journal-entry" style="display:none"></p>
+                <button type="button" id="startFocusFromIntention" class="intention-start-btn" hidden>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>
+                  <span>Bắt đầu 25 phút tập trung</span>
+                </button>
               </div>
             </div>
           </div>
@@ -286,8 +292,8 @@
           <!-- Quick Tool Panel inside right side drawer (Direct child to prevent layout clipping and allow side-by-side display) -->
           <div id="quickToolPanel" class="quick-tool-panel glass-card" style="display:none">
             <div class="panel-header">
+              <button class="panel-close-btn panel-back-btn" id="closeQuickToolBtn" aria-label="Quay lại" title="Quay lại (Esc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button>
               <span class="panel-title" id="quickToolTitle">Ghi chú</span>
-              <button class="panel-close-btn" id="closeQuickToolBtn">✕</button>
             </div>
             <div class="panel-body" id="quickToolBody"></div>
           </div>
@@ -571,7 +577,7 @@
                 <div class="ai-avatar-glow">☯</div>
                 <div class="ai-status-info">
                   <span class="ai-name">AI Mentor</span>
-                  <span class="ai-status">Đang trực tuyến</span>
+                  <span class="ai-status offline">Chưa kết nối</span>
                 </div>
               </div>
             </div>
@@ -602,55 +608,50 @@
         <div class="stats-dashboard-container">
           <header class="view-header">
             <h2 class="view-title">Thống Kê Năng Suất</h2>
-            <p class="view-subtitle">Phân tích tiến trình học tập và rèn luyện thói quen của bạn</p>
+            <p class="view-subtitle">Thời gian tập trung, ý định và thói quen của bạn</p>
           </header>
           
-          <div class="stats-main-grid">
-            <!-- Card 1: Task Productivity -->
-            <div class="stats-card-large glass-card">
-              <h3 class="card-large-title">Hiệu Suất Công Việc</h3>
-              <div class="stats-flex-row">
-                <div class="stats-ring-visual">
-                  <svg class="stats-ring-svg" viewBox="0 0 50 50">
-                    <circle class="stats-ring-track" cx="25" cy="25" r="22" />
-                    <circle class="stats-ring-fill" id="statsTaskRing" cx="25" cy="25" r="22" />
-                  </svg>
-                  <div class="stats-ring-text" id="statsTaskPercent">0%</div>
-                </div>
-                <div class="stats-details-list">
-                  <div class="stats-detail-item">
-                    <span class="detail-label">Tổng số nhiệm vụ:</span>
-                    <span class="detail-value" id="statsTotalTasks">0</span>
-                  </div>
-                  <div class="stats-detail-item">
-                    <span class="detail-label">Đã hoàn thành:</span>
-                    <span class="detail-value" id="statsCompletedTasks">0</span>
-                  </div>
-                  <div class="stats-detail-item">
-                    <span class="detail-label">Còn lại:</span>
-                    <span class="detail-value" id="statsPendingTasks">0</span>
-                  </div>
-                </div>
-              </div>
+          <!-- Headline numbers -->
+          <div class="stats-tiles">
+            <div class="stat-tile glass-card">
+              <span class="stat-tile-label">Tập trung hôm nay</span>
+              <span class="stat-tile-value"><span id="statsFocusToday">0</span><small> phút</small></span>
+              <span class="stat-tile-sub" id="statsFocusSessions">Chưa có phiên nào</span>
             </div>
-            
-            <!-- Card 2: Habits Analytics -->
+            <div class="stat-tile glass-card">
+              <span class="stat-tile-label">Chuỗi ngày tập trung</span>
+              <span class="stat-tile-value"><span id="statsStreak">0</span><small> ngày</small></span>
+              <span class="stat-tile-sub" id="statsStreakSub">Hoàn thành 1 phiên để bắt đầu chuỗi</span>
+            </div>
+            <div class="stat-tile glass-card">
+              <span class="stat-tile-label">Việc đã xong</span>
+              <span class="stat-tile-value"><span id="statsTasksDone">0</span><small id="statsTasksTotal"> / 0</small></span>
+              <span class="stat-tile-sub" id="statsTasksSub">Chưa có nhiệm vụ</span>
+            </div>
+          </div>
+
+          <!-- Focus minutes, last 7 days -->
+          <div class="stats-card-large glass-card stats-week-card">
+            <div class="stats-week-head">
+              <h3 class="card-large-title">Phút tập trung · 7 ngày qua</h3>
+              <span class="stats-week-total" id="statsWeekTotal"></span>
+            </div>
+            <div class="week-chart" id="statsWeekChart" role="img"></div>
+          </div>
+
+          <div class="stats-main-grid">
+            <!-- Daily intentions kept -->
             <div class="stats-card-large glass-card">
-              <h3 class="card-large-title">Tần Suất Thói Quen</h3>
+              <h3 class="card-large-title">Ý định mỗi ngày</h3>
+              <div id="statsIntentions"></div>
+            </div>
+
+            <!-- Habits today -->
+            <div class="stats-card-large glass-card">
+              <h3 class="card-large-title">Thói quen hôm nay</h3>
               <div class="habits-analytics-list" id="statsHabitsList">
                 <!-- Injected dynamically via JS -->
               </div>
-            </div>
-          </div>
-          
-          <div class="stats-highlight-row">
-            <div class="highlight-metric glass-card">
-              <span class="metric-num" id="statsTasksDoneCount">0</span>
-              <span class="metric-label">Công việc đã hoàn thành hôm nay</span>
-            </div>
-            <div class="highlight-metric glass-card">
-              <span class="metric-num" id="statsActiveHabitsCount">0</span>
-              <span class="metric-label">Thói quen tốt tích lũy hôm nay</span>
             </div>
           </div>
         </div>

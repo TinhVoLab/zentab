@@ -3646,15 +3646,16 @@ body {
 }
 
 /* Zen Mode Active (Full Immersive) */
-.app-layout.zen-active .sidebar-left {
+.app-layout.zen-active[data-view="home"] .sidebar-left {
   transform: translateX(-100%);
   width: 0;
+  overflow: hidden;
   opacity: 0;
   pointer-events: none;
   padding: 24px 0;
 }
 
-.app-layout.zen-active .main-content-wrapper {
+.app-layout.zen-active[data-view="home"] .main-content-wrapper {
   padding-left: 0;
 }
 

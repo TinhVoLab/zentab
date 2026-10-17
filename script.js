@@ -223,6 +223,7 @@ const journalReflection = document.getElementById('journalReflection');
 const journalTodayEntry = document.getElementById('journalTodayEntry');
 const intentionLabel = document.getElementById('intentionLabel');
 const reflectionEntry = document.getElementById('reflectionEntry');
+const startFocusFromIntention = document.getElementById('startFocusFromIntention');
 
 function getDateStr(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -263,9 +264,11 @@ function loadJournal() {
         journalTodayEntry.textContent = `\u201C${todayEntry.entry}\u201D`;
       }
       if (intentionLabel) intentionLabel.textContent = 'Ý định hôm nay:';
+      if (startFocusFromIntention) startFocusFromIntention.hidden = false;
     } else {
       if (jInputRow) jInputRow.style.display = '';
       if (journalTodayEntry) journalTodayEntry.style.display = 'none';
+      if (startFocusFromIntention) startFocusFromIntention.hidden = true;
       if (intentionLabel) intentionLabel.textContent = 'Điều gì quan trọng nhất hôm nay?';
       if ((!yesterdayEntry || yesterdayEntry.honored !== null) && journalInput) journalInput.focus();
     }
@@ -297,6 +300,11 @@ function saveJournalEntry(text) {
         journalTodayEntry.textContent = `\u201C${text.trim()}\u201D`;
       }
       if (intentionLabel) intentionLabel.textContent = 'Ý định hôm nay:';
+      if (startFocusFromIntention) {
+        startFocusFromIntention.hidden = false;
+        // Pressing Enter again starts the session
+        if (document.activeElement === journalInput) startFocusFromIntention.focus();
+      }
       renderSparkline(trimmed);
     });
   });
@@ -308,6 +316,25 @@ if (journalInput) {
       e.preventDefault();
       saveJournalEntry(journalInput.value);
     }
+  });
+}
+
+// Jump to the Focus view and start a pomodoro (no-op if one is already running)
+function startFocusSession() {
+  switchTab('focus');
+  if (document.documentElement.classList.contains('timer-is-running')) return;
+  setTimerMode('pomodoro');
+  toggleTimer();
+}
+
+// Focus on a specific task: it becomes the session's label without touching today's journal intention
+function startFocusOnTask(text) {
+  chrome.storage.local.set({ focusTask: { text, date: getDateStr(new Date()) } }, startFocusSession);
+}
+
+if (startFocusFromIntention) {
+  startFocusFromIntention.addEventListener('click', () => {
+    chrome.storage.local.remove('focusTask', startFocusSession);
   });
 }
 
@@ -696,9 +723,10 @@ settingsBtn.addEventListener('click', () => {
   chrome.storage.sync.get(['birth', 'geminiKey', 'customAudioUrl', 'userName', 'avatarType', 'weatherLocation'], (syncData) => {
     chrome.storage.local.get(['customAvatar'], (localData) => {
       const b = syncData.birth || {};
-      populateSelect(birthDay, 1, 31, b.day || 1);
-      populateSelect(birthMonth, 1, 12, b.month || 1);
-      populateSelect(birthYear, 1900, 2030, b.year || 2000);
+      populateSelect(birthDay, 1, 31, b.day ?? '', { placeholder: '--' });
+      populateSelect(birthMonth, 1, 12, b.month ?? '', { placeholder: '--' });
+      populateSelect(birthYear, 1900, 2030, b.year ?? '', { placeholder: '--' });
+      [birthDay, birthMonth, birthYear].forEach(el => el.removeAttribute('aria-invalid'));
       populateSelect(birthHour, 0, 23, b.hour != null ? b.hour : '', { placeholder: '--' });
       populateSelect(birthMin, 0, 59, b.min != null ? b.min : 0);
       birthGender.value = b.gender || 'male';
@@ -717,6 +745,17 @@ settingsBtn.addEventListener('click', () => {
   });
 });
 
+// Open Settings and put the cursor on a specific field
+function openSettingsAt(fieldId) {
+  settingsBtn.click();
+  const waitForModal = () => {
+    if (settingsModal.style.display === 'none') return requestAnimationFrame(waitForModal);
+    const field = document.getElementById(fieldId);
+    if (field) { field.scrollIntoView({ block: 'center' }); field.focus(); }
+  };
+  requestAnimationFrame(waitForModal);
+}
+
 function closeSettings() {
   settingsModal.style.display = 'none';
 }
@@ -726,6 +765,16 @@ settingsModal.addEventListener('click', (e) => {
 });
 
 document.getElementById('saveBirthBtn').addEventListener('click', () => {
+  // Birth date is optional, but all of day/month/year or none of them
+  const dateFields = [birthDay, birthMonth, birthYear];
+  const filled = dateFields.filter(el => el.value !== '');
+  dateFields.forEach(el => el.toggleAttribute('aria-invalid', filled.length > 0 && el.value === ''));
+  if (filled.length > 0 && filled.length < 3) {
+    dateFields.find(el => el.value === '').focus();
+    return;
+  }
+  const hasBirth = filled.length === 3;
+
   const hourVal = birthHour.value;
   const birth = {
     day: parseInt(birthDay.value),
@@ -752,7 +801,10 @@ document.getElementById('saveBirthBtn').addEventListener('click', () => {
     }
   }
   
-  chrome.storage.sync.set({ birth, geminiKey, customAudioUrl, userName: userNameVal, avatarType: avatarTypeVal, weatherLocation: weatherLocVal }, () => {
+  const toSave = { geminiKey, customAudioUrl, userName: userNameVal, avatarType: avatarTypeVal, weatherLocation: weatherLocVal };
+  if (hasBirth) toSave.birth = birth;
+  else chrome.storage.sync.remove(['birth', 'dailyInsightCache']);
+  chrome.storage.sync.set(toSave, () => {
     currentUserName = userNameVal;
     updateGreeting();
     updateCustomAudioOption(customAudioUrl);
@@ -771,6 +823,8 @@ document.getElementById('saveBirthBtn').addEventListener('click', () => {
     if (typeof initWeather === 'function') {
       initWeather(true);
     }
+    refreshAiStatus();
+    loadAiChatHistory();
     closeSettings();
   });
 });
@@ -976,9 +1030,16 @@ function renderToday(birth, opts) {
   function buildDisplay(aiText, status) {
     const todayInsight = document.getElementById('todayInsight');
     if (!todayInsight) return;
+    // Nothing to detail until there is a birth chart
+    const detailBtn = document.getElementById('openAstroDetailsBtn');
+    if (detailBtn) detailBtn.hidden = status === 'nobirth';
 
     if (aiText) {
       todayInsight.textContent = aiText;
+    } else if (status === 'nobirth') {
+      todayInsight.innerHTML = `<span class="astro-invite">Thêm ngày sinh để nhận lời khuyên Tử Vi cho riêng bạn mỗi ngày.</span>
+        <button type="button" class="glass-btn astro-invite-btn">Nhập ngày sinh</button>`;
+      todayInsight.querySelector('.astro-invite-btn').onclick = () => openSettingsAt('birthDay');
     } else if (status === 'nokey') {
       todayInsight.innerHTML = `<span style="font-size:11px;opacity:0.6">⚙️ Nhập Gemini API key trong Cài đặt để nhận lời khuyên Tử Vi cá nhân hóa.</span>`;
     } else if (status === 'error') {
@@ -989,7 +1050,7 @@ function renderToday(birth, opts) {
   }
 
   if (!birth) {
-    buildDisplay('');
+    buildDisplay('', 'nobirth');
     return;
   }
 
@@ -1653,6 +1714,10 @@ function switchTab(tab) {
     targetView.classList.add('active');
   }
   
+  // Zen only applies to Home; other views keep the sidebar for navigation
+  const appLayout = document.querySelector('.app-layout');
+  if (appLayout) appLayout.dataset.view = tab;
+
   // Save to storage
   chrome.storage.local.set({ activeTab: tab });
   
@@ -1733,6 +1798,15 @@ if (intentionSubmitBtn) {
       saveJournalEntry(journalInput.value);
     }
   });
+}
+
+// Starter habits shown until the user saves their own list
+function defaultHabits(todayStr) {
+  return [
+    { text: 'Thiền định (10 phút)', done: false, date: todayStr },
+    { text: 'Uống đủ nước', done: false, date: todayStr },
+    { text: 'Đọc sách (30 phút)', done: false, date: todayStr }
+  ];
 }
 
 // ---- Quick Tools Interactivity (Notes, Habits, Ideas, Charts) ----
@@ -1904,11 +1978,7 @@ function loadToolContent(tool) {
     
     function renderHabits() {
       chrome.storage.sync.get('habits', (data) => {
-        let habits = data.habits || [
-          { text: 'Thiền định (10 phút)', done: false, date: todayStr },
-          { text: 'Uống đủ nước', done: false, date: todayStr },
-          { text: 'Đọc sách (30 phút)', done: false, date: todayStr }
-        ];
+        let habits = data.habits || defaultHabits(todayStr);
         
         let needsSave = false;
         habits.forEach(h => {
@@ -2031,11 +2101,7 @@ function loadToolContent(tool) {
       }
       
       const todayStr = getDateStr(new Date());
-      let currentHabits = data.habits || [
-        { text: 'Thiền định (10 phút)', done: false, date: todayStr },
-        { text: 'Uống đủ nước', done: false, date: todayStr },
-        { text: 'Đọc sách (30 phút)', done: false, date: todayStr }
-      ];
+      let currentHabits = data.habits || defaultHabits(todayStr);
       
       const totalHabits = currentHabits.length;
       const doneHabits = currentHabits.filter(h => h.done).length;
@@ -2095,6 +2161,7 @@ function renderKanban() {
       <div class="kanban-card-footer">
         <span class="kanban-card-time">${t.time || '09:00'}</span>
         <div class="kanban-card-actions">
+          ${status !== 'completed' ? `<button class="kanban-focus-btn" data-idx="${i}" title="Tập trung vào việc này"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>Tập trung</button>` : ''}
           ${showLeft ? `<button class="kanban-action-btn move-left" data-idx="${i}">◀</button>` : ''}
           ${showRight ? `<button class="kanban-action-btn move-right" data-idx="${i}">▶</button>` : ''}
           <button class="kanban-action-btn del" data-idx="${i}">✕</button>
@@ -2130,6 +2197,18 @@ function renderKanban() {
   if (progressCountEl) progressCountEl.textContent = progressCount;
   if (completedCountEl) completedCountEl.textContent = completedCount;
   
+  document.querySelectorAll('.kanban-focus-btn').forEach(btn => {
+    btn.onclick = () => {
+      const t = tasks[parseInt(btn.dataset.idx)];
+      t.status = 'progress';
+      t.done = false;
+      saveTasks();
+      renderTasks();
+      renderKanban();
+      startFocusOnTask(t.text);
+    };
+  });
+
   document.querySelectorAll('.kanban-action-btn.del').forEach(btn => {
     btn.onclick = () => {
       const idx = parseInt(btn.dataset.idx);
@@ -2319,6 +2398,7 @@ function initAiView() {
     }, 100);
   }
   
+  refreshAiStatus();
   loadAiChatHistory();
   setupChatInputField();
   initQuickActionChips();
@@ -2385,6 +2465,34 @@ function initQuickActionChips() {
   });
 }
 
+// Status + greeting only claim what the mentor actually has access to
+function refreshAiStatus() {
+  const statusEl = document.querySelector('.ai-status');
+  if (!statusEl) return;
+  chrome.storage.sync.get('geminiKey', (data) => {
+    const ready = !!data.geminiKey;
+    statusEl.textContent = ready ? 'Sẵn sàng' : 'Chưa kết nối';
+    statusEl.classList.toggle('offline', !ready);
+  });
+}
+
+function renderAiGreeting(thread) {
+  chrome.storage.sync.get(['geminiKey', 'birth'], (data) => {
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble ai';
+    if (!data.geminiKey) {
+      bubble.innerHTML = parseMarkdownToHtml('Xin chào! Để trò chuyện, AI Mentor cần một **Gemini API key** (miễn phí, lấy trong 1 phút).') +
+        '<button type="button" class="glass-btn ai-setup-btn">Thêm API key</button>';
+      bubble.querySelector('.ai-setup-btn').onclick = () => openSettingsAt('geminiKey');
+    } else {
+      const sources = data.birth ? 'danh sách nhiệm vụ hôm nay và lá số Tử Vi của bạn' : 'danh sách nhiệm vụ hôm nay của bạn';
+      bubble.innerHTML = parseMarkdownToHtml(`Xin chào! Tôi là **AI Mentor**. Tôi có thể xem ${sources} để giúp bạn lên kế hoạch và giữ tập trung. Bạn cần gì nào?`);
+    }
+    thread.innerHTML = '';
+    thread.appendChild(bubble);
+  });
+}
+
 function loadAiChatHistory() {
   const thread = document.getElementById('chatMessagesThread');
   if (!thread) return;
@@ -2392,13 +2500,7 @@ function loadAiChatHistory() {
   chrome.storage.local.get('aiChatHistory', (data) => {
     const history = data.aiChatHistory || [];
     if (history.length === 0) {
-      thread.innerHTML = `
-        <div class="chat-bubble ai">
-          Xin chào! Tôi là **Đại Sư Tử Vi Đông Phương** của bạn. Tôi đã đọc qua lá số Tử Vi, Bát Tự cũng như danh sách nhiệm vụ của bạn hôm nay. Hãy hỏi tôi bất cứ điều gì bạn cần tư vấn để làm việc hanh thông cát lành và cân bằng cuộc sống nhé!
-        </div>
-      `;
-      // Render formatting on greeting
-      thread.querySelector('.chat-bubble.ai').innerHTML = parseMarkdownToHtml(thread.querySelector('.chat-bubble.ai').innerText);
+      renderAiGreeting(thread);
       return;
     }
     
@@ -2461,7 +2563,9 @@ async function sendUserMessage(text) {
     if (!apiKey) {
       if (loadingEl) {
         loadingEl.className = 'chat-bubble ai';
-        loadingEl.innerHTML = parseMarkdownToHtml('Vui lòng điền **Gemini API Key** trong phần Cài đặt để bắt đầu trò chuyện với Đại Sư Tử Vi. 💜');
+        loadingEl.innerHTML = parseMarkdownToHtml('Cần **Gemini API key** để trả lời. Thêm key trong Cài đặt rồi gửi lại câu hỏi nhé.') +
+          '<button type="button" class="glass-btn ai-setup-btn">Thêm API key</button>';
+        loadingEl.querySelector('.ai-setup-btn').onclick = () => openSettingsAt('geminiKey');
       }
       return;
     }
@@ -2558,63 +2662,105 @@ function saveChatBubble(role, text) {
 
 // ---------------- VIEW 5: STATS CONTROLLER ----------------
 function initStatsView() {
-  const totalTasksEl = document.getElementById('statsTotalTasks');
-  const completedTasksEl = document.getElementById('statsCompletedTasks');
-  const pendingTasksEl = document.getElementById('statsPendingTasks');
-  const taskPercentEl = document.getElementById('statsTaskPercent');
-  const taskRingEl = document.getElementById('statsTaskRing');
-  
-  const totalCount = tasks.length;
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const today = new Date();
+  const todayStr = getDateStr(today);
+
+  // Tasks
   const completedCount = tasks.filter(t => t.done).length;
-  const pendingCount = totalCount - completedCount;
-  const taskPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-  
-  if (totalTasksEl) totalTasksEl.textContent = totalCount;
-  if (completedTasksEl) completedTasksEl.textContent = completedCount;
-  if (pendingTasksEl) pendingTasksEl.textContent = pendingCount;
-  if (taskPercentEl) taskPercentEl.textContent = `${taskPercent}%`;
-  
-  if (taskRingEl) {
-    const circumference = 138.2;
-    const offset = circumference * (1 - (taskPercent / 100));
-    taskRingEl.style.strokeDashoffset = offset;
-  }
-  
-  // Render Habits Analytics list
-  const habitsListEl = document.getElementById('statsHabitsList');
-  const todayStr = getDateStr(new Date());
-  
-  chrome.storage.sync.get('habits', (data) => {
-    let currentHabits = data.habits || [
-      { text: 'Thiền định (10 phút)', done: false, date: todayStr },
-      { text: 'Uống đủ nước', done: false, date: todayStr },
-      { text: 'Đọc sách (30 phút)', done: false, date: todayStr }
-    ];
-    
-    if (habitsListEl) {
-      if (currentHabits.length === 0) {
-        habitsListEl.innerHTML = '<div style="color:var(--text-muted);font-style:italic;font-size:12px;padding:20px 0;">Chưa thiết lập thói quen.</div>';
-      } else {
-        habitsListEl.innerHTML = currentHabits.map(h => `
-          <div class="habits-analytics-item">
-            <div style="display:flex;justify-content:space-between;font-size:12px">
-              <span style="color:var(--text-dim);font-weight:300">${escapeHtml(h.text)}</span>
-              <span style="color:${h.done ? '#34d399' : 'var(--text-muted)'};font-weight:500">${h.done ? 'Đã hoàn thành' : 'Chưa làm'}</span>
-            </div>
-            <div class="habit-bar-visual" style="margin-top:2px">
-              <div class="habit-bar-fill" style="width:${h.done ? '100%' : '0%'};background:${h.done ? 'linear-gradient(90deg, #a78bfa 0%, #ec4899 100%)' : 'rgba(255,255,255,0.06)'}"></div>
-            </div>
-          </div>
-        `).join('');
-      }
+  setText('statsTasksDone', completedCount);
+  setText('statsTasksTotal', ` / ${tasks.length}`);
+  setText('statsTasksSub', tasks.length === 0 ? 'Chưa có nhiệm vụ'
+    : completedCount === tasks.length ? 'Xong hết rồi, tuyệt!' : `Còn ${tasks.length - completedCount} việc`);
+
+  // Focus: today, streak, last 7 days
+  getFocusHistory((history) => {
+    const minutesOn = (d) => (history[getDateStr(d)] || {}).minutes || 0;
+    const t = history[todayStr] || { sessions: 0, minutes: 0 };
+    setText('statsFocusToday', t.minutes);
+    setText('statsFocusSessions', t.sessions ? `${t.sessions} phiên Pomodoro` : 'Chưa có phiên nào');
+
+    // A streak survives until the end of today, so start counting from yesterday if today is still empty
+    let streak = 0;
+    const d = new Date(today);
+    if (!minutesOn(d)) d.setDate(d.getDate() - 1);
+    while (minutesOn(d) > 0) { streak++; d.setDate(d.getDate() - 1); }
+    setText('statsStreak', streak);
+    setText('statsStreakSub', streak === 0 ? 'Hoàn thành 1 phiên để bắt đầu chuỗi'
+      : t.minutes ? 'Giữ vững nhé!' : 'Tập trung hôm nay để giữ chuỗi');
+
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const day = new Date(today); day.setDate(day.getDate() - i);
+      days.push({ date: day, minutes: minutesOn(day), isToday: i === 0 });
     }
-    
-    // Update stats metrics highlights
-    const statsTasksDoneCount = document.getElementById('statsTasksDoneCount');
-    const statsActiveHabitsCount = document.getElementById('statsActiveHabitsCount');
-    if (statsTasksDoneCount) statsTasksDoneCount.textContent = completedCount;
-    if (statsActiveHabitsCount) statsActiveHabitsCount.textContent = currentHabits.filter(h => h.done).length;
+    const weekTotal = days.reduce((sum, x) => sum + x.minutes, 0);
+    setText('statsWeekTotal', weekTotal ? `Tổng ${weekTotal} phút` : '');
+    renderWeekChart(days);
   });
+
+  // Daily intentions: how many were honored (answered "Rồi")
+  chrome.storage.sync.get('journal', (data) => {
+    const el = document.getElementById('statsIntentions');
+    if (!el) return;
+    const answered = (data.journal || []).filter(e => e.honored === true || e.honored === false);
+    if (answered.length === 0) {
+      el.innerHTML = '<p class="stats-empty">Đặt ý định ở Trang chủ mỗi sáng. Hôm sau ZenTab sẽ hỏi bạn đã làm được chưa.</p>';
+      return;
+    }
+    const kept = answered.filter(e => e.honored).length;
+    const pct = Math.round(kept / answered.length * 100);
+    const recent = answered.slice(0, 7).map(e => `
+      <li class="intent-row">
+        <span class="intent-mark ${e.honored ? 'kept' : ''}" aria-label="${e.honored ? 'Đã làm được' : 'Chưa làm được'}">${e.honored ? '✓' : '–'}</span>
+        <span class="intent-text">${escapeHtml(e.entry)}</span>
+        <span class="intent-date">${e.date.slice(8)}/${e.date.slice(5, 7)}</span>
+      </li>`).join('');
+    el.innerHTML = `
+      <div class="intent-summary"><strong>${kept}/${answered.length}</strong> ý định đã làm được <span>(${pct}%)</span></div>
+      <ul class="intent-list">${recent}</ul>`;
+  });
+
+  // Habits today
+  const habitsListEl = document.getElementById('statsHabitsList');
+  chrome.storage.sync.get('habits', (data) => {
+    const currentHabits = data.habits || defaultHabits(todayStr);
+    if (!habitsListEl) return;
+    if (currentHabits.length === 0) {
+      habitsListEl.innerHTML = '<p class="stats-empty">Chưa có thói quen. Thêm trong Tập trung &amp; Tiện ích → Thói quen.</p>';
+      return;
+    }
+    const done = currentHabits.filter(h => h.done && h.date === todayStr).length;
+    habitsListEl.innerHTML = `<div class="intent-summary"><strong>${done}/${currentHabits.length}</strong> thói quen hôm nay</div>` +
+      currentHabits.map(h => {
+        const isDone = h.done && h.date === todayStr;
+        return `<div class="intent-row">
+          <span class="intent-mark ${isDone ? 'kept' : ''}" aria-label="${isDone ? 'Đã làm' : 'Chưa làm'}">${isDone ? '✓' : ''}</span>
+          <span class="intent-text">${escapeHtml(h.text)}</span>
+        </div>`;
+      }).join('');
+  });
+}
+
+// Single-series bar chart: one accent hue, today labelled directly, every bar has a tooltip
+function renderWeekChart(days) {
+  const chart = document.getElementById('statsWeekChart');
+  if (!chart) return;
+  const weekday = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  const max = Math.max(25, ...days.map(d => d.minutes));
+  chart.setAttribute('aria-label', 'Phút tập trung 7 ngày qua: ' +
+    days.map(d => `${weekday[d.date.getDay()]} ${d.minutes} phút`).join(', '));
+  chart.innerHTML = days.map(d => {
+    const label = `${weekday[d.date.getDay()]} ${d.date.getDate()}/${d.date.getMonth() + 1}`;
+    const h = d.minutes ? Math.max(4, d.minutes / max * 100) : 0;
+    return `<div class="week-col ${d.isToday ? 'today' : ''}" tabindex="0" data-tip="${label}: ${d.minutes} phút">
+      <div class="week-bar-wrap">
+        ${d.isToday && d.minutes ? `<span class="week-value">${d.minutes}</span>` : ''}
+        <div class="week-bar" style="height:${h}%"></div>
+      </div>
+      <span class="week-day">${d.isToday ? 'Hôm nay' : weekday[d.date.getDay()]}</span>
+    </div>`;
+  }).join('');
 }
 
 function getRecentChatHistory() {
@@ -3597,11 +3743,42 @@ window.addEventListener('keydown', (e) => {
 
   if (!toggleLeftBtn || !leftDrawer) return;
 
-  // Load saved state on start
-  chrome.storage.local.get(['zenActive', 'leftDrawerActive', 'rightDrawerActive', 'tasksDrawerActive'], (data) => {
-    if (data.zenActive) {
+  // Zen chrome (header + dock) fades out after the mouse rests, and comes back on movement
+  const ZEN_IDLE_MS = 2500;
+  let zenIdleTimer;
+  function markZenIdle() {
+    clearTimeout(zenIdleTimer);
+    appLayout.classList.add('zen-idle');
+  }
+  function wakeZenChrome() {
+    appLayout.classList.remove('zen-idle');
+    clearTimeout(zenIdleTimer);
+    if (appLayout.classList.contains('zen-active')) zenIdleTimer = setTimeout(markZenIdle, ZEN_IDLE_MS);
+  }
+  document.addEventListener('mousemove', wakeZenChrome, { passive: true });
+
+  // One-time hint so first-time users know the tools are still there
+  function showZenHint() {
+    const hint = document.getElementById('zenHint');
+    if (!hint) return;
+    hint.hidden = false;
+    requestAnimationFrame(() => hint.classList.add('visible'));
+    const dismiss = () => {
+      hint.classList.remove('visible');
+      setTimeout(() => { hint.hidden = true; }, 400);
+      chrome.storage.local.set({ zenHintSeen: true });
+    };
+    setTimeout(dismiss, 7000);
+    toggleZenBtn.addEventListener('click', dismiss, { once: true });
+  }
+
+  // Load saved state on start. New users (no saved choice) start in Zen.
+  chrome.storage.local.get(['zenActive', 'zenHintSeen', 'leftDrawerActive', 'rightDrawerActive', 'tasksDrawerActive'], (data) => {
+    if (data.zenActive ?? true) {
       appLayout.classList.add('zen-active');
       toggleZenBtn.classList.add('active');
+      markZenIdle();
+      if (!data.zenHintSeen) showZenHint();
     } else {
       if (data.leftDrawerActive) {
         leftDrawer.classList.add('active');
@@ -3623,7 +3800,7 @@ window.addEventListener('keydown', (e) => {
   function toggleDrawer(drawer, button, storageKey) {
     // If Zen mode is active, turn it off first when opening a drawer
     if (appLayout.classList.contains('zen-active')) {
-      appLayout.classList.remove('zen-active');
+      appLayout.classList.remove('zen-active', 'zen-idle');
       toggleZenBtn.classList.remove('active');
       chrome.storage.local.set({ zenActive: false });
     }
@@ -3696,6 +3873,7 @@ window.addEventListener('keydown', (e) => {
     const isZen = appLayout.classList.toggle('zen-active');
     toggleZenBtn.classList.toggle('active', isZen);
     chrome.storage.local.set({ zenActive: isZen });
+    wakeZenChrome();
 
     if (isZen) {
       // Close all drawers
@@ -3721,6 +3899,9 @@ window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if ([...document.querySelectorAll('.modal-overlay')].some(m => m.style.display !== 'none')) return;
     if (e.target.matches('input, textarea, select')) { e.target.blur(); return; }
+    // An open quick tool steps back to the drawer first
+    const openTool = document.getElementById('quickToolPanel');
+    if (openTool && openTool.style.display !== 'none') { document.getElementById('closeQuickToolBtn')?.click(); return; }
     [[leftDrawer, toggleLeftBtn, 'leftDrawerActive'], [rightDrawer, toggleRightBtn, 'rightDrawerActive'], [tasksDrawer, toggleTasksBtn, 'tasksDrawerActive']]
       .forEach(([drawer, btn, key]) => {
         if (!drawer.classList.contains('active')) return;
@@ -4294,6 +4475,28 @@ function renderFocusSessions() {
   });
 }
 
+// Per-day focus totals, kept for 120 days: { 'YYYY-MM-DD': { sessions, minutes } }
+const FOCUS_HISTORY_DAYS = 120;
+function recordFocusHistory(date, stats) {
+  chrome.storage.local.get('focusHistory', ({ focusHistory }) => {
+    const history = focusHistory || {};
+    history[date] = { sessions: stats.sessions, minutes: stats.minutes };
+    const keep = Object.keys(history).sort().slice(-FOCUS_HISTORY_DAYS);
+    chrome.storage.local.set({ focusHistory: Object.fromEntries(keep.map(d => [d, history[d]])) });
+  });
+}
+
+function getFocusHistory(cb) {
+  chrome.storage.local.get(['focusHistory', 'focusStats'], ({ focusHistory, focusStats }) => {
+    const history = { ...(focusHistory || {}) };
+    // Sessions logged before history existed
+    if (focusStats && focusStats.sessions && !history[focusStats.date]) {
+      history[focusStats.date] = { sessions: focusStats.sessions, minutes: focusStats.minutes };
+    }
+    cb(history);
+  });
+}
+
 // Called when a countdown reaches zero: log focus time, then queue the next mode
 function onTimerComplete(finishedMode) {
   if (finishedMode !== 'pomodoro') {
@@ -4301,9 +4504,11 @@ function onTimerComplete(finishedMode) {
     return;
   }
   getFocusStats((stats) => {
+    const minutes = Math.round(getModeDuration('pomodoro') / 60);
     stats.sessions += 1;
-    stats.minutes += Math.round(getModeDuration('pomodoro') / 60);
+    stats.minutes += minutes;
     chrome.storage.local.set({ focusStats: stats }, renderFocusSessions);
+    recordFocusHistory(stats.date, stats);
     setTimerMode(stats.sessions % FOCUS_CYCLE === 0 ? 'long' : 'short');
   });
 }
@@ -4314,10 +4519,12 @@ function renderFocusIntention() {
   const input = document.getElementById('focusIntentionInput');
   if (!display || !input) return;
   chrome.storage.sync.get('journal', (data) => {
+   chrome.storage.local.get('focusTask', ({ focusTask }) => {
     const today = getDateStr(new Date());
     const entry = (data.journal || []).find(e => e.date === today);
-    if (entry && entry.entry) {
-      display.textContent = entry.entry;
+    const label = focusTask && focusTask.date === today ? focusTask.text : entry && entry.entry;
+    if (label) {
+      display.textContent = label;
       display.hidden = false;
       input.hidden = true;
     } else {
@@ -4325,6 +4532,7 @@ function renderFocusIntention() {
       input.hidden = false;
       input.value = '';
     }
+   });
   });
 }
 
@@ -4341,6 +4549,7 @@ function renderFocusIntention() {
   });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && input.value.trim()) {
+      chrome.storage.local.remove('focusTask');
       saveJournalEntry(input.value);
       setTimeout(renderFocusIntention, 150);
     } else if (e.key === 'Escape') {
