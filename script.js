@@ -522,10 +522,28 @@ function hoangDaoNow(date) {
   return { next, hours };
 }
 
+// iztro (~480 KB, over half the extension's code) is only needed for Tử Vi:
+// load it on demand instead of on every new tab
+let iztroPromise = null;
+function loadIztro() {
+  if (typeof iztro !== 'undefined') return Promise.resolve();
+  if (!iztroPromise) {
+    iztroPromise = new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = 'iztro.min.js';
+      el.onload = resolve;
+      el.onerror = () => { iztroPromise = null; reject(new Error('iztro failed to load')); };
+      document.head.appendChild(el);
+    });
+  }
+  return iztroPromise;
+}
+
 // Everything derived from the birth data. Without a birth hour only the date-based facts are
 // trustworthy: the year/month/day pillars. The 12 palaces depend on the hour, so they're withheld.
 function getBirthChart(birth) {
   if (!birth || !birth.year || !birth.month || !birth.day) return null;
+  if (typeof iztro === 'undefined') return null; // callers load it first via loadIztro()
   const hourKnown = birth.hour != null;
   try {
     const chart = iztro.astro.astrolabeBySolarDate(
@@ -883,7 +901,7 @@ function saveSettingsGroup(group) {
     if (state === 'partial') return;
     const done = () => { renderAll(true); loadAiChatHistory(); initQuickActionChips(); flashSettingsSaved(); };
     if (state === 'complete') chrome.storage.sync.set({ birth }, done);
-    else chrome.storage.sync.remove(['birth', 'dailyInsightCache'], done);
+    else chrome.storage.sync.remove(['birth', 'dailyInsightCache'], () => chrome.storage.local.remove('dailyInsightCache', done));
   }
 }
 
@@ -1461,7 +1479,13 @@ function renderToday(birth, opts) {
 }
 
 function renderAll(forceRefresh) {
-  chrome.storage.sync.get(['birth', 'geminiKey', 'dailyInsightCache'], (data) => {
+  chrome.storage.sync.get(['birth', 'geminiKey'], (syncData) => {
+   chrome.storage.local.get('dailyInsightCache', ({ dailyInsightCache }) => {
+    const data = { ...syncData, dailyInsightCache };
+    if (data.birth && typeof iztro === 'undefined') {
+      loadIztro().then(() => renderAll(forceRefresh)).catch(e => console.warn('ZenTab:', e.message));
+      return;
+    }
     if (data.birth) {
       renderZodiac(data.birth);
       const today = getDateStr(new Date());
@@ -1484,6 +1508,7 @@ function renderAll(forceRefresh) {
       document.getElementById('tvDivider').style.display = 'none';
       renderToday(null);
     }
+   });
   });
 }
 
@@ -1492,13 +1517,16 @@ renderAll();
 // ---- Gemini Daily Personalized Insight ----
 function loadDailyPersonalizedInsight(birth, apiKey, forceRefresh) {
   const today = getDateStr(new Date());
-  chrome.storage.sync.get(['dailyInsightCache', 'tasks'], (data) => {
+  chrome.storage.sync.get('tasks', (syncData) => {
+   chrome.storage.local.get('dailyInsightCache', ({ dailyInsightCache }) => {
+    const data = { ...syncData, dailyInsightCache };
     const cache = data.dailyInsightCache;
     if (cache && cache.date === today && cache.insight?.v === 6 && !forceRefresh) {
       displayDailyInsight(cache.insight);
       return;
     }
-    chrome.storage.sync.remove('dailyInsightCache');
+    chrome.storage.local.remove('dailyInsightCache');
+    chrome.storage.sync.remove('dailyInsightCache'); // legacy location
 
     const info = getBirthChart(birth);
     const ziwei = info && info.ziwei;
@@ -1591,12 +1619,13 @@ ADVICE:`;
       if (result) {
         const clean = result.replace(/^(advice|advice:|lời khuyên|lời khuyên hôm nay|"|')/i, '').trim();
         const insight = { text: clean, date: today, v: 6 };
-        chrome.storage.sync.set({ dailyInsightCache: { date: today, insight } });
+        chrome.storage.local.set({ dailyInsightCache: { date: today, insight } });
         displayDailyInsight(insight);
       } else {
         handleGeminiFail(birth);
       }
     })();
+   });
   });
 }
 
@@ -2145,7 +2174,8 @@ const closeAstroDetailsBtn = document.getElementById('closeAstroDetailsBtn');
 
 if (openAstroDetailsBtn && astroDetailsModal && closeAstroDetailsBtn) {
   openAstroDetailsBtn.addEventListener('click', () => {
-    chrome.storage.sync.get('birth', ({ birth }) => {
+    chrome.storage.sync.get('birth', async ({ birth }) => {
+      if (birth) await loadIztro().catch(() => {});
       renderChartModal(birth);
       // Copied date-only markup loses listeners: rebind the "add birth hour" shortcut
       document.querySelector('#modalZodiacInfo .astro-add-hour')?.addEventListener('click', () => {
@@ -2173,6 +2203,20 @@ if (intentionSubmitBtn) {
     if (journalInput && journalInput.value.trim()) {
       saveJournalEntry(journalInput.value);
     }
+  });
+}
+
+// Ideas carry their mind-map nodes, which outgrow storage.sync's 8 KB-per-item limit,
+// so they live in storage.local. Existing users' ideas are moved over once.
+function getIdeasWith(syncKeys, cb) {
+  chrome.storage.sync.get(syncKeys, (syncData) => {
+    chrome.storage.local.get('quickIdeas', ({ quickIdeas }) => {
+      if (quickIdeas) return cb({ ...syncData, quickIdeas });
+      chrome.storage.sync.get('quickIdeas', ({ quickIdeas: legacy }) => {
+        if (legacy) chrome.storage.local.set({ quickIdeas: legacy }, () => chrome.storage.sync.remove('quickIdeas'));
+        cb({ ...syncData, quickIdeas: legacy || [] });
+      });
+    });
   });
 }
 
@@ -2231,9 +2275,12 @@ function loadToolContent(tool) {
       if (notesArea) notesArea.value = data.quickNotes || '';
     });
     
-    notesArea.addEventListener('input', () => {
-      chrome.storage.sync.set({ quickNotes: notesArea.value });
-    });
+    // storage.sync allows only ~120 writes a minute: save once typing pauses, and on leave
+    let notesTimer = null;
+    const saveNotes = () => { clearTimeout(notesTimer); notesTimer = null; chrome.storage.sync.set({ quickNotes: notesArea.value }); };
+    notesArea.addEventListener('input', () => { clearTimeout(notesTimer); notesTimer = setTimeout(saveNotes, 800); });
+    notesArea.addEventListener('blur', () => { if (notesTimer) saveNotes(); });
+    window.addEventListener('pagehide', () => { if (notesTimer) saveNotes(); });
     
   } else if (tool === 'ideas') {
     quickToolTitle.textContent = 'Ý tưởng';
@@ -2253,7 +2300,7 @@ function loadToolContent(tool) {
     const ideaAddBtn = document.getElementById('ideaAddBtn');
     
     function renderIdeas() {
-      chrome.storage.sync.get(['quickIdeas', 'labsMindmap'], (data) => {
+      getIdeasWith(['labsMindmap'], (data) => {
         const mindmapOn = !!data.labsMindmap;
         const ideas = data.quickIdeas || [];
         
@@ -2274,7 +2321,7 @@ function loadToolContent(tool) {
         });
         
         if (needsSave) {
-          chrome.storage.sync.set({ quickIdeas: upgradedIdeas });
+          chrome.storage.local.set({ quickIdeas: upgradedIdeas });
         }
         
         const listEl = document.getElementById('ideaList');
@@ -2310,7 +2357,7 @@ function loadToolContent(tool) {
             e.stopPropagation();
             const idx = parseInt(delBtn.dataset.idx);
             upgradedIdeas.splice(idx, 1);
-            chrome.storage.sync.set({ quickIdeas: upgradedIdeas }, renderIdeas);
+            chrome.storage.local.set({ quickIdeas: upgradedIdeas }, renderIdeas);
           };
         });
       });
@@ -2319,7 +2366,7 @@ function loadToolContent(tool) {
     function addIdea() {
       const text = ideaInput.value.trim();
       if (!text) return;
-      chrome.storage.sync.get('quickIdeas', (data) => {
+      getIdeasWith([], (data) => {
         const ideas = data.quickIdeas || [];
         const newIdea = {
           id: 'idea-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
@@ -2329,7 +2376,7 @@ function loadToolContent(tool) {
           ]
         };
         ideas.push(newIdea);
-        chrome.storage.sync.set({ quickIdeas: ideas }, () => {
+        chrome.storage.local.set({ quickIdeas: ideas }, () => {
           renderIdeas();
           ideaInput.value = '';
         });
@@ -3219,7 +3266,7 @@ function openMindmap(idx) {
   activeIdeaIndex = idx;
   if (!mindmapModal || !mindmapViewport) return;
   
-  chrome.storage.sync.get('quickIdeas', (data) => {
+  getIdeasWith([], (data) => {
     const ideas = data.quickIdeas || [];
     const currentIdea = ideas[activeIdeaIndex];
     if (!currentIdea) return;
@@ -3535,11 +3582,11 @@ function autoLayoutMindmap() {
 }
 
 function updateIdeaMainText(newText) {
-  chrome.storage.sync.get('quickIdeas', (data) => {
+  getIdeasWith([], (data) => {
     const ideas = data.quickIdeas || [];
     if (ideas[activeIdeaIndex]) {
       ideas[activeIdeaIndex].text = newText;
-      chrome.storage.sync.set({ quickIdeas: ideas });
+      chrome.storage.local.set({ quickIdeas: ideas });
       
       const listEl = document.getElementById('ideaList');
       if (listEl) {
@@ -3553,11 +3600,11 @@ function updateIdeaMainText(newText) {
 }
 
 function saveMindmapState() {
-  chrome.storage.sync.get('quickIdeas', (data) => {
+  getIdeasWith([], (data) => {
     const ideas = data.quickIdeas || [];
     if (ideas[activeIdeaIndex]) {
       ideas[activeIdeaIndex].nodes = mindmapNodesList;
-      chrome.storage.sync.set({ quickIdeas: ideas });
+      chrome.storage.local.set({ quickIdeas: ideas });
     }
   });
 }
