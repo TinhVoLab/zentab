@@ -460,60 +460,57 @@ const dailyChiAdvice = [
   { chi: 'Hợi', emoji: '🐖', advice: 'Ngày của tận hưởng. Thư giãn và biết ơn những điều nhỏ bé.' }
 ];
 
-// ---- TỬ VI Vietnamese mappings ----
-const palaceNameVi = {
-  '命宫': 'Mệnh', '兄弟': 'Huynh Đệ', '夫妻': 'Phu Thê', '子女': 'Tử Nữ',
-  '财帛': 'Tài Bạch', '疾厄': 'Tật Ách', '迁移': 'Thiên Di', '仆役': 'Giao Hữu',
-  '官禄': 'Quan Lộc', '田宅': 'Điền Trạch', '福德': 'Phúc Đức', '父母': 'Phụ Mẫu'
-};
-
-const majorStarNameVi = {
-  '紫微': 'Tử Vi', '天机': 'Thiên Cơ', '太阳': 'Thái Dương', '武曲': 'Vũ Khúc',
-  '天同': 'Thiên Đồng', '廉贞': 'Liêm Trinh', '天府': 'Thiên Phủ', '太阴': 'Thái Âm',
-  '贪狼': 'Tham Lang', '巨门': 'Cự Môn', '天相': 'Thiên Tướng', '天梁': 'Thiên Lương',
-  '七杀': 'Thất Sát', '破军': 'Phá Quân'
-};
-
-const minorStarNameVi = {
-  '左辅': 'Tả Phụ', '右弼': 'Hữu Bật', '文昌': 'Văn Xương', '文曲': 'Văn Khúc',
-  '天魁': 'Thiên Khôi', '天钺': 'Thiên Việt', '禄存': 'Lộc Tồn', '擎羊': 'Kình Dương',
-  '陀罗': 'Đà La', '火星': 'Hỏa Tinh', '铃星': 'Linh Tinh', '地空': 'Địa Không',
-  '地劫': 'Địa Kiếp', '天马': 'Thiên Mã'
-};
-
-const chineseDiaChi = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
-const chineseDiaChiLookup = {};
-chineseDiaChi.forEach((c, i) => chineseDiaChiLookup[c] = diaChi[i]);
-
-const songNameVi = {
-  '魂': 'Hồn', '魄': 'Phách', '命主': 'Mệnh Chủ', '身主': 'Thân Chủ'
-};
-
-const brightnessVi = {
-  '庙': 'miếu', '旺': 'vượng', '得': 'đắc', '利': 'lợi', '平': 'bình', '不': 'bất', '陷': 'hãm'
-};
-
-const changePalaceName = {
-  '兄弟': 'huynh đệ', '夫妻': 'phu thê', '子女': 'tử nữ', '财帛': 'tài bạch',
-  '疾厄': 'tật ách', '迁移': 'thiên di', '仆役': 'giao hữu', '官禄': 'quan lộc',
-  '田宅': 'điền trạch', '福德': 'phúc đức', '父母': 'phụ mẫu', '命宫': 'mệnh'
-};
-
-function msgStar(s) { return majorStarNameVi[s.name] || minorStarNameVi[s.name] || s.name; }
-
-function hourToTimeIndex(hour) {
-  if (hour == null) return 2;
-  if (hour === 23) return 12;
-  return Math.floor((hour + 1) / 2);
+// ---- Bát Tự / Tử Vi (iztro, vi-VN locale) ----
+// Nạp âm of the sexagenary cycle: each pair of years from Giáp Tý shares one
+const napAm = [
+  'Hải Trung Kim', 'Lư Trung Hỏa', 'Đại Lâm Mộc', 'Lộ Bàng Thổ', 'Kiếm Phong Kim', 'Sơn Đầu Hỏa',
+  'Giản Hạ Thủy', 'Thành Đầu Thổ', 'Bạch Lạp Kim', 'Dương Liễu Mộc', 'Tuyền Trung Thủy', 'Ốc Thượng Thổ',
+  'Tích Lịch Hỏa', 'Tùng Bách Mộc', 'Trường Lưu Thủy', 'Sa Trung Kim', 'Sơn Hạ Hỏa', 'Bình Địa Mộc',
+  'Bích Thượng Thổ', 'Kim Bạch Kim', 'Phú Đăng Hỏa', 'Thiên Hà Thủy', 'Đại Trạch Thổ', 'Thoa Xuyến Kim',
+  'Tang Đố Mộc', 'Đại Khê Thủy', 'Sa Trung Thổ', 'Thiên Thượng Hỏa', 'Thạch Lựu Mộc', 'Đại Hải Thủy'
+];
+function napAmOfLunarYear(lunarYear) {
+  const name = napAm[Math.floor(((lunarYear - 4) % 60 + 60) % 60 / 2)];
+  return { name, element: nguHanh.indexOf(name.split(' ').pop()) };
 }
 
-function getZiWei(birth) {
+// Canh giờ for iztro: 0 Tý sớm (00–01h), 1 Sửu … 11 Hợi, 12 Tý muộn (23–24h)
+const CANH_GIO = ['Tý sớm', 'Sửu', 'Dần', 'Mão', 'Thìn', 'Tỵ', 'Ngọ', 'Mùi', 'Thân', 'Dậu', 'Tuất', 'Hợi', 'Tý muộn'];
+function hourToTimeIndex(hour) {
+  return hour === 23 ? 12 : Math.floor((hour + 1) / 2);
+}
+// The hour we store for a canh giờ (round-trips through hourToTimeIndex)
+function timeIndexToHour(idx) {
+  return idx === 12 ? 23 : idx * 2;
+}
+function canhGioRange(idx) {
+  if (idx === 0) return '00:00–00:59';
+  if (idx === 12) return '23:00–23:59';
+  const pad = h => String(h).padStart(2, '0');
+  return `${pad(idx * 2 - 1)}:00–${pad(idx * 2)}:59`;
+}
+
+// Everything derived from the birth data. Without a birth hour only the date-based facts are
+// trustworthy: the year/month/day pillars. The 12 palaces depend on the hour, so they're withheld.
+function getBirthChart(birth) {
   if (!birth || !birth.year || !birth.month || !birth.day) return null;
+  const hourKnown = birth.hour != null;
   try {
-    const dateStr = `${birth.year}-${birth.month}-${birth.day}`;
-    const idx = hourToTimeIndex(birth.hour);
-    const gender = birth.gender || 'male';
-    return iztro.astro.astrolabeBySolarDate(dateStr, idx, gender, true, 'zh-CN');
+    const chart = iztro.astro.astrolabeBySolarDate(
+      `${birth.year}-${birth.month}-${birth.day}`,
+      hourKnown ? hourToTimeIndex(birth.hour) : 0,
+      birth.gender || 'male', true, 'vi-VN'
+    );
+    const lunarYear = chart.rawDates.lunarDate.lunarYear;
+    return {
+      hourKnown,
+      lunarYear,
+      yearCanChi: `${thienCan[canOfYear(lunarYear)]} ${diaChi[chiOfYear(lunarYear)]}`,
+      zodiacIdx: chiOfYear(lunarYear),
+      napAm: napAmOfLunarYear(lunarYear),
+      pillars: chart.chineseDate.split(' - ').slice(0, hourKnown ? 4 : 3),
+      ziwei: hourKnown ? chart : null
+    };
   } catch (e) {
     console.warn('iztro error:', e.message);
     return null;
@@ -619,7 +616,6 @@ const birthDay = document.getElementById('birthDay');
 const birthMonth = document.getElementById('birthMonth');
 const birthYear = document.getElementById('birthYear');
 const birthHour = document.getElementById('birthHour');
-const birthMin = document.getElementById('birthMin');
 const birthGender = document.getElementById('birthGender');
 const zodiacInfo = document.getElementById('zodiacInfo');
 const tuviInfo = document.getElementById('tuviInfo');
@@ -642,6 +638,14 @@ function populateSelect(el, start, end, selected, opts) {
     if (i === selected) opt.selected = true;
     el.appendChild(opt);
   }
+}
+
+// Birth hour is picked as a canh giờ (2-hour block); that's all the chart needs
+function populateCanhGio(el, storedHour) {
+  const selectedIdx = storedHour != null ? hourToTimeIndex(storedHour) : null;
+  el.innerHTML = '<option value="">Không rõ</option>' + CANH_GIO.map((name, idx) =>
+    `<option value="${timeIndexToHour(idx)}"${idx === selectedIdx ? ' selected' : ''}>${name} (${canhGioRange(idx)})</option>`
+  ).join('');
 }
 
 function updateAvatarSelectionUI(type, customAvatarData) {
@@ -674,6 +678,7 @@ function updateAvatarSelectionUI(type, customAvatarData) {
       selectedAvatarType = preset.dataset.preset;
       document.querySelectorAll('.avatar-preset').forEach(el => el.classList.remove('active'));
       preset.classList.add('active');
+      if (preset.dataset.preset !== 'custom' || tempCustomAvatarData) saveSettingsGroup('avatar');
     });
     preset.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); preset.click(); }
@@ -708,6 +713,7 @@ function updateAvatarSelectionUI(type, customAvatarData) {
             tempCustomAvatarData = compressedDataUrl;
             selectedAvatarType = 'custom';
             updateAvatarSelectionUI('custom', compressedDataUrl);
+            saveSettingsGroup('avatar');
           } catch (err) {
             console.error('Error compressing avatar:', err);
           }
@@ -720,20 +726,20 @@ function updateAvatarSelectionUI(type, customAvatarData) {
 })();
 
 settingsBtn.addEventListener('click', () => {
-  chrome.storage.sync.get(['birth', 'geminiKey', 'customAudioUrl', 'userName', 'avatarType', 'weatherLocation'], (syncData) => {
+  chrome.storage.sync.get(['birth', 'geminiKey', 'customAudioUrl', 'userName', 'avatarType', 'weatherLocation', 'labsMindmap'], (syncData) => {
     chrome.storage.local.get(['customAvatar'], (localData) => {
       const b = syncData.birth || {};
       populateSelect(birthDay, 1, 31, b.day ?? '', { placeholder: '--' });
       populateSelect(birthMonth, 1, 12, b.month ?? '', { placeholder: '--' });
       populateSelect(birthYear, 1900, 2030, b.year ?? '', { placeholder: '--' });
       [birthDay, birthMonth, birthYear].forEach(el => el.removeAttribute('aria-invalid'));
-      populateSelect(birthHour, 0, 23, b.hour != null ? b.hour : '', { placeholder: '--' });
-      populateSelect(birthMin, 0, 59, b.min != null ? b.min : 0);
+      populateCanhGio(birthHour, b.hour);
       birthGender.value = b.gender || 'male';
       document.getElementById('geminiKey').value = syncData.geminiKey || '';
       document.getElementById('customAudioUrl').value = syncData.customAudioUrl || '';
       document.getElementById('settingsUserName').value = syncData.userName || currentUserName;
       document.getElementById('settingsWeatherLocation').value = syncData.weatherLocation || '';
+      document.getElementById('labsMindmap').checked = !!syncData.labsMindmap;
       
       const avType = syncData.avatarType || 'lotus';
       selectedAvatarType = avType;
@@ -764,76 +770,109 @@ settingsModal.addEventListener('click', (e) => {
   if (e.target === settingsModal) closeSettings();
 });
 
-document.getElementById('saveBirthBtn').addEventListener('click', () => {
-  // Birth date is optional, but all of day/month/year or none of them
-  const dateFields = [birthDay, birthMonth, birthYear];
-  const filled = dateFields.filter(el => el.value !== '');
-  dateFields.forEach(el => el.toggleAttribute('aria-invalid', filled.length > 0 && el.value === ''));
-  if (filled.length > 0 && filled.length < 3) {
-    dateFields.find(el => el.value === '').focus();
-    return;
-  }
-  const hasBirth = filled.length === 3;
+// ---- Settings auto-save: each field saves on change and refreshes only what depends on it ----
+const birthDateFields = [birthDay, birthMonth, birthYear];
 
+function readBirthFields() {
+  const filled = birthDateFields.filter(el => el.value !== '').length;
+  if (filled === 0) return { state: 'empty' };
+  if (filled < 3) return { state: 'partial' };
   const hourVal = birthHour.value;
-  const birth = {
+  return { state: 'complete', birth: {
     day: parseInt(birthDay.value),
     month: parseInt(birthMonth.value),
     year: parseInt(birthYear.value),
     hour: hourVal !== '' ? parseInt(hourVal) : null,
-    min: birthMin.value ? parseInt(birthMin.value) : null,
+    min: null,
     gender: birthGender.value
-  };
-  const geminiKey = document.getElementById('geminiKey').value.trim();
-  let customAudioUrl = document.getElementById('customAudioUrl').value.trim();
-  const userNameVal = document.getElementById('settingsUserName').value.trim() || 'Tinh';
-  const avatarTypeVal = selectedAvatarType;
-  const weatherLocVal = document.getElementById('settingsWeatherLocation').value.trim();
-  
-  // Auto-convert Suno share links to direct CDN links
-  if (customAudioUrl.includes('suno.com/song/')) {
-    const parts = customAudioUrl.split('/song/');
-    if (parts[1]) {
-      const uuid = parts[1].split('?')[0].split('/')[0].trim();
-      if (uuid) {
-        customAudioUrl = `https://cdn1.suno.ai/${uuid}.mp3`;
+  } };
+}
+
+let settingsSavedTimer;
+function flashSettingsSaved() {
+  const el = document.getElementById('settingsSaved');
+  if (!el) return;
+  el.textContent = 'Đã lưu ✓';
+  el.classList.add('visible');
+  clearTimeout(settingsSavedTimer);
+  settingsSavedTimer = setTimeout(() => el.classList.remove('visible'), 1600);
+}
+
+function saveSettingsGroup(group) {
+  if (group === 'name') {
+    const userNameVal = document.getElementById('settingsUserName').value.trim() || 'Tinh';
+    chrome.storage.sync.set({ userName: userNameVal }, () => {
+      currentUserName = userNameVal;
+      updateGreeting();
+      flashSettingsSaved();
+    });
+  } else if (group === 'weather') {
+    chrome.storage.sync.set({ weatherLocation: document.getElementById('settingsWeatherLocation').value.trim() }, () => {
+      if (typeof initWeather === 'function') initWeather(true);
+      flashSettingsSaved();
+    });
+  } else if (group === 'audio') {
+    let customAudioUrl = document.getElementById('customAudioUrl').value.trim();
+    // Auto-convert Suno share links to direct CDN links
+    if (customAudioUrl.includes('suno.com/song/')) {
+      const uuid = (customAudioUrl.split('/song/')[1] || '').split('?')[0].split('/')[0].trim();
+      if (uuid) customAudioUrl = `https://cdn1.suno.ai/${uuid}.mp3`;
+    }
+    chrome.storage.sync.set({ customAudioUrl }, () => {
+      updateCustomAudioOption(customAudioUrl);
+      flashSettingsSaved();
+    });
+  } else if (group === 'key') {
+    chrome.storage.sync.set({ geminiKey: document.getElementById('geminiKey').value.trim() }, () => {
+      renderAll(true);
+      refreshAiStatus();
+      loadAiChatHistory();
+      flashSettingsSaved();
+    });
+  } else if (group === 'avatar') {
+    const avatarTypeVal = selectedAvatarType;
+    chrome.storage.sync.set({ avatarType: avatarTypeVal }, () => {
+      if (avatarTypeVal === 'custom' && tempCustomAvatarData) {
+        chrome.storage.local.set({ customAvatar: tempCustomAvatarData }, () => syncAvatarDisplay(avatarTypeVal, tempCustomAvatarData));
+      } else {
+        chrome.storage.local.get(['customAvatar'], (localData) => syncAvatarDisplay(avatarTypeVal, localData.customAvatar));
       }
-    }
+      flashSettingsSaved();
+    });
+  } else if (group === 'labs') {
+    chrome.storage.sync.set({ labsMindmap: document.getElementById('labsMindmap').checked }, () => {
+      if (currentActiveTool === 'ideas') loadToolContent('ideas');
+      flashSettingsSaved();
+    });
+  } else if (group === 'birth') {
+    // Mid-edit (only some of day/month/year picked): keep the stored date until it's complete
+    const { state, birth } = readBirthFields();
+    birthDateFields.forEach(el => el.removeAttribute('aria-invalid'));
+    if (state === 'partial') return;
+    const done = () => { renderAll(true); loadAiChatHistory(); initQuickActionChips(); flashSettingsSaved(); };
+    if (state === 'complete') chrome.storage.sync.set({ birth }, done);
+    else chrome.storage.sync.remove(['birth', 'dailyInsightCache'], done);
   }
-  
-  const toSave = { geminiKey, customAudioUrl, userName: userNameVal, avatarType: avatarTypeVal, weatherLocation: weatherLocVal };
-  if (hasBirth) toSave.birth = birth;
-  else chrome.storage.sync.remove(['birth', 'dailyInsightCache']);
-  chrome.storage.sync.set(toSave, () => {
-    currentUserName = userNameVal;
-    updateGreeting();
-    updateCustomAudioOption(customAudioUrl);
-    
-    if (avatarTypeVal === 'custom' && tempCustomAvatarData) {
-      chrome.storage.local.set({ customAvatar: tempCustomAvatarData }, () => {
-        syncAvatarDisplay(avatarTypeVal, tempCustomAvatarData);
-      });
-    } else {
-      chrome.storage.local.get(['customAvatar'], (localData) => {
-        syncAvatarDisplay(avatarTypeVal, localData.customAvatar);
-      });
-    }
-    
-    renderAll(true);
-    if (typeof initWeather === 'function') {
-      initWeather(true);
-    }
-    refreshAiStatus();
-    loadAiChatHistory();
-    closeSettings();
-  });
+}
+
+[['settingsUserName', 'name'], ['settingsWeatherLocation', 'weather'], ['customAudioUrl', 'audio'], ['geminiKey', 'key'],
+ ['birthDay', 'birth'], ['birthMonth', 'birth'], ['birthYear', 'birth'], ['birthHour', 'birth'], ['birthGender', 'birth'], ['labsMindmap', 'labs']]
+  .forEach(([id, group]) => document.getElementById(id)?.addEventListener('change', () => saveSettingsGroup(group)));
+
+// "Xong": everything is already saved; only an unfinished birth date holds the dialog open
+document.getElementById('saveBirthBtn').addEventListener('click', () => {
+  const { state } = readBirthFields();
+  if (state === 'partial') {
+    birthDateFields.forEach(el => el.toggleAttribute('aria-invalid', el.value === ''));
+    birthDateFields.find(el => el.value === '').focus();
+    return;
+  }
+  closeSettings();
 });
 
 document.getElementById('clearBirthBtn').addEventListener('click', () => {
-  chrome.storage.sync.remove(['birth', 'dailyInsightCache'], () => {
-    renderAll(true);
-    closeSettings();
-  });
+  [...birthDateFields, birthHour].forEach(el => { el.value = ''; el.removeAttribute('aria-invalid'); });
+  saveSettingsGroup('birth');
 });
 
 // Test Gemini API Key Connectivity
@@ -896,7 +935,8 @@ if (testApiKeyBtn && apiKeyTestStatus) {
 }
 
 function renderZodiac(birth) {
-  if (!birth || !birth.day || !birth.month || !birth.year) {
+  const info = getBirthChart(birth);
+  if (!info) {
     zodiacInfo.innerHTML = '';
     tuviInfo.innerHTML = '';
     document.getElementById('astroDivider').style.display = 'none';
@@ -906,58 +946,46 @@ function renderZodiac(birth) {
   document.getElementById('astroDivider').style.display = '';
 
   const western = getWesternZodiac(birth.month, birth.day);
-  const viet = vietnameseZodiac[chiOfYear(birth.year)];
-  const canIdx = canOfYear(birth.year);
-  const chiIdx = chiOfYear(birth.year);
-  const nhIdx = nguHanhOfCan(canIdx);
+  const viet = vietnameseZodiac[info.zodiacIdx];
+  const nh = info.napAm.element;
 
-  const birthDate = new Date(birth.year, birth.month - 1, birth.day);
-  const dayCC = getDayCanChi(birthDate);
+  let html = `<div class="row">${viet.emoji} Tuổi <span class="accent">${info.yearCanChi}</span> · ${western.symbol} ${western.nameVi}</div>`;
+  html += `<div class="row">Mệnh <span class="nh-pill nh-${nh}">${nguHanhEmoji[nh]} ${info.napAm.name}</span></div>`;
 
-  let html = `<div class="row">${western.symbol} <span class="accent">${western.nameVi}</span> · ${viet.emoji} Tuổi <span class="accent">${viet.animal}</span> · <span class="nh-pill nh-${nhIdx}">${nguHanhEmoji[nhIdx]} ${nguHanh[nhIdx]}</span></div>`;
+  const pillarLabels = ['Năm', 'Tháng', 'Ngày', 'Giờ'];
+  html += `<div class="label">BÁT TỰ</div>`;
+  html += `<div class="row">${info.pillars.map((p, i) => `${pillarLabels[i]}: <span class="hl">${p}</span>`).join(' <span class="row-sep">│</span> ')}</div>`;
 
-  // TỨ TRỤ from iztro if available
-  const ziwei = getZiWei(birth);
-  if (ziwei && ziwei.chineseDate) {
-    const pillars = ziwei.chineseDate.split(' ');
-    const pillarLabels = ['Niên', 'Nguyệt', 'Nhật', 'Giờ'];
-    html += `<div class="label">BÁT TỰ</div>`;
-    let truLine = '';
-    pillars.forEach((p, i) => {
-      if (i > 0) truLine += ` <span class="row-sep">│</span>`;
-      truLine += `${pillarLabels[i]}: <span class="hl">${p}</span>`;
-    });
-    html += `<div class="row">${truLine}</div>`;
-  } else {
-    // Fallback to manual calculation
-    const canChiStr = `${thienCan[canIdx]} ${diaChi[chiIdx]}`;
-    const dayTru = `${thienCan[dayCC.can]} ${diaChi[dayCC.chi]}`;
-    html += `<div class="label">TỨ TRỤ</div>`;
-    let truLine = `Niên: <span class="hl">${canChiStr}</span> <span class="row-sep">│</span> Nhật: <span class="hl">${dayTru}</span>`;
-
-    if (birth.hour != null) {
-      const hc = chiOfHour(birth.hour);
-      const hourStem = ((dayCC.can % 5) * 2 + hc.chi) % 10;
-      truLine += ` <span class="row-sep">│</span> Giờ: <span class="hl">${thienCan[hourStem]} ${diaChi[hc.chi]}</span> <span class="sml">${hc.label}</span>`;
-    }
-    html += `<div class="row">${truLine}</div>`;
-  }
-
-  // TỬ VI summary
-  if (ziwei) {
+  const z = info.ziwei;
+  if (z) {
     html += `<div class="label">TỬ VI</div>`;
-    const soulBranch = chineseDiaChiLookup[ziwei.earthlyBranchOfSoulPalace] || ziwei.earthlyBranchOfSoulPalace;
-    html += `<div class="row">${ziwei.fiveElementsClass || ''} · Mệnh: <span class="hl">${soulBranch}</span>`;
-    if (ziwei.soul) html += ` · ${songNameVi['命主']||'Mệnh'}: <span class="hl">${majorStarNameVi[ziwei.soul] || ziwei.soul}</span>`;
-    if (ziwei.body) html += ` · ${songNameVi['身主']||'Thân'}: <span class="hl">${majorStarNameVi[ziwei.body] || ziwei.body}</span>`;
-    html += `</div>`;
+    html += `<div class="row">${z.fiveElementsClass} · Mệnh tại <span class="hl">${z.earthlyBranchOfSoulPalace}</span> · Thân tại <span class="hl">${z.earthlyBranchOfBodyPalace}</span></div>`;
+    html += `<div class="row">Mệnh chủ <span class="hl">${z.soul}</span> · Thân chủ <span class="hl">${z.body}</span> · <span class="sml">Giờ ${CANH_GIO[hourToTimeIndex(birth.hour)]} (${canhGioRange(hourToTimeIndex(birth.hour))})</span></div>`;
+  } else {
+    html += `<div class="astro-hour-missing">
+      <span>Chưa có giờ sinh nên chưa an được cung Mệnh, Thân và 12 cung. Trụ giờ cũng chưa xác định.</span>
+      <button type="button" class="link-btn astro-add-hour">Thêm giờ sinh</button>
+    </div>`;
   }
 
   zodiacInfo.innerHTML = html;
-  renderTuVi(birth, ziwei);
+  zodiacInfo.querySelector('.astro-add-hour')?.addEventListener('click', () => openSettingsAt('birthHour'));
+  renderTuVi(info.ziwei);
 }
 
-function renderTuVi(birth, ziwei) {
+// Six palaces most people ask about, with brightness and birth-year Tứ Hóa
+const KEY_PALACES = ['Mệnh', 'Tài Bạch', 'Quan Lộc', 'Phu Thê', 'Thiên Di', 'Phúc Đức'];
+// iztro's vi-VN locale renders 陷 as "Hạn"; the Vietnamese term is "Hãm"
+const BRIGHTNESS_FIX = { 'Hạn': 'Hãm' };
+function describePalaceStars(p) {
+  return (p.majorStars || []).map(s => {
+    const brightness = BRIGHTNESS_FIX[s.brightness] || s.brightness;
+    const notes = [brightness, s.mutagen && `Hóa ${s.mutagen}`].filter(Boolean).join(', ');
+    return notes ? `${s.name} (${notes})` : s.name;
+  });
+}
+
+function renderTuVi(ziwei) {
   const container = document.getElementById('tuviInfo');
   const divider = document.getElementById('tvDivider');
   if (!ziwei || !ziwei.palaces) {
@@ -967,20 +995,12 @@ function renderTuVi(birth, ziwei) {
   }
   divider.style.display = '';
   let html = `<div class="tuvi-grid">`;
-  const keyPalaces = ['命宫', '财帛', '官禄', '夫妻', '迁移', '福德'];
-  const rendered = new Set();
-  ziwei.palaces.forEach(p => {
-    const match = keyPalaces.find(k => p.name.includes(k));
-    if (!match || rendered.has(match)) return;
-    rendered.add(match);
-    const viName = palaceNameVi[p.name] || p.name;
-    const stars = [...(p.majorStars || [])].map(s => {
-      const vi = majorStarNameVi[s.name] || s.name;
-      const b = s.brightness ? brightnessVi[s.brightness] || s.brightness : '';
-      return b ? `${vi} (${b})` : vi;
-    });
-    const starsStr = stars.length ? stars.join(', ') : '—';
-    html += `<div class="tv-cell"><span class="tv-name">${viName}</span> <span class="tv-stars">${starsStr}</span></div>`;
+  KEY_PALACES.forEach(name => {
+    const p = ziwei.palaces.find(x => x.name === name);
+    if (!p) return;
+    const stars = describePalaceStars(p);
+    const label = p.isBodyPalace ? `${p.name} (Thân)` : p.name;
+    html += `<div class="tv-cell"><span class="tv-name">${label}</span> <span class="tv-stars">${stars.length ? stars.join(', ') : 'Vô chính diệu'}</span></div>`;
   });
   html += `</div>`;
   container.innerHTML = html;
@@ -1016,10 +1036,10 @@ function renderToday(birth, opts) {
 
   const nhPill = document.getElementById('nhPill');
   if (nhPill) {
-    if (birth && birth.year) {
-      const userNh = nguHanhOfCan(canOfYear(birth.year));
-      nhPill.textContent = `Mệnh ${nguHanh[userNh]}`;
-      nhPill.className = `nh-pill nh-${userNh}`;
+    const info = getBirthChart(birth);
+    if (info) {
+      nhPill.textContent = `Mệnh ${info.napAm.name}`;
+      nhPill.className = `nh-pill nh-${info.napAm.element}`;
     } else {
       const todayNh = nguHanhOfCan(dc.can);
       nhPill.textContent = `Ngày hành ${nguHanh[todayNh]}`;
@@ -1097,60 +1117,25 @@ function renderAll(forceRefresh) {
 renderAll();
 
 // ---- Gemini Daily Personalized Insight ----
-function buildBirthContext(birth) {
-  const western = getWesternZodiac(birth.month, birth.day);
-  const viet = vietnameseZodiac[chiOfYear(birth.year)];
-  const nhIdx = nguHanhOfCan(canOfYear(birth.year));
-  const ziwei = getZiWei(birth);
-  const now = new Date();
-  const dc = getDayCanChi(now);
-  const todayCanChi = `${thienCan[dc.can]} ${diaChi[dc.chi]}`;
-
-  let context = `THÔNG TIN NGƯỜI DÙNG:
-- Sinh: ${birth.day}/${birth.month}/${birth.year} (${birth.gender === 'female' ? 'Nữ' : 'Nam'})
-- Con giáp: ${viet.animal} | Cung hoàng đạo: ${western.nameVi} | Ngũ hành: ${nguHanh[nhIdx]}
-- Mệnh: ${ziwei ? (chineseDiaChiLookup[ziwei.earthlyBranchOfSoulPalace] || ziwei.earthlyBranchOfSoulPalace) : '—'}
-- Thân: ${ziwei ? (chineseDiaChiLookup[ziwei.earthlyBranchOfBodyPalace] || ziwei.earthlyBranchOfBodyPalace) : '—'}
-- Cục: ${ziwei ? ziwei.fiveElementsClass : '—'}`;
-
-  if (ziwei && ziwei.chineseDate) {
-    context += `\n- Bát Tự: ${ziwei.chineseDate}`;
-  }
-
-  if (ziwei && ziwei.palaces) {
-    const keyPalaces = ['命宫', '财帛', '官禄', '夫妻', '迁移', '福德'];
-    context += `\n\nTỬ VI:`;
-    ziwei.palaces.forEach(p => {
-      if (keyPalaces.includes(p.name)) {
-        const viName = palaceNameVi[p.name] || p.name;
-        const stars = (p.majorStars || []).map(s => majorStarNameVi[s.name] || s.name).join(', ');
-        context += `\n- ${viName}: ${stars || 'không có chính tinh'}`;
-      }
-    });
-  }
-
-  context += `\n\nHÔM NAY: ${now.toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} (${todayCanChi})`;
-
-  return context;
-}
-
 function loadDailyPersonalizedInsight(birth, apiKey, forceRefresh) {
   const today = getDateStr(new Date());
   chrome.storage.sync.get('dailyInsightCache', (data) => {
     const cache = data.dailyInsightCache;
-    if (cache && cache.date === today && cache.insight?.v === 4 && !forceRefresh) {
+    if (cache && cache.date === today && cache.insight?.v === 5 && !forceRefresh) {
       displayDailyInsight(cache.insight);
       return;
     }
     chrome.storage.sync.remove('dailyInsightCache');
 
-    const ziwei = getZiWei(birth);
+    const info = getBirthChart(birth);
+    const ziwei = info && info.ziwei;
     let tuviStr = '';
-    if (ziwei && ziwei.palaces) {
-      const kp = ['命宫', '财帛', '官禄', '夫妻', '迁移', '福德'];
-      tuviStr = ziwei.palaces.filter(p => kp.includes(p.name)).map(p =>
-        (palaceNameVi[p.name] || p.name) + ': ' + (p.majorStars || []).map(s => majorStarNameVi[s.name] || s.name).join(',')
-      ).join(' | ');
+    if (ziwei) {
+      tuviStr = KEY_PALACES.map(name => {
+        const p = ziwei.palaces.find(x => x.name === name);
+        const stars = p ? describePalaceStars(p) : [];
+        return `${name}: ${stars.length ? stars.join(', ') : 'Vô chính diệu'}`;
+      }).join(' | ');
     }
 
     const dc = getDayCanChi(new Date());
@@ -1161,14 +1146,14 @@ function loadDailyPersonalizedInsight(birth, apiKey, forceRefresh) {
 
 USER INFO:
 - Born: ${birth.day}/${birth.month}/${birth.year} (${birth.gender === 'female' ? 'Nữ' : 'Nam'})
-- Chinese zodiac: ${vietnameseZodiac[chiOfYear(birth.year)].animal}
+- Lunar birth year: ${info ? info.yearCanChi : '—'} (Nạp âm: ${info ? info.napAm.name : '—'})
 - Western zodiac: ${getWesternZodiac(birth.month, birth.day).nameVi}
-- Ba Zi (Four Pillers): ${ziwei ? ziwei.chineseDate : '—'}
-- Ming Palace: ${ziwei ? (chineseDiaChiLookup[ziwei.earthlyBranchOfSoulPalace] || '—') : '—'}
-${tuviStr ? '- Key palaces: ' + tuviStr : ''}
+- Ba Zi pillars: ${info ? info.pillars.join(' | ') : '—'}${info && !info.hourKnown ? ' (birth hour unknown: hour pillar and palaces NOT available, do not mention palaces)' : ''}
+${ziwei ? `- Ming palace branch: ${ziwei.earthlyBranchOfSoulPalace}, Five Elements class: ${ziwei.fiveElementsClass}` : ''}
+${tuviStr ? '- Key palaces (major stars, brightness, birth-year Tứ Hóa): ' + tuviStr : ''}
 - ${todayStr}
 
-Focus on one area: work, money, love, or health. Be specific to this person's chart.
+Focus on one area: work, money, love, or health. Only reference stars, palaces and pillars listed above; never invent placements. Do not predict illness, accidents or death, and do not give financial or medical directives.
 
 EXAMPLES (do NOT copy, use as style reference):
 ❌ "Chào bạn, hôm nay là ngày tốt." (too generic)
@@ -1221,7 +1206,7 @@ ADVICE:`;
       }
       if (result) {
         const clean = result.replace(/^(advice|advice:|lời khuyên|lời khuyên hôm nay|"|')/i, '').trim();
-        const insight = { text: clean, date: today, v: 4 };
+        const insight = { text: clean, date: today, v: 5 };
         chrome.storage.sync.set({ dailyInsightCache: { date: today, insight } });
         displayDailyInsight(insight);
       } else {
@@ -1776,6 +1761,11 @@ if (openAstroDetailsBtn && astroDetailsModal && closeAstroDetailsBtn) {
     if (modalTuvi && tuviSource) {
       modalTuvi.innerHTML = tuviSource.innerHTML;
     }
+    // Copied markup loses listeners: rebind the "add birth hour" shortcut
+    modalZodiac?.querySelector('.astro-add-hour')?.addEventListener('click', () => {
+      astroDetailsModal.style.display = 'none';
+      openSettingsAt('birthHour');
+    });
     
     astroDetailsModal.style.display = 'flex';
   });
@@ -1826,6 +1816,12 @@ if (closeQuickToolBtn && quickToolPanel) {
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
+    // Stats has its own view; the tile is just a shortcut there
+    if (tool === 'stats') {
+      document.getElementById('closeRightDrawerBtn')?.click();
+      switchTab('stats');
+      return;
+    }
     if (quickToolPanel.style.display !== 'none' && currentActiveTool === tool) {
       quickToolPanel.style.display = 'none';
       currentActiveTool = null;
@@ -1871,7 +1867,8 @@ function loadToolContent(tool) {
     const ideaAddBtn = document.getElementById('ideaAddBtn');
     
     function renderIdeas() {
-      chrome.storage.sync.get('quickIdeas', (data) => {
+      chrome.storage.sync.get(['quickIdeas', 'labsMindmap'], (data) => {
+        const mindmapOn = !!data.labsMindmap;
         const ideas = data.quickIdeas || [];
         
         // Data Upgrader: Convert plain strings to mindmap objects
@@ -1903,16 +1900,17 @@ function loadToolContent(tool) {
         }
         
         listEl.innerHTML = upgradedIdeas.map((idea, i) => `
-          <div class="tool-item" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;" data-idx="${i}">
+          <div class="tool-item" style="${mindmapOn ? 'cursor:pointer;' : ''}display:flex;justify-content:space-between;align-items:center;" data-idx="${i}" ${mindmapOn ? 'title="Mở sơ đồ ý tưởng"' : ''}>
             <div class="tool-item-left" style="flex:1;overflow:hidden;">
-              <span class="tool-item-text" style="color:var(--accent);font-weight:400;">💡 ${escapeHtml(idea.text)}</span>
+              <span class="tool-item-text" style="font-weight:400;">💡 ${escapeHtml(idea.text)}</span>
             </div>
+            ${mindmapOn ? '<span class="idea-open-hint" aria-hidden="true">Sơ đồ ›</span>' : ''}
             <button class="tool-del-btn" data-idx="${i}" style="pointer-events:auto;">✕</button>
           </div>
         `).join('');
         
         // Click to open Mindmap
-        listEl.querySelectorAll('.tool-item').forEach(item => {
+        if (mindmapOn) listEl.querySelectorAll('.tool-item').forEach(item => {
           item.onclick = (e) => {
             // If click was on delete button, do nothing
             if (e.target.classList.contains('tool-del-btn')) return;
@@ -2043,84 +2041,6 @@ function loadToolContent(tool) {
     habitAddBtn.onclick = addHabit;
     renderHabits();
     
-  } else if (tool === 'charts') {
-    quickToolTitle.textContent = 'Biểu đồ';
-    quickToolBody.innerHTML = `
-      <div class="charts-container">
-        <!-- Task Completion Chart -->
-        <div class="chart-section">
-          <div class="chart-visual">
-            <svg class="chart-svg" viewBox="0 0 50 50">
-              <circle class="chart-track" cx="25" cy="25" r="22" />
-              <circle class="chart-fill" id="taskChartRing" cx="25" cy="25" r="22" />
-            </svg>
-            <div class="chart-value" id="taskChartVal">0%</div>
-          </div>
-          <div class="chart-info">
-            <span class="chart-title">Năng suất công việc</span>
-            <span class="chart-desc" id="taskChartDesc">Đang tải dữ liệu...</span>
-          </div>
-        </div>
-        
-        <!-- Habit Completion Chart -->
-        <div class="chart-section">
-          <div class="chart-info" style="gap:2px">
-            <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
-              <span class="chart-title">Thói quen hôm nay</span>
-              <span class="chart-value" style="position:static;transform:none" id="habitChartVal">0%</span>
-            </div>
-            <span class="chart-desc" id="habitChartDesc" style="margin-bottom:4px">Đang tải thói quen...</span>
-            <div class="habit-bar-visual">
-              <div class="habit-bar-fill" id="habitChartBarFill"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    chrome.storage.sync.get(['tasks', 'habits'], (data) => {
-      const currentTasks = data.tasks || [];
-      const totalTasks = currentTasks.length;
-      const doneTasks = currentTasks.filter(t => t.done).length;
-      const taskPercent = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
-      
-      const taskRing = document.getElementById('taskChartRing');
-      const taskVal = document.getElementById('taskChartVal');
-      const taskDesc = document.getElementById('taskChartDesc');
-      
-      if (taskRing) {
-        const circumference = 138.2;
-        const offset = circumference * (1 - (taskPercent / 100));
-        taskRing.style.strokeDashoffset = offset;
-      }
-      if (taskVal) taskVal.textContent = `${taskPercent}%`;
-      if (taskDesc) {
-        taskDesc.textContent = totalTasks > 0 
-          ? `Đã hoàn thành ${doneTasks}/${totalTasks} nhiệm vụ của hôm nay.` 
-          : 'Không có nhiệm vụ nào được đặt ra hôm nay.';
-      }
-      
-      const todayStr = getDateStr(new Date());
-      let currentHabits = data.habits || defaultHabits(todayStr);
-      
-      const totalHabits = currentHabits.length;
-      const doneHabits = currentHabits.filter(h => h.done).length;
-      const habitPercent = totalHabits > 0 ? Math.round((doneHabits / totalHabits) * 100) : 0;
-      
-      const habitVal = document.getElementById('habitChartVal');
-      const habitDesc = document.getElementById('habitChartDesc');
-      const habitBarFill = document.getElementById('habitChartBarFill');
-      
-      if (habitVal) habitVal.textContent = `${habitPercent}%`;
-      if (habitDesc) {
-        habitDesc.textContent = totalHabits > 0
-          ? `Đã tích lũy ${doneHabits}/${totalHabits} thói quen tốt hôm nay.`
-          : 'Không có danh sách thói quen nào.';
-      }
-      if (habitBarFill) {
-        habitBarFill.style.width = `${habitPercent}%`;
-      }
-    });
   }
 }
 
@@ -2276,8 +2196,6 @@ function renderKanban() {
 
 function setupKanbanInputs() {
   const todoInput = document.getElementById('kanbanTodoInput');
-  const progressInput = document.getElementById('kanbanProgressInput');
-  const completedInput = document.getElementById('kanbanCompletedInput');
   
   const setupInput = (inputEl, status) => {
     if (!inputEl) return;
@@ -2321,8 +2239,6 @@ function setupKanbanInputs() {
   };
   
   setupInput(todoInput, 'todo');
-  setupInput(progressInput, 'progress');
-  setupInput(completedInput, 'completed');
 }
 
 // ---------------- VIEW 4: AI MENTOR CONTROLLER ----------------
@@ -2348,11 +2264,6 @@ function initAiView() {
         <div class="context-astro-content" style="font-size:11px;display:flex;flex-direction:column;gap:6px;color:var(--text-dim)">
           ${zodiacSource.innerHTML}
         </div>
-      </div>`;
-    } else {
-      html += `<div class="context-section">
-        <div class="context-section-title">Bản Mệnh Chiêm Tinh</div>
-        <div style="color:var(--text-muted);font-style:italic;font-size:11px">Vui lòng thiết lập ngày sinh trong Cài đặt để hiển thị Tử Vi.</div>
       </div>`;
     }
 
@@ -2445,10 +2356,15 @@ function initQuickActionChips() {
   const chipsContainer = document.getElementById('chatQuickChips');
   if (!chipsContainer) return;
   
+  chrome.storage.sync.get('birth', ({ birth }) => {
+  // Work first; the astrology prompt only appears once there is a chart to read
   const chipsData = [
-    { text: 'Hãy phân tích ngày hôm nay cát hung thế nào, tôi nên làm việc gì lành và kỵ việc gì theo lá số bản mệnh của tôi?', label: '🔮 Xem Cát Hung Ngày Nay' },
-    { text: 'Hôm nay sao chủ mệnh và ngũ hành của tôi tác động thế nào đến tâm trạng và năng suất làm việc của tôi?', label: '⚔️ Năng Lượng Bản Mệnh' },
-    { text: 'Gợi ý cho tôi một bài thực hành tĩnh tâm hoặc thiền định ngắn phù hợp với ngày hôm nay.', label: '🧘 Tĩnh Tâm Cân Bằng' }
+    { text: 'Dựa trên danh sách nhiệm vụ của tôi, hãy sắp xếp thứ tự ưu tiên cho hôm nay và chia thành các phiên Pomodoro 25 phút.', label: '🗂 Lên kế hoạch hôm nay' },
+    { text: 'Việc nào trong danh sách của tôi đang lớn hoặc khó bắt đầu nhất? Hãy chia nó thành các bước nhỏ, mỗi bước làm được trong một phiên 25 phút.', label: '✂️ Chia nhỏ việc khó' },
+    { text: 'Nếu hôm nay tôi chỉ làm được một việc, đó nên là việc gì và vì sao?', label: '🎯 Việc quan trọng nhất' },
+    birth
+      ? { text: 'Theo lá số của tôi, hôm nay cát hung thế nào và giờ nào hợp để làm việc cần tập trung cao?', label: '🔮 Cát hung hôm nay' }
+      : { text: 'Tôi đang trì hoãn và khó tập trung. Gợi ý cho tôi một cách bắt đầu ngay trong 2 phút.', label: '🌱 Vượt trì hoãn' }
   ];
   
   chipsContainer.innerHTML = chipsData.map(chip => `
@@ -2462,6 +2378,7 @@ function initQuickActionChips() {
       const prompt = chipEl.dataset.prompt;
       sendUserMessage(prompt);
     };
+  });
   });
 }
 
@@ -2550,7 +2467,7 @@ async function sendUserMessage(text) {
   const loadingBubble = document.createElement('div');
   loadingBubble.className = 'chat-bubble ai loading';
   loadingBubble.id = loadingId;
-  loadingBubble.innerHTML = `Đang chiêm nghiệm tinh tú... <div class="dot-typing"><span></span><span></span><span></span></div>`;
+  loadingBubble.innerHTML = `Đang suy nghĩ... <div class="dot-typing"><span></span><span></span><span></span></div>`;
   thread.appendChild(loadingBubble);
   thread.scrollTop = thread.scrollHeight;
   
@@ -2631,26 +2548,34 @@ async function sendUserMessage(text) {
 }
 
 function buildAiPromptContext() {
-  const zodiacSource = document.getElementById('zodiacInfo')?.innerText || 'Chưa có thông tin';
-  const astroDateTitle = document.getElementById('astroDateTitle')?.textContent || 'Bính Tý';
-  const nhPill = document.getElementById('nhPill')?.textContent || 'Mộc';
-  const tuviInfoText = document.getElementById('tuviInfo')?.innerText || 'Chưa có thông tin';
-  
-  const taskSummary = tasks.map((t, idx) => `- [${t.done ? 'x' : ' '}] ${t.text} (${t.category || 'Chung'})`).join('\n');
-  
-  return `Bạn là một Đại Sư Tử Vi Đông Phương hiền triết, có kiến thức thâm sâu về Tử Vi Đẩu Số, Bát Tự, và Phong Thủy. 
-Thông tin ngày hôm nay: ngày Can Chi là ${astroDateTitle} (Ngũ hành ngày: ${nhPill}).
-Thông tin bản mệnh Tử Vi của gia chủ:
+  const hasChart = !!document.getElementById('zodiacInfo')?.innerHTML.trim();
+  const intentionEl = document.getElementById('journalTodayEntry');
+  const intention = intentionEl && intentionEl.style.display !== 'none' ? intentionEl.textContent.replace(/[“”]/g, '') : '';
+  const taskSummary = tasks.map(t => `- [${t.done ? 'x' : ' '}] ${t.text} (${t.category || 'Chung'})`).join('\n');
+
+  let astro = '';
+  if (hasChart) {
+    const zodiacSource = document.getElementById('zodiacInfo')?.innerText || '';
+    const astroDateTitle = document.getElementById('astroDateTitle')?.textContent || '';
+    const nhPill = document.getElementById('nhPill')?.textContent || '';
+    const tuviInfoText = document.getElementById('tuviInfo')?.innerText || '';
+    astro = `
+Người dùng có quan tâm Tử Vi. Hôm nay là ngày ${astroDateTitle} (${nhPill}).
 - Con giáp & Tây Phương: ${zodiacSource}
 - Lá số Tử Vi & Mệnh Cục: ${tuviInfoText}
+Chỉ đưa góc nhìn Tử Vi khi người dùng hỏi hoặc khi nó thực sự giúp ích, và giữ ngắn gọn.`;
+  }
 
-Danh sách công việc cần làm hôm nay của gia chủ:
+  return `Bạn là AI Mentor trong ZenTab, một người cố vấn năng suất điềm tĩnh và thực tế.
+Việc của bạn: giúp người dùng chọn việc quan trọng, chia nhỏ việc khó, lập kế hoạch theo phiên Pomodoro 25 phút, vượt trì hoãn và giữ tâm bình an.
+
+Ý định hôm nay của người dùng: ${intention || 'chưa đặt'}
+Danh sách công việc:
 ${taskSummary || 'Chưa có công việc nào.'}
-
-Hãy phân tích cát hung ngày hôm nay, sự hợp kỵ giữa ngày hiện tại với bản mệnh của gia chủ. Hãy tư vấn bằng giọng văn thông thái, hiền triết, thấu cảm, đậm chất chiêm tinh cổ truyền nhưng vẫn thiết thực để gia chủ lập kế hoạch công việc tối ưu, vượt qua trì hoãn, chọn giờ hoàng đạo tốt và duy trì tĩnh tâm.
-Xưng hô là "Ta" hoặc "AI Mentor" và gọi người dùng là "Gia chủ" hoặc "Bạn".
-Trả lời bằng tiếng Việt, ngắn gọn dưới 300 từ, định dạng có phân dòng/đoạn rõ ràng.`;
+${astro}
+Xưng "mình", gọi người dùng là "bạn". Trả lời bằng tiếng Việt, dưới 250 từ, dùng gạch đầu dòng khi liệt kê, kết thúc bằng một bước cụ thể có thể làm ngay.`;
 }
+
 function saveChatBubble(role, text) {
   chrome.storage.local.get('aiChatHistory', (data) => {
     const history = data.aiChatHistory || [];
