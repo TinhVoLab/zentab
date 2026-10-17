@@ -495,6 +495,7 @@
               <div class="relax-invite-actions">
                 <button type="button" class="relax-chip" data-relax-open="breath">🌬 Thở</button>
                 <button type="button" class="relax-chip" data-relax-open="bubbles">🫧 Bong bóng</button>
+                <button type="button" class="relax-chip" data-relax-open="garden">🪨 Vườn cát</button>
                 <button type="button" class="link-btn" id="relaxInviteDismiss">Bỏ qua</button>
               </div>
             </div>
@@ -713,6 +714,7 @@
         <div class="segmented" id="relaxTabs" role="tablist" aria-label="Hoạt động">
           <button type="button" role="tab" data-relax-tab="breath">🌬 Thở</button>
           <button type="button" role="tab" data-relax-tab="bubbles">🫧 Bong bóng</button>
+          <button type="button" role="tab" data-relax-tab="garden">🪨 Vườn cát</button>
         </div>
         <span class="relax-break-left" id="relaxBreakLeft"></span>
         <button class="modal-close-btn" id="closeRelaxBtn" aria-label="Đóng">✕</button>
@@ -739,6 +741,21 @@
       <section class="relax-pane" id="relaxBubbles" role="tabpanel" hidden>
         <div class="bubble-sheet" id="bubbleSheet" aria-label="Tấm bong bóng xốp"></div>
         <p class="bubble-meta"><span id="bubbleMeta">Bấm hoặc rê chuột khi giữ chuột để bóp.</span></p>
+      </section>
+
+      <section class="relax-pane" id="relaxGarden" role="tabpanel" hidden>
+        <div class="garden-stage" id="gardenStage">
+          <canvas id="gardenSand" aria-label="Khay cát: kéo chuột để cào, chọn Đặt đá rồi bấm để đặt đá"></canvas>
+          <canvas id="gardenStones" aria-hidden="true"></canvas>
+        </div>
+        <div class="garden-tools">
+          <div class="segmented" id="gardenTools" role="radiogroup" aria-label="Dụng cụ">
+            <button type="button" role="radio" data-tool="rake">Cào</button>
+            <button type="button" role="radio" data-tool="stick">Que</button>
+            <button type="button" role="radio" data-tool="stone">Đặt đá</button>
+          </div>
+          <button type="button" class="modal-btn modal-btn-secondary" id="gardenSmooth">Làm phẳng</button>
+        </div>
       </section>
 
       <div class="relax-end" id="relaxEnd" hidden>

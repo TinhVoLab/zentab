@@ -301,6 +301,35 @@
       setTimeout(() => out.disconnect(), 300);
     },
 
+    // Raking sand: filtered noise whose loudness follows the stroke speed.
+    // Returns { move(speed), end() } for one pointer stroke.
+    sandStroke() {
+      ensureContext();
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer('pink');
+      src.loop = true;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1400;
+      bp.Q.value = 0.7;
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      src.connect(bp).connect(g).connect(ctx.destination);
+      src.start(0, Math.random() * 5);
+      return {
+        move(speed) {
+          const t = ctx.currentTime;
+          g.gain.setTargetAtTime(Math.min(0.18, speed * 0.004), t, 0.04);
+          bp.frequency.setTargetAtTime(1100 + Math.min(900, speed * 12), t, 0.08);
+        },
+        end() {
+          const t = ctx.currentTime;
+          g.gain.setTargetAtTime(0, t, 0.06);
+          src.stop(t + 0.4);
+        }
+      };
+    },
+
     // Quiet bowl tap marking a breathing phase change (higher when breathing in)
     breathCue(rising) {
       ensureContext();
