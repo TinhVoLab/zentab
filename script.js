@@ -490,6 +490,38 @@ function canhGioRange(idx) {
   return `${pad(idx * 2 - 1)}:00–${pad(idx * 2)}:59`;
 }
 
+// Giờ hoàng đạo: the 12 day-gods start (Thanh Long) on a branch set by the day's branch —
+// Tý Ngọ khởi Thân, Sửu Mùi khởi Tuất, Dần Thân khởi Tý, Mão Dậu khởi Dần, Thìn Tuất khởi Thìn, Tỵ Hợi khởi Ngọ
+const HD_START = [8, 10, 0, 2, 4, 6, 8, 10, 0, 2, 4, 6];
+const HD_GODS = [[0, 'Thanh Long'], [1, 'Minh Đường'], [4, 'Kim Quỹ'], [5, 'Bảo Quang'], [7, 'Ngọc Đường'], [10, 'Tư Mệnh']];
+const branchOfHour = h => Math.floor(((h + 1) % 24) / 2);
+// Branch i (Tý = 0) covers (2i−1):00 to (2i):59, Tý wrapping over midnight
+const branchRange = i => {
+  const pad = h => String(h).padStart(2, '0');
+  return `${pad((2 * i + 23) % 24)}:00–${pad(2 * i)}:59`;
+};
+function hoangDaoHours(date) {
+  // The traditional day turns at the start of giờ Tý (23:00)
+  const d = new Date(date);
+  if (d.getHours() >= 23) d.setDate(d.getDate() + 1);
+  const start = HD_START[getDayCanChi(d).chi];
+  return HD_GODS.map(([offset, god]) => {
+    const branch = (start + offset) % 12;
+    return { branch, god, name: diaChi[branch], range: branchRange(branch) };
+  }).sort((a, b) => a.branch - b.branch);
+}
+// "Now in X" or "next is Y" for the Focus view
+function hoangDaoNow(date) {
+  const hours = hoangDaoHours(date);
+  const cur = branchOfHour(date.getHours());
+  const now = hours.find(h => h.branch === cur);
+  if (now) return { now, hours };
+  // Past the last slot today: the next one belongs to the day that starts at 23:00
+  const next = hours.find(h => h.branch > cur) ||
+    hoangDaoHours(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23))[0];
+  return { next, hours };
+}
+
 // Everything derived from the birth data. Without a birth hour only the date-based facts are
 // trustworthy: the year/month/day pillars. The 12 palaces depend on the hour, so they're withheld.
 function getBirthChart(birth) {
@@ -1379,6 +1411,15 @@ function renderToday(birth, opts) {
     }
   }
 
+  const hdEl = document.getElementById('astroHoangDao');
+  if (hdEl) {
+    hdEl.hidden = !birth;
+    if (birth) {
+      hdEl.innerHTML = `<span class="section-label">Giờ hoàng đạo hôm nay</span>
+        <div class="hd-chips">${hoangDaoHours(now).map(h => `<span class="hd-chip" title="${h.god}"><b>${h.name}</b> ${h.range}</span>`).join('')}</div>`;
+    }
+  }
+
   function buildDisplay(aiText, status) {
     const todayInsight = document.getElementById('todayInsight');
     if (!todayInsight) return;
@@ -1451,9 +1492,9 @@ renderAll();
 // ---- Gemini Daily Personalized Insight ----
 function loadDailyPersonalizedInsight(birth, apiKey, forceRefresh) {
   const today = getDateStr(new Date());
-  chrome.storage.sync.get('dailyInsightCache', (data) => {
+  chrome.storage.sync.get(['dailyInsightCache', 'tasks'], (data) => {
     const cache = data.dailyInsightCache;
-    if (cache && cache.date === today && cache.insight?.v === 5 && !forceRefresh) {
+    if (cache && cache.date === today && cache.insight?.v === 6 && !forceRefresh) {
       displayDailyInsight(cache.insight);
       return;
     }
@@ -1470,22 +1511,33 @@ function loadDailyPersonalizedInsight(birth, apiKey, forceRefresh) {
       }).join(' | ');
     }
 
-    const dc = getDayCanChi(new Date());
-    const todayStr = `Hôm nay (${thienCan[dc.can]} ${diaChi[dc.chi]})`;
+    const now = new Date();
+    const dc = getDayCanChi(now);
+    const todayStr = `Today: day ${thienCan[dc.can]} ${diaChi[dc.chi]}; giờ hoàng đạo: ${hoangDaoHours(now).map(h => `${h.name} ${h.range}`).join(', ')}`;
+    let luckStr = '';
+    if (ziwei) {
+      const h = ziwei.horoscope(now);
+      const hoa = names => HOA_ORDER.map((x, i) => names[i] ? `Hóa ${x} ${names[i]}` : '').filter(Boolean).join(', ');
+      luckStr = `- Current luck: đại hạn at ${ziwei.palaces[h.decadal.index].name}; lưu niên at ${ziwei.palaces[h.yearly.index].name}; lưu nhật at ${ziwei.palaces[h.daily.index].name} (daily Tứ Hóa: ${hoa(h.daily.mutagen)})`;
+    }
+    // Read tasks from storage: at startup the in-memory list may not be loaded yet
+    const openTasks = (data.tasks || []).filter(t => !t.done).slice(0, 5).map(t => t.text);
 
     // English prompt works best with Gemini models, instructing Vietnamese output
     const prompt = `You are a Vietnamese Tử Vi (Zi Wei Dou Shu) and Bát Tự (Ba Zi) master. Give the user ONE actionable piece of advice for today in Vietnamese. 1-2 sentences only. No greeting, no intro, no "chào bạn".
 
 USER INFO:
-- Born: ${birth.day}/${birth.month}/${birth.year} (${birth.gender === 'female' ? 'Nữ' : 'Nam'})
+- Gender: ${birth.gender === 'female' ? 'Nữ' : 'Nam'}
 - Lunar birth year: ${info ? info.yearCanChi : '—'} (Nạp âm: ${info ? info.napAm.name : '—'})
 - Western zodiac: ${getWesternZodiac(birth.month, birth.day).nameVi}
 - Ba Zi pillars: ${info ? info.pillars.join(' | ') : '—'}${info && !info.hourKnown ? ' (birth hour unknown: hour pillar and palaces NOT available, do not mention palaces)' : ''}
 ${ziwei ? `- Ming palace branch: ${ziwei.earthlyBranchOfSoulPalace}, Five Elements class: ${ziwei.fiveElementsClass}` : ''}
 ${tuviStr ? '- Key palaces (major stars, brightness, birth-year Tứ Hóa): ' + tuviStr : ''}
+${luckStr}
 - ${todayStr}
+- Today's open tasks: ${openTasks.length ? openTasks.map(t => `"${t}"`).join('; ') : 'none'}
 
-Focus on one area: work, money, love, or health. Only reference stars, palaces and pillars listed above; never invent placements. Do not predict illness, accidents or death, and do not give financial or medical directives.
+If there are open tasks, tie the advice to ONE of them by name; if you suggest a time for it, pick only from the giờ hoàng đạo listed. Otherwise focus on one area: work, money, love, or health. Only reference stars, palaces and pillars listed above; never invent placements. Do not predict illness, accidents or death, and do not give financial or medical directives.
 
 EXAMPLES (do NOT copy, use as style reference):
 ❌ "Chào bạn, hôm nay là ngày tốt." (too generic)
@@ -1538,7 +1590,7 @@ ADVICE:`;
       }
       if (result) {
         const clean = result.replace(/^(advice|advice:|lời khuyên|lời khuyên hôm nay|"|')/i, '').trim();
-        const insight = { text: clean, date: today, v: 5 };
+        const insight = { text: clean, date: today, v: 6 };
         chrome.storage.sync.set({ dailyInsightCache: { date: today, insight } });
         displayDailyInsight(insight);
       } else {
@@ -2051,7 +2103,23 @@ function switchTab(tab) {
 }
 
 // Focus View Specific Initializer
+function renderFocusHoangDao() {
+  const el = document.getElementById('focusHoangDao');
+  if (!el) return;
+  chrome.storage.sync.get('birth', ({ birth }) => {
+    el.hidden = !birth;
+    if (!birth) return;
+    const { now, next, hours } = hoangDaoNow(new Date());
+    el.title = 'Giờ hoàng đạo hôm nay: ' + hours.map(h => `${h.name} ${h.range}`).join(', ');
+    el.innerHTML = now
+      ? `<span class="hd-dot" aria-hidden="true"></span>Giờ hoàng đạo <b>${now.name}</b> · đến ${now.range.split('–')[1]}`
+      : `Hoàng đạo tiếp theo: <b>${next.name}</b> ${next.range}`;
+  });
+}
+setInterval(() => { if (document.getElementById('view-focus')?.classList.contains('active')) renderFocusHoangDao(); }, 60000);
+
 function initFocusView() {
+  renderFocusHoangDao();
   renderFocusIntention();
   renderFocusSessions();
   syncFocusModes();
