@@ -264,6 +264,53 @@
       stopScene(scene, 0.8);
     },
 
+    // Bubble-wrap pop: a pitch-dropping blip plus a filtered noise snap, slightly varied each time
+    pop() {
+      ensureContext();
+      const t = ctx.currentTime;
+      const out = ctx.createGain();
+      out.gain.value = 0.45;
+      out.connect(ctx.destination);
+
+      const f = 480 + Math.random() * 360;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, t);
+      osc.frequency.exponentialRampToValueAtTime(f * 0.4, t + 0.06);
+      const body = ctx.createGain();
+      body.gain.setValueAtTime(0.0001, t);
+      body.gain.exponentialRampToValueAtTime(0.6, t + 0.003);
+      body.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+      osc.connect(body).connect(out);
+      osc.start(t);
+      osc.stop(t + 0.1);
+
+      const snap = ctx.createBufferSource();
+      snap.buffer = noiseBuffer('white');
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1800 + Math.random() * 1200;
+      bp.Q.value = 1.2;
+      const sg = ctx.createGain();
+      sg.gain.setValueAtTime(0.5, t);
+      sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+      snap.connect(bp).connect(sg).connect(out);
+      snap.start(t, Math.random() * 5);
+      snap.stop(t + 0.05);
+
+      setTimeout(() => out.disconnect(), 300);
+    },
+
+    // Quiet bowl tap marking a breathing phase change (higher when breathing in)
+    breathCue(rising) {
+      ensureContext();
+      const out = ctx.createGain();
+      out.gain.value = 0.22;
+      out.connect(ctx.destination);
+      bowl(rising ? 392 : 294, 0.35, 3.5, out);
+      setTimeout(() => out.disconnect(), 4500);
+    },
+
     // Two singing-bowl strikes for the end of a Pomodoro
     chime() {
       ensureContext();

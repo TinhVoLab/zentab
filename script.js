@@ -2989,7 +2989,11 @@ function initStatsView() {
     const minutesOn = (d) => (history[getDateStr(d)] || {}).minutes || 0;
     const t = history[todayStr] || { sessions: 0, minutes: 0 };
     setText('statsFocusToday', t.minutes);
-    setText('statsFocusSessions', t.sessions ? `${t.sessions} phiên Pomodoro` : 'Chưa có phiên nào');
+    chrome.storage.local.get('relaxStats', ({ relaxStats }) => {
+      const relaxed = relaxStats && relaxStats.date === todayStr ? relaxStats.count : 0;
+      setText('statsFocusSessions', (t.sessions ? `${t.sessions} phiên Pomodoro` : 'Chưa có phiên nào') +
+        (relaxed ? ` · ${relaxed} lần nghỉ thư giãn` : ''));
+    });
 
     // A streak survives until the end of today, so start counting from yesterday if today is still empty
     let streak = 0;
@@ -4749,6 +4753,8 @@ function syncFocusModes() {
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-checked', on);
   });
+  // Relaxation is offered only on breaks
+  window.ZenRelax?.syncInvite();
 }
 
 function setTimerMode(mode) {
@@ -4812,6 +4818,7 @@ function getFocusHistory(cb) {
 // Called when a countdown reaches zero: log focus time, then queue the next mode
 function onTimerComplete(finishedMode) {
   if (finishedMode !== 'pomodoro') {
+    window.ZenRelax?.onBreakEnd();
     setTimerMode('pomodoro');
     return;
   }
