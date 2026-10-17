@@ -220,12 +220,13 @@
               <option value="forest">🌲 Gió rừng</option>
               <option value="rain">🌧️ Tiếng mưa</option>
               <option value="ocean">🌊 Sóng biển</option>
-              <option value="lofi">🎧 Nhạc Lo-fi</option>
+              <option value="brown">🎧 Tiếng ồn nâu</option>
               <option value="zen">🧘 Thiền định</option>
               <option value="custom" id="customAudioOpt" style="display:none">🎵 Nhạc cá nhân</option>
             </select>
           </div>
-          <audio id="relaxingAudio" loop preload="none" src="https://cdn.jsdelivr.net/gh/karthiknvd/noctune/sounds/forest.mp3"></audio>
+          <!-- Plays only the user's own music URL; built-in sounds come from ambient.js -->
+          <audio id="relaxingAudio" loop preload="none"></audio>
         </div>
 
         <!-- SIDE DRAWERS / OVERLAY PANELS -->
@@ -945,6 +946,7 @@ Chợ online thực phẩm
     </div>
   </div>
 
+  <script src="ambient.js" defer></script>
   <script src="script.js" defer></script>
 </body>
 </html>

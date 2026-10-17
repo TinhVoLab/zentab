@@ -806,9 +806,9 @@ if (testApiKeyBtn && apiKeyTestStatus) {
 
     try {
       const model = 'gemini-2.5-flash';
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: "Respond only with OK" }] }]
         })
@@ -1126,9 +1126,9 @@ ADVICE:`;
         for (let i = 0; i < 3; i++) {
           try {
             console.log(`ZenTab: calling ${model} (attempt ${i+1})`);
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`, {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
               body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
                 generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
@@ -1326,8 +1326,10 @@ let timeLeft = 25 * 60;
 let targetTime = 0;
 let isTimerRunning = false;
 let timerMode = 'pomodoro';
-const timerChime = new Audio('https://cdn.pixabay.com/download/audio/2022/02/22/audio_d0a13f69d2.mp3?filename=tibetan-singing-bowl-1-43575.mp3');
-timerChime.preload = 'none'; // fetch only when it first plays
+// Synthesized singing bowl (ambient.js) — no network request
+const timerChime = {
+  play: () => window.ZenAmbient ? Promise.resolve(ZenAmbient.chime()) : Promise.reject(new Error('Audio unavailable'))
+};
 
 const timerDisplay = document.querySelector('.timer-display');
 const timerStart = document.getElementById('timerStart');
@@ -1410,6 +1412,7 @@ function toggleTimerUIEffects(isPlaying) {
 }
 
 function toggleTimer() {
+  if (window.ZenAmbient) ZenAmbient.unlock();
   const btn1Text = document.getElementById('timerStart')?.querySelector('span');
   const btn1Icon = document.getElementById('timerStart')?.querySelector('svg');
   const btn2Text = document.getElementById('focusTimerStart')?.querySelector('span');
@@ -1528,6 +1531,28 @@ let currentQuoteIdx = 0;
 const relaxingAudio = document.getElementById('relaxingAudio');
 const playBtn = document.getElementById('playBtn');
 
+// Built-in sounds are synthesized by ambient.js; 'custom' streams the user's URL
+const ambientPlayer = {
+  kind: 'forest',
+  isPlaying() {
+    return this.kind === 'custom' ? !!relaxingAudio && !relaxingAudio.paused : !!window.ZenAmbient && ZenAmbient.isPlaying();
+  },
+  play() {
+    if (this.kind === 'custom') return relaxingAudio ? relaxingAudio.play() : Promise.reject(new Error('No audio element'));
+    return window.ZenAmbient ? ZenAmbient.play(this.kind) : Promise.reject(new Error('Audio unavailable'));
+  },
+  pause() {
+    if (relaxingAudio) relaxingAudio.pause();
+    if (window.ZenAmbient) ZenAmbient.stop();
+  },
+  setKind(kind) {
+    const wasPlaying = this.isPlaying();
+    if (wasPlaying && (kind === 'custom' || this.kind === 'custom')) this.pause();
+    this.kind = kind;
+    if (wasPlaying) this.play().catch(e => console.warn(e));
+  }
+};
+
 function displayQuoteAt(index) {
   if (!quotes || quotes.length === 0) return;
   const q = quotes[index];
@@ -1554,10 +1579,9 @@ document.getElementById('nextQuoteBtn').addEventListener('click', () => {
 
 if (playBtn) {
   playBtn.addEventListener('click', () => {
-    if (!relaxingAudio) return;
     const playIcon = document.getElementById('playIcon');
-    if (relaxingAudio.paused) {
-      relaxingAudio.play().then(() => {
+    if (!ambientPlayer.isPlaying()) {
+      ambientPlayer.play().then(() => {
         if (playIcon) {
           playIcon.innerHTML = `
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6" />
@@ -1566,7 +1590,7 @@ if (playBtn) {
         }
       }).catch(e => console.warn("Audio play blocked", e));
     } else {
-      relaxingAudio.pause();
+      ambientPlayer.pause();
       if (playIcon) {
         playIcon.innerHTML = `
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -2467,9 +2491,9 @@ async function sendUserMessage(text) {
       });
       
       const model = 'gemini-2.5-flash';
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
           contents,
           generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
@@ -2617,12 +2641,7 @@ function updateCustomAudioOption(url) {
       const selectEl = document.getElementById('ambientSoundSelect');
       if (selectEl && selectEl.value === 'custom') {
         selectEl.value = 'forest';
-        const relaxingAudio = document.getElementById('relaxingAudio');
-        if (relaxingAudio) {
-          const wasPlaying = !relaxingAudio.paused;
-          relaxingAudio.src = 'https://cdn.jsdelivr.net/gh/karthiknvd/noctune/sounds/forest.mp3';
-          if (wasPlaying) relaxingAudio.play().catch(e => console.warn(e));
-        }
+        ambientPlayer.setKind('forest');
       }
     }
   }
@@ -2634,13 +2653,6 @@ function initAmbientSoundSelector() {
   
   if (!selectEl || !relaxingAudio) return;
   
-  const ambientSources = {
-    forest: 'https://cdn.jsdelivr.net/gh/karthiknvd/noctune/sounds/forest.mp3',
-    rain: 'https://cdn.jsdelivr.net/gh/karthiknvd/noctune/sounds/rain.mp3',
-    ocean: 'https://cdn.jsdelivr.net/gh/karthiknvd/noctune/sounds/river.mp3',
-    lofi: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-    zen: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'
-  };
   
   // Set initial custom option on load
   chrome.storage.sync.get('customAudioUrl', (data) => {
@@ -2649,25 +2661,20 @@ function initAmbientSoundSelector() {
   
   selectEl.addEventListener('change', () => {
     const val = selectEl.value;
-    const wasPlaying = !relaxingAudio.paused;
-    
+
     if (val === 'custom') {
       chrome.storage.sync.get('customAudioUrl', (data) => {
         const customUrl = data.customAudioUrl;
         if (customUrl && customUrl.trim() !== '') {
-          relaxingAudio.src = customUrl;
-          if (wasPlaying) relaxingAudio.play().catch(e => console.warn(e));
+          if (relaxingAudio.src !== customUrl) relaxingAudio.src = customUrl;
+          ambientPlayer.setKind('custom');
         } else {
           alert('Vui lòng cấu hình URL nhạc nền cá nhân trong phần Cài đặt trước.');
-          selectEl.value = 'forest';
+          selectEl.value = ambientPlayer.kind === 'custom' ? 'forest' : ambientPlayer.kind;
         }
       });
-    } else {
-      const src = ambientSources[val];
-      if (src) {
-        relaxingAudio.src = src;
-        if (wasPlaying) relaxingAudio.play().catch(e => console.warn(e));
-      }
+    } else if (window.ZenAmbient && ZenAmbient.has(val)) {
+      ambientPlayer.setKind(val);
     }
   });
 }
@@ -2689,9 +2696,9 @@ function callMindmapGemini(prompt, temperature) {
       for (const model of models) {
         for (let i = 0; i < 3; i++) {
           try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`, {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
               body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
                 generationConfig: { temperature: temperature || 0.7, maxOutputTokens: 4096 }
