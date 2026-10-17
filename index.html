@@ -273,7 +273,7 @@
               <div id="tuviInfo" class="astro-body" style="display:none"></div>
 
               <button class="glass-btn detail-btn" id="openAstroDetailsBtn">
-                <span>Xem chi tiết</span>
+                <span>Xem lá số</span>
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:14px;height:14px;margin-left:6px;">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                 </svg>
@@ -656,13 +656,25 @@
   <div id="astroDetailsModal" class="modal-overlay" style="display:none">
     <div class="modal-card astro-detail-card">
       <div class="modal-header-row">
-        <h3 class="modal-title">Chi Tiết Tử Vi & Bát Tự</h3>
-        <button class="modal-close-btn" id="closeAstroDetailsBtn">✕</button>
+        <h3 class="modal-title">Lá số Tử Vi</h3>
+        <button class="modal-close-btn" id="closeAstroDetailsBtn" aria-label="Đóng">✕</button>
       </div>
       <div class="modal-scroll-body">
+        <!-- Shown when the birth hour is unknown: date-only facts -->
         <div id="modalZodiacInfo" class="modal-astro-section"></div>
-        <div class="modal-astro-divider"></div>
-        <div id="modalTuviInfo" class="modal-astro-section"></div>
+
+        <div id="chartLayout" class="chart-layout" hidden>
+          <div class="chart-board-scroll">
+            <div class="chart-board" id="chartBoard" role="group" aria-label="Bàn lá số 12 cung"></div>
+          </div>
+          <aside class="chart-side">
+            <section class="chart-panel" id="chartLuck"></section>
+            <section class="chart-panel" id="chartPalaceDetail" aria-live="polite"></section>
+            <section class="chart-panel" id="chartDecades"></section>
+          </aside>
+        </div>
+
+        <p class="chart-footnote">An sao theo thư viện iztro (cách an phổ thông của Tử Vi Trung Hoa); một số phụ tinh có thể khác cách an của Tử Vi Việt Nam. Nội dung mang tính tham khảo.</p>
       </div>
     </div>
   </div>

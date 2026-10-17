@@ -1781,6 +1781,119 @@ html.is-fullscreen .app-layout:has(#view-focus.active) .sidebar-left { display: 
 .astro-invite { display: block; font-size: 13px; color: var(--text-dim); line-height: 1.45; }
 select[aria-invalid] { box-shadow: 0 0 0 2px var(--red, #ff453a); }
 
+/* ---------- Tử Vi chart (lá số) ---------- */
+.astro-detail-card { width: min(1180px, 96vw); max-height: 92vh; }
+.astro-detail-card:has(#chartLayout[hidden]) { width: min(560px, 96vw); }
+.astro-detail-card .modal-scroll-body { max-height: calc(92vh - 90px); }
+.chart-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+.chart-layout[hidden] { display: none; }
+.chart-board-scroll { overflow-x: auto; }
+.chart-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  grid-template-rows: repeat(4, minmax(150px, auto));
+  gap: 2px;
+  min-width: 620px;
+  padding: 2px;
+  border-radius: 18px;
+  background: var(--separator);
+}
+.palace-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 9px;
+  border: none;
+  border-radius: 6px;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--sheet-2);
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.palace-cell:hover { background: var(--wash-2); }
+.palace-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.palace-cell.is-trine { background: color-mix(in srgb, var(--accent) 10%, var(--sheet-2)); }
+.palace-cell.is-selected { background: color-mix(in srgb, var(--accent) 22%, var(--sheet-2)); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.pc-top, .pc-bottom { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.pc-bottom { margin-top: auto; align-items: center; }
+.pc-name { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; color: var(--accent); }
+.pc-tag { margin-left: 2px; padding: 0 5px; border-radius: 4px; font-size: 10px; font-weight: 700; color: var(--text); background: var(--wash-3); }
+.pc-major { list-style: none; margin: 0; padding: 0; font-size: 13px; font-weight: 600; line-height: 1.35; }
+.pc-major small { font-size: 10px; font-weight: 600; color: var(--text-muted); }
+.pc-major .pc-empty { font-weight: 400; font-style: italic; color: var(--text-muted); }
+.pc-minor { display: flex; flex-wrap: wrap; gap: 0 6px; font-size: 11px; line-height: 1.4; }
+.pc-cat { color: var(--text-dim); }
+.pc-sat { color: color-mix(in srgb, var(--red) 75%, var(--text)); }
+.pc-flag { display: inline-block; padding: 0 5px; border-radius: 4px; font-size: 10px; font-weight: 700; color: var(--prominent-fg); background: var(--prominent-bg); }
+.pc-flag + .pc-flag { margin-left: 3px; }
+
+/* Tứ Hóa badges: the word is always shown, colour only reinforces it */
+.hoa { display: inline-block; padding: 0 4px; border-radius: 4px; font-size: 10px; font-weight: 700; line-height: 1.5; color: #fff; }
+.hoa-loc { background: #1f9d55; }
+.hoa-quyen { background: #8b5cf6; }
+.hoa-khoa { background: #2f7de1; }
+.hoa-ky { background: #d64545; }
+
+.chart-centre {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-dim);
+  background: var(--sheet-2);
+}
+.cc-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.cc-row { line-height: 1.45; }
+.cc-muted { color: var(--text-muted); font-weight: 400; }
+.cc-pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); gap: 4px; margin: 4px 0; }
+.cc-pillars span { display: flex; flex-direction: column; padding: 5px 2px; border-radius: 8px; font-weight: 600; color: var(--text); background: var(--wash-1); }
+.cc-pillars small { font-size: 10px; font-weight: 500; color: var(--text-muted); }
+
+.chart-side { display: flex; flex-direction: column; gap: 12px; }
+.chart-panel { padding: 14px; border-radius: 16px; background: var(--wash-1); }
+.chart-panel-title { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--text); }
+.luck-block + .luck-block { margin-top: 10px; padding-top: 10px; box-shadow: inset 0 0.5px 0 var(--separator); }
+.luck-head { font-size: 13px; line-height: 1.5; color: var(--text); }
+.luck-head .link-btn { padding: 0; font-weight: 600; }
+.hoa-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; font-size: 12px; color: var(--text-dim); }
+.palace-dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; margin: 0; font-size: 12px; line-height: 1.45; }
+.palace-dl dt { color: var(--text-muted); white-space: nowrap; }
+.palace-dl dd { margin: 0; color: var(--text); }
+.decade-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.decade-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  color: var(--text-dim);
+  background: none;
+  cursor: pointer;
+}
+.decade-row:hover { background: var(--wash-2); }
+.decade-row.is-selected { color: var(--text); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.decade-row.is-now { font-weight: 700; color: var(--text); }
+.decade-age { width: 64px; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.decade-name { flex: 1; }
+.chart-footnote { margin: 14px 0 0; font-size: 11px; line-height: 1.5; color: var(--text-muted); }
+.chart-footnote[hidden], #modalZodiacInfo[hidden] { display: none; }
+
+@media (max-width: 1000px) {
+  .chart-layout { grid-template-columns: 1fr; }
+}
+
 /* ---------- Settings: grouped sections, auto-save ---------- */
 .settings-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .settings-saved { font-size: 13px; color: var(--green); opacity: 0; transition: opacity 0.25s ease; }

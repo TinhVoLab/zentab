@@ -1006,6 +1006,167 @@ function renderTuVi(ziwei) {
   container.innerHTML = html;
 }
 
+// ---- Full chart (lá số) in the details modal ----
+// Standard board: palaces sit on the ring by earthly branch, the 2×2 centre holds the owner's info
+const BOARD_POS = {
+  'Tỵ': [1, 1], 'Ngọ': [1, 2], 'Mùi': [1, 3], 'Thân': [1, 4],
+  'Thìn': [2, 1], 'Dậu': [2, 4],
+  'Mão': [3, 1], 'Tuất': [3, 4],
+  'Dần': [4, 1], 'Sửu': [4, 2], 'Tý': [4, 3], 'Hợi': [4, 4]
+};
+const BRIGHT_SHORT = { 'Miếu': 'M', 'Vượng': 'V', 'Đắc': 'Đ', 'Lợi': 'L', 'Bình': 'B', 'Bất': 'Bt', 'Hãm': 'H' };
+const HOA_CLASS = { 'Lộc': 'loc', 'Quyền': 'quyen', 'Khoa': 'khoa', 'Kỵ': 'ky' };
+const HOA_ORDER = ['Lộc', 'Quyền', 'Khoa', 'Kỵ'];
+
+const starBrightness = s => BRIGHTNESS_FIX[s.brightness] || s.brightness || '';
+const hoaBadge = m => m ? `<b class="hoa hoa-${HOA_CLASS[m] || ''}">${m}</b>` : '';
+// Tam phương tứ chính: the palace, its opposite and its two trines (same offsets on any branch numbering)
+const trineOf = idx => [idx, (idx + 4) % 12, (idx + 8) % 12, (idx + 6) % 12];
+
+let chartState = null;
+
+function renderChartModal(birth) {
+  const info = getBirthChart(birth);
+  const layout = document.getElementById('chartLayout');
+  const summary = document.getElementById('modalZodiacInfo');
+  const footnote = document.querySelector('.chart-footnote');
+  if (!info || !info.ziwei) {
+    // No chart without a birth hour: show the date-only facts with the "add hour" prompt
+    layout.hidden = true;
+    if (footnote) footnote.hidden = !info;
+    summary.hidden = false;
+    summary.innerHTML = info ? zodiacInfo.innerHTML
+      : '<div class="stats-empty" style="text-align:center;padding:32px 0">Nhập ngày sinh trong Cài đặt để xem lá số.</div>';
+    return;
+  }
+  summary.hidden = true;
+  layout.hidden = false;
+  if (footnote) footnote.hidden = false;
+
+  const z = info.ziwei;
+  const luck = z.horoscope(new Date());
+  const soul = z.palaces.find(p => p.name === 'Mệnh');
+  chartState = { birth, info, z, luck, selected: soul ? soul.index : 0 };
+  drawChartBoard();
+  drawChartLuck();
+  drawChartDecades();
+  drawPalaceDetail();
+}
+
+function drawChartBoard() {
+  const { info, z, luck, selected } = chartState;
+  const board = document.getElementById('chartBoard');
+  const trine = trineOf(selected);
+
+  const cells = z.palaces.map(p => {
+    const [row, col] = BOARD_POS[p.earthlyBranch] || [1, 1];
+    const classes = ['palace-cell'];
+    if (p.index === selected) classes.push('is-selected');
+    else if (trine.includes(p.index)) classes.push('is-trine');
+    const flags = [];
+    if (p.index === luck.decadal.index) flags.push('<span class="pc-flag" title="Đại hạn hiện tại">ĐH</span>');
+    if (p.index === luck.yearly.index) flags.push(`<span class="pc-flag" title="Lưu niên ${new Date().getFullYear()}">LN</span>`);
+    const major = p.majorStars.map(s => {
+      const b = starBrightness(s);
+      return `<li>${s.name}${b ? ` <small title="${b}">${BRIGHT_SHORT[b] || b}</small>` : ''} ${hoaBadge(s.mutagen)}</li>`;
+    }).join('') || '<li class="pc-empty">Vô chính diệu</li>';
+    const minor = p.minorStars.map(s =>
+      `<span class="${s.type === 'tough' ? 'pc-sat' : 'pc-cat'}">${s.name}${s.mutagen ? ' ' + hoaBadge(s.mutagen) : ''}</span>`
+    ).join('');
+    return `<button type="button" class="${classes.join(' ')}" data-idx="${p.index}" style="grid-row:${row};grid-column:${col}"
+        aria-pressed="${p.index === selected}" aria-label="Cung ${p.name}, ${p.heavenlyStem} ${p.earthlyBranch}">
+      <span class="pc-top"><span>${p.heavenlyStem} ${p.earthlyBranch}</span><span>${p.decadal.range[0]}–${p.decadal.range[1]}</span></span>
+      <span class="pc-name">${p.name}${p.isBodyPalace ? ' <span class="pc-tag">Thân</span>' : ''}</span>
+      <ul class="pc-major">${major}</ul>
+      <span class="pc-minor">${minor}</span>
+      <span class="pc-bottom"><span>${p.changsheng12}</span><span>${flags.join('')}</span></span>
+    </button>`;
+  }).join('');
+
+  const g = chartState.birth.gender === 'female' ? 'Nữ' : 'Nam';
+  const yinYang = canOfYear(info.lunarYear) % 2 === 0 ? 'Dương' : 'Âm';
+  const ld = z.rawDates.lunarDate;
+  const hourIdx = hourToTimeIndex(chartState.birth.hour);
+  const centre = `<div class="chart-centre" style="grid-row:2 / 4;grid-column:2 / 4">
+      <div class="cc-title">${yinYang} ${g} · Tuổi ${info.yearCanChi}</div>
+      <div class="cc-row">Mệnh <span class="nh-pill nh-${info.napAm.element}">${info.napAm.name}</span> · ${z.fiveElementsClass}</div>
+      <div class="cc-pillars">${info.pillars.map((p, i) => `<span><small>${['Năm', 'Tháng', 'Ngày', 'Giờ'][i]}</small>${p}</span>`).join('')}</div>
+      <div class="cc-row">Âm lịch ${ld.lunarDay}/${ld.lunarMonth}${ld.isLeap ? ' (nhuận)' : ''} năm ${info.yearCanChi} · Giờ ${CANH_GIO[hourIdx]}</div>
+      <div class="cc-row">Mệnh chủ ${z.soul} · Thân chủ ${z.body}</div>
+      <div class="cc-row cc-muted">Năm nay ${luck.age.nominalAge} tuổi (âm)</div>
+    </div>`;
+
+  board.innerHTML = cells + centre;
+  board.querySelectorAll('.palace-cell').forEach(btn => {
+    btn.onclick = () => selectChartPalace(parseInt(btn.dataset.idx));
+  });
+}
+
+function selectChartPalace(idx) {
+  chartState.selected = idx;
+  drawChartBoard();
+  drawChartDecades();
+  drawPalaceDetail();
+}
+
+function hoaList(names) {
+  return `<ul class="hoa-list">${HOA_ORDER.map((h, i) => names[i] ? `<li>${hoaBadge(h)} ${names[i]}</li>` : '').join('')}</ul>`;
+}
+
+function drawChartLuck() {
+  const { z, luck } = chartState;
+  const dec = z.palaces[luck.decadal.index];
+  const yearPalace = z.palaces[luck.yearly.index];
+  const year = new Date().getFullYear();
+  document.getElementById('chartLuck').innerHTML = `
+    <h4 class="chart-panel-title">Vận hạn hiện tại</h4>
+    <div class="luck-block">
+      <div class="luck-head"><span class="pc-flag">ĐH</span> Đại hạn ${dec.decadal.range[0]}–${dec.decadal.range[1]} tuổi · cung <button type="button" class="link-btn" data-goto="${dec.index}">${dec.name}</button> <span class="cc-muted">(${luck.decadal.heavenlyStem} ${luck.decadal.earthlyBranch})</span></div>
+      ${hoaList(luck.decadal.mutagen)}
+    </div>
+    <div class="luck-block">
+      <div class="luck-head"><span class="pc-flag">LN</span> Lưu niên ${year} (${luck.yearly.heavenlyStem} ${luck.yearly.earthlyBranch}) · tại cung <button type="button" class="link-btn" data-goto="${yearPalace.index}">${yearPalace.name}</button></div>
+      ${hoaList(luck.yearly.mutagen)}
+    </div>`;
+  document.querySelectorAll('#chartLuck [data-goto]').forEach(b => b.onclick = () => selectChartPalace(parseInt(b.dataset.goto)));
+}
+
+function drawChartDecades() {
+  const { z, luck, selected } = chartState;
+  const rows = [...z.palaces].sort((a, b) => a.decadal.range[0] - b.decadal.range[0]).map(p => {
+    const now = p.index === luck.decadal.index;
+    return `<li><button type="button" class="decade-row${now ? ' is-now' : ''}${p.index === selected ? ' is-selected' : ''}" data-idx="${p.index}">
+      <span class="decade-age">${p.decadal.range[0]}–${p.decadal.range[1]}</span>
+      <span class="decade-name">${p.name}</span>
+      ${now ? '<span class="pc-flag">Hiện tại</span>' : ''}
+    </button></li>`;
+  }).join('');
+  const el = document.getElementById('chartDecades');
+  el.innerHTML = `<h4 class="chart-panel-title">Đại hạn 10 năm</h4><ol class="decade-list">${rows}</ol>`;
+  el.querySelectorAll('.decade-row').forEach(b => b.onclick = () => selectChartPalace(parseInt(b.dataset.idx)));
+}
+
+function drawPalaceDetail() {
+  const { z, selected } = chartState;
+  const p = z.palaces[selected];
+  const list = (stars, fmt) => stars.length ? stars.map(fmt).join(', ') : '—';
+  const withHoa = s => `${s.name}${s.mutagen ? ' ' + hoaBadge(s.mutagen) : ''}`;
+  const cat = p.minorStars.filter(s => s.type !== 'tough');
+  const sat = p.minorStars.filter(s => s.type === 'tough');
+  const trine = trineOf(selected).slice(1).map(i => z.palaces[i].name);
+  document.getElementById('chartPalaceDetail').innerHTML = `
+    <h4 class="chart-panel-title">Cung ${p.name}${p.isBodyPalace ? ' (Thân cư)' : ''} <span class="cc-muted">${p.heavenlyStem} ${p.earthlyBranch}</span></h4>
+    <dl class="palace-dl">
+      <dt>Chính tinh</dt><dd>${list(p.majorStars, s => `${s.name}${starBrightness(s) ? ` (${starBrightness(s)})` : ''}${s.mutagen ? ' ' + hoaBadge(s.mutagen) : ''}`) .replace(/^—$/, 'Vô chính diệu')}</dd>
+      <dt>Cát tinh</dt><dd>${list(cat, withHoa)}</dd>
+      <dt>Sát tinh</dt><dd>${list(sat, withHoa)}</dd>
+      <dt>Phụ tinh khác</dt><dd>${list(p.adjectiveStars, s => s.name)}</dd>
+      <dt>Tràng sinh</dt><dd>${p.changsheng12} · Bác sĩ: ${p.boshi12}</dd>
+      <dt>Đại hạn</dt><dd>${p.decadal.range[0]}–${p.decadal.range[1]} tuổi</dd>
+      <dt>Tam phương tứ chính</dt><dd>${trine.slice(0, 2).join(', ')} (tam hợp) · ${trine[2]} (xung chiếu)</dd>
+    </dl>`;
+}
+
 function renderToday(birth, opts) {
   const now = new Date();
   const dc = getDayCanChi(now);
@@ -1745,29 +1906,15 @@ const closeAstroDetailsBtn = document.getElementById('closeAstroDetailsBtn');
 
 if (openAstroDetailsBtn && astroDetailsModal && closeAstroDetailsBtn) {
   openAstroDetailsBtn.addEventListener('click', () => {
-    const modalZodiac = document.getElementById('modalZodiacInfo');
-    const modalTuvi = document.getElementById('modalTuviInfo');
-    const zodiacSource = document.getElementById('zodiacInfo');
-    const tuviSource = document.getElementById('tuviInfo');
-    
-    if (modalZodiac && zodiacSource) {
-      if (zodiacSource.innerHTML.trim() === "") {
-        modalZodiac.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-muted);font-size:13px;">Vui lòng thiết lập ngày sinh trong Cài đặt để hiển thị thông tin Bát Tự & Tử Vi chi tiết.</div>';
-      } else {
-        modalZodiac.innerHTML = zodiacSource.innerHTML;
-      }
-    }
-    
-    if (modalTuvi && tuviSource) {
-      modalTuvi.innerHTML = tuviSource.innerHTML;
-    }
-    // Copied markup loses listeners: rebind the "add birth hour" shortcut
-    modalZodiac?.querySelector('.astro-add-hour')?.addEventListener('click', () => {
-      astroDetailsModal.style.display = 'none';
-      openSettingsAt('birthHour');
+    chrome.storage.sync.get('birth', ({ birth }) => {
+      renderChartModal(birth);
+      // Copied date-only markup loses listeners: rebind the "add birth hour" shortcut
+      document.querySelector('#modalZodiacInfo .astro-add-hour')?.addEventListener('click', () => {
+        astroDetailsModal.style.display = 'none';
+        openSettingsAt('birthHour');
+      });
+      astroDetailsModal.style.display = 'flex';
     });
-    
-    astroDetailsModal.style.display = 'flex';
   });
   
   closeAstroDetailsBtn.addEventListener('click', () => {
