@@ -1327,6 +1327,7 @@ let targetTime = 0;
 let isTimerRunning = false;
 let timerMode = 'pomodoro';
 const timerChime = new Audio('https://cdn.pixabay.com/download/audio/2022/02/22/audio_d0a13f69d2.mp3?filename=tibetan-singing-bowl-1-43575.mp3');
+timerChime.preload = 'none'; // fetch only when it first plays
 
 const timerDisplay = document.querySelector('.timer-display');
 const timerStart = document.getElementById('timerStart');

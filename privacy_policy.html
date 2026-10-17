@@ -1,107 +1,134 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privacy Policy - ZenTab: Minimalist Focus</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-            background-color: #f9f9f9;
-        }
-        .container {
-            background-color: #fff;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        }
-        h1 {
-            color: #1a1a1a;
-            border-bottom: 2px solid #eaeaea;
-            padding-bottom: 10px;
-            font-size: 28px;
-        }
-        h2 {
-            color: #2c3e50;
-            margin-top: 30px;
-            font-size: 20px;
-        }
-        p, li {
-            font-size: 16px;
-            color: #555;
-        }
-        ul {
-            padding-left: 20px;
-        }
-        .highlight {
-            background-color: #f1f8ff;
-            border-left: 4px solid #0066cc;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 0 4px 4px 0;
-        }
-        footer {
-            margin-top: 40px;
-            text-align: center;
-            font-size: 14px;
-            color: #888;
-            border-top: 1px solid #eaeaea;
-            padding-top: 20px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chính sách Bảo mật – ZenTab</title>
+  <style>
+    :root {
+      --bg: #f5f5f7; --card: #fff; --text: #1d1d1f; --dim: #515154; --muted: #86868b;
+      --line: rgba(0, 0, 0, 0.1); --accent: #af52de; --note: #f3ecfa;
+      color-scheme: light dark;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #000; --card: #1c1c1e; --text: #f5f5f7; --dim: #c7c7cc; --muted: #8e8e93; --line: rgba(255, 255, 255, 0.12); --accent: #bf5af2; --note: #2a1f33; }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 40px 16px; background: var(--bg); color: var(--text);
+      font: 16px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    }
+    main { max-width: 760px; margin: 0 auto; background: var(--card); border-radius: 24px; padding: 40px clamp(20px, 5vw, 48px); }
+    h1 { font-size: 32px; line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 6px; }
+    h2 { font-size: 20px; letter-spacing: -0.01em; margin: 36px 0 10px; }
+    h3 { font-size: 16px; margin: 20px 0 6px; }
+    p, li { color: var(--dim); }
+    ul { padding-left: 22px; }
+    li { margin: 6px 0; }
+    code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--bg); padding: 1px 6px; border-radius: 6px; }
+    a { color: var(--accent); }
+    .updated { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+    .note { background: var(--note); border-radius: 16px; padding: 16px 20px; margin: 20px 0; }
+    .note p { margin: 0; color: var(--text); }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 15px; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 0.5px solid var(--line); vertical-align: top; }
+    th { color: var(--text); font-weight: 600; }
+    td { color: var(--dim); }
+    .table-wrap { overflow-x: auto; }
+    hr { border: none; border-top: 0.5px solid var(--line); margin: 48px 0 0; }
+    footer { text-align: center; color: var(--muted); font-size: 14px; margin-top: 24px; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Chính sách Bảo mật - ZenTab: Minimalist Focus</h1>
-        <p><em>Cập nhật lần cuối: Ngày 7 tháng 7 năm 2026</em></p>
+<main>
+  <h1>Chính sách Bảo mật</h1>
+  <p class="updated">ZenTab · Cập nhật lần cuối: 17 tháng 10 năm 2026 · Áp dụng từ phiên bản 1.1.0</p>
 
-        <p>Chào mừng bạn đến với <strong>ZenTab: Minimalist Focus</strong>. Chúng tôi rất coi trọng quyền riêng tư của bạn. Chính sách Bảo mật này mô tả cách thức tiện ích mở rộng (extension) của chúng tôi xử lý thông tin cá nhân của bạn.</p>
+  <div class="note">
+    <p><strong>Tóm tắt:</strong> ZenTab không có máy chủ riêng và nhà phát triển không nhận bất kỳ dữ liệu nào của bạn. Dữ liệu được lưu trong trình duyệt Chrome của bạn. Một số tính năng gửi dữ liệu trực tiếp từ trình duyệt tới dịch vụ bên thứ ba (Google Gemini, Open-Meteo, ipapi.co, các nguồn phát nhạc), như mô tả dưới đây.</p>
+  </div>
 
-        <div class="highlight">
-            <strong>Tóm tắt cốt lõi:</strong> ZenTab hoạt động dựa trên nguyên tắc tôn trọng quyền riêng tư tối đa. Chúng tôi <strong>không</strong> thu thập, lưu trữ hoặc chia sẻ dữ liệu cá nhân của bạn lên bất kỳ máy chủ nào của chúng tôi. Tất cả cài đặt và dữ liệu cá nhân của bạn đều được lưu trữ hoàn toàn cục bộ trên thiết bị của bạn.
-        </div>
+  <h2>1. Dữ liệu ZenTab lưu và nơi lưu</h2>
+  <p>ZenTab dùng hai vùng lưu trữ của Chrome:</p>
 
-        <h2>1. Thu thập và Sử dụng Dữ liệu Cục bộ (Local Storage)</h2>
-        <p>Để cung cấp trải nghiệm cá nhân hóa tốt nhất cho bạn khi mở Tab mới, ZenTab lưu trữ các thông tin sau trực tiếp trong bộ nhớ cục bộ của trình duyệt Chrome của bạn (sử dụng <code>chrome.storage.local</code>):</p>
-        <ul>
-            <li><strong>Khóa API Gemini cá nhân (Gemini API Key):</strong> Được sử dụng để kết nối với mô hình AI của Google để tạo ra các lời khuyên cá nhân hóa.</li>
-            <li><strong>Thông tin cá nhân cơ bản:</strong> Bao gồm ngày sinh/giờ sinh (dùng để tính toán lá số tử vi cá nhân hóa thông qua thư viện <code>iztro</code> chạy offline) và tên hiển thị.</li>
-            <li><strong>Cấu hình giao diện:</strong> Các tùy chọn hiển thị widget, hình nền, trạng thái công việc cần làm (To-Do list) và lịch sử ghi chú.</li>
-        </ul>
-        <p>Dữ liệu này chỉ được trình duyệt của bạn truy cập khi bạn mở Tab mới và không bao giờ được gửi đến cho chúng tôi.</p>
+  <h3>Đồng bộ theo tài khoản Chrome (<code>chrome.storage.sync</code>)</h3>
+  <p>Nếu bạn bật Đồng bộ (Chrome Sync), các dữ liệu này được Google đồng bộ giữa các máy đăng nhập cùng tài khoản, theo <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Chính sách bảo mật của Google</a>. Nếu không bật, chúng chỉ nằm trên máy này.</p>
+  <ul>
+    <li>Tên hiển thị, ngày giờ sinh và giới tính (dùng để tính Bát Tự, Tử Vi).</li>
+    <li>Khoá API Gemini của bạn.</li>
+    <li>Nhiệm vụ, ý định và nhật ký hằng ngày, ghi chú, thói quen, ý tưởng.</li>
+    <li>Địa phương xem thời tiết, đường link nhạc riêng, lựa chọn hình đại diện, lời khuyên AI đã lưu tạm trong ngày.</li>
+  </ul>
 
-        <h2>2. Kết nối và Truyền tải Dữ liệu với Bên thứ ba</h2>
-        <p>ZenTab thực hiện các kết nối mạng trực tiếp từ trình duyệt của bạn đến các dịch vụ bên thứ ba sau để thực thi các tính năng của tiện ích:</p>
-        <ul>
-            <li><strong>Google Gemini API (https://generativelanguage.googleapis.com):</strong> Khi tính năng phân tích/dự đoán AI được kích hoạt, dữ liệu nhắc (prompt) kèm theo thông tin ngày sinh và tâm trạng của bạn sẽ được gửi trực tiếp tới máy chủ của Google để xử lý. Việc này hoàn toàn sử dụng khóa API cá nhân của bạn và tuân theo <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Chính sách bảo mật của Google</a>.</li>
-            <li><strong>Open-Meteo API (https://api.open-meteo.com & https://geocoding-api.open-meteo.com):</strong> Tọa độ vị trí địa lý của bạn (nếu được cấp quyền) sẽ được gửi tới Open-Meteo để truy xuất thông tin thời tiết thời gian thực.</li>
-            <li><strong>ipapi.co (https://ipapi.co):</strong> Được sử dụng để định vị tương đối dựa trên địa chỉ IP nhằm tự động đề xuất vị trí thời tiết nếu bạn không cấp quyền GPS định vị chính xác.</li>
-        </ul>
+  <h3>Chỉ trên máy này (<code>chrome.storage.local</code> và <code>localStorage</code>)</h3>
+  <ul>
+    <li>Ảnh nền và ảnh đại diện bạn tải lên (đã nén, không rời khỏi máy).</li>
+    <li>Lịch sử trò chuyện với AI Mentor.</li>
+    <li>Dữ liệu thời tiết lưu tạm, chế độ giao diện, hình nền, độ mờ nền và trạng thái các bảng đang mở.</li>
+  </ul>
+  <p>Thư viện <code>iztro</code> tính lá số Tử Vi ngay trong trình duyệt, không gửi dữ liệu đi đâu.</p>
 
-        <h2>3. Bảo mật Dữ liệu</h2>
-        <p>Vì mọi dữ liệu được lưu trữ trong môi trường sandbox biệt lập của Google Chrome trên máy tính của bạn, độ an toàn của dữ liệu phụ thuộc vào bảo mật của chính thiết bị và trình duyệt của bạn. Chúng tôi khuyến nghị bạn bảo vệ máy tính của mình bằng mật khẩu mạnh và không chia sẻ thiết bị với người không đáng tin cậy.</p>
+  <h2>2. Dữ liệu gửi tới bên thứ ba</h2>
+  <p>Các kết nối dưới đây đi thẳng từ trình duyệt của bạn tới dịch vụ tương ứng. Nhà phát triển ZenTab không đứng giữa và không nhận được bản sao.</p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Dịch vụ</th><th>Khi nào</th><th>Dữ liệu gửi đi</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Google Gemini API</strong><br><code>generativelanguage.googleapis.com</code></td>
+        <td>Chỉ khi bạn đã nhập khoá API và dùng lời khuyên hằng ngày, AI Mentor hoặc các nút AI trong Sơ đồ ý tưởng.</td>
+        <td>Ngày giờ sinh, giới tính và thông tin lá số tính từ đó; danh sách nhiệm vụ; nội dung bạn nhập vào AI Mentor hoặc Sơ đồ ý tưởng; khoá API của bạn. Tuân theo <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer">Điều khoản Gemini API</a>.</td>
+      </tr>
+      <tr>
+        <td><strong>Open-Meteo</strong><br><code>api.open-meteo.com</code>, <code>geocoding-api.open-meteo.com</code></td>
+        <td>Khi hiển thị thời tiết.</td>
+        <td>Toạ độ gần đúng hoặc tên địa phương bạn nhập.</td>
+      </tr>
+      <tr>
+        <td><strong>ipapi.co</strong></td>
+        <td>Khi chưa có địa phương và bạn không cấp quyền vị trí.</td>
+        <td>Địa chỉ IP của bạn (gửi tự động khi kết nối), để đoán thành phố.</td>
+      </tr>
+      <tr>
+        <td><strong>Nguồn phát âm thanh</strong><br><code>cdn.jsdelivr.net</code>, <code>www.soundhelix.com</code>, <code>cdn.pixabay.com</code>, <code>cdn1.suno.ai</code> hoặc link nhạc bạn tự nhập</td>
+        <td>Khi bạn bấm phát nhạc nền hoặc khi hẹn giờ kết thúc (chuông báo).</td>
+        <td>Yêu cầu tải tệp âm thanh, kèm địa chỉ IP như mọi kết nối web.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Vị trí chính xác chỉ được dùng khi bạn đồng ý trong hộp thoại xin quyền của Chrome.</p>
 
-        <h2>4. Quyền Kiểm soát của Người dùng</h2>
-        <p>Bạn có toàn quyền kiểm soát dữ liệu của mình. Bạn có thể:</p>
-        <ul>
-            <li>Chỉnh sửa hoặc xóa khóa API Gemini, ngày sinh, hoặc ghi chú bất kỳ lúc nào trong bảng Cài đặt của ZenTab.</li>
-            <li>Xóa toàn bộ dữ liệu của extension bằng cách gỡ cài đặt ZenTab khỏi trình duyệt Chrome hoặc xóa dữ liệu ứng dụng trong phần cài đặt quản lý tiện ích của Chrome.</li>
-        </ul>
+  <h2>3. Những điều ZenTab không làm</h2>
+  <ul>
+    <li>Không có máy chủ riêng, không có tài khoản ZenTab.</li>
+    <li>Không dùng công cụ phân tích, theo dõi hay quảng cáo.</li>
+    <li>Không đọc lịch sử duyệt web, nội dung trang hay các tab khác. Quyền duy nhất ZenTab yêu cầu là <code>storage</code>.</li>
+    <li>Không bán hay chia sẻ dữ liệu của bạn.</li>
+  </ul>
 
-        <h2>5. Thay đổi đối với Chính sách Bảo mật này</h2>
-        <p>Chúng tôi có thể cập nhật chính sách bảo mật này theo thời gian để phản ánh các thay đổi trong tính năng của extension hoặc yêu cầu từ phía Google. Mọi thay đổi sẽ có hiệu lực ngay khi được đăng tải trên trang này.</p>
+  <h2>4. Quyền kiểm soát của bạn</h2>
+  <ul>
+    <li>Sửa hoặc xoá khoá API, tên, ngày sinh trong <strong>Cài đặt</strong>. Nút “Xoá ngày sinh” xoá ngày sinh và lời khuyên đã lưu tạm.</li>
+    <li>Không nhập khoá API nếu không muốn dùng các tính năng AI. Mọi tính năng khác vẫn hoạt động.</li>
+    <li>Xoá toàn bộ dữ liệu bằng cách gỡ ZenTab khỏi Chrome. Dữ liệu đã đồng bộ có thể xoá tại <a href="https://chrome.google.com/sync" target="_blank" rel="noopener noreferrer">chrome.google.com/sync</a>.</li>
+  </ul>
 
-        <h2>6. Liên hệ</h2>
-        <p>Nếu bạn có bất kỳ câu hỏi nào về chính sách bảo mật này hoặc hoạt động của ZenTab, vui lòng liên hệ với nhà phát triển qua địa chỉ email của bạn hoặc trang quản lý tiện ích.</p>
-    </div>
+  <h2>5. Bảo mật</h2>
+  <p>Dữ liệu được bảo vệ bởi cơ chế cô lập của Chrome và bảo mật của tài khoản Google, thiết bị của bạn. Khoá API Gemini được lưu dạng văn bản trong bộ nhớ của Chrome; hãy dùng khoá riêng cho ZenTab và có thể thu hồi bất kỳ lúc nào tại Google AI Studio.</p>
 
-    <footer>
-        <p>&copy; 2026 ZenTab. All rights reserved.</p>
-    </footer>
+  <h2>6. Thay đổi chính sách</h2>
+  <p>Khi tính năng thay đổi, chính sách này sẽ được cập nhật cùng phiên bản mới và ghi lại ngày cập nhật ở đầu trang.</p>
+
+  <h2>7. Liên hệ</h2>
+  <p>Câu hỏi về quyền riêng tư: <a href="mailto:EMAIL_LIEN_HE">EMAIL_LIEN_HE</a></p>
+
+  <hr>
+
+  <h2>Privacy Policy (English summary)</h2>
+  <p>ZenTab has no backend; the developer receives none of your data. Settings, birth details, your Gemini API key, tasks, journal, notes, habits and ideas are stored in <code>chrome.storage.sync</code> (synced by Google if Chrome Sync is on). Uploaded images, AI chat history, cached weather and UI state stay on this device (<code>chrome.storage.local</code>, <code>localStorage</code>).</p>
+  <p>Data leaves your browser only to: <strong>Google Gemini API</strong> (birth details and derived chart, task list, text you enter into AI features, your API key; only when you add a key and use AI features); <strong>Open-Meteo</strong> (approximate coordinates or city name); <strong>ipapi.co</strong> (your IP address, only if no location is set); and <strong>audio hosts</strong> (jsDelivr, SoundHelix, Pixabay, Suno or your own URL) when sound is played. No analytics, tracking or ads; the only permission requested is <code>storage</code>. Uninstalling ZenTab removes its data. Contact: <a href="mailto:EMAIL_LIEN_HE">EMAIL_LIEN_HE</a>.</p>
+</main>
+<footer>© 2026 ZenTab</footer>
 </body>
 </html>
