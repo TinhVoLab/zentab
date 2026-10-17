@@ -1364,6 +1364,9 @@ function updateTimerDisplay() {
   
   document.querySelectorAll('.timer-display').forEach(el => el.textContent = timeStr);
   updateProgressRing();
+  // Remaining time in the tab strip while running
+  if (isTimerRunning) document.title = `${timeStr} · ${timerMode === 'pomodoro' ? 'Tập trung' : 'Nghỉ ngơi'}`;
+  updateFocusMeta();
 }
 
 function updateProgressRing() {
@@ -1387,8 +1390,10 @@ if (timerModeSelect) {
     document.querySelectorAll('.timer-mode-label').forEach(el => {
       el.textContent = timerMode === 'pomodoro' ? 'Tập trung' : 'Nghỉ ngơi';
     });
+    document.documentElement.dataset.timerMode = timerMode;
     
     updateTimerDisplay();
+    syncFocusModes();
   });
 }
 
@@ -1401,14 +1406,11 @@ function toggleTimerUIEffects(isPlaying) {
     }
   });
   
-  const appLayout = document.querySelector('.app-layout');
-  if (appLayout) {
-    if (isPlaying && timerMode === 'pomodoro' && document.getElementById('view-focus').classList.contains('active')) {
-      appLayout.style.background = 'rgba(0,0,0,0.6)';
-    } else {
-      appLayout.style.background = '';
-    }
-  }
+  // CSS dims the surrounding chrome while a focus session runs
+  document.documentElement.classList.toggle('timer-is-running', isPlaying);
+  document.documentElement.dataset.timerMode = timerMode;
+  if (!isPlaying) document.title = 'ZenTab';
+  updateFocusMeta();
 }
 
 function toggleTimer() {
@@ -1471,6 +1473,7 @@ function toggleTimer() {
         
         timeLeft = getModeDuration(timerMode);
         updateTimerDisplay();
+        onTimerComplete(timerMode);
       } else {
         timeLeft = remaining;
         updateTimerDisplay();
@@ -1667,17 +1670,11 @@ function switchTab(tab) {
 
 // Focus View Specific Initializer
 function initFocusView() {
-  // Update focus intention
-  const focusIntentionDisplay = document.getElementById('focusIntentionDisplay');
-  if (focusIntentionDisplay) {
-    chrome.storage.sync.get('journalEntry', (data) => {
-      if (data.journalEntry) {
-        focusIntentionDisplay.textContent = `Tiêu điểm: "${data.journalEntry}"`;
-      } else {
-        focusIntentionDisplay.textContent = 'Hôm nay hãy tập trung hoàn thành mục tiêu của bạn. 💜';
-      }
-    });
-  }
+  renderFocusIntention();
+  renderFocusSessions();
+  syncFocusModes();
+  syncFocusSounds();
+  updateFocusMeta();
   
   // Quick clock trigger to prevent flash of 00:00
   const clockEl = document.getElementById('focusClock');
@@ -4229,4 +4226,195 @@ function syncAppearanceUI() {
   const settingsBtn = document.getElementById('settingsBtn');
   if (settingsBtn) settingsBtn.addEventListener('click', syncAppearanceUI);
   syncAppearanceUI();
+})();
+
+
+// ---------------- FOCUS VIEW: SESSIONS, MODES, SOUNDS, SHORTCUTS ----------------
+const FOCUS_CYCLE = 4; // a long break after every 4 focus sessions
+
+function formatClock(date) {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+// Secondary line under the big timer: planned end time, paused state or duration
+function updateFocusMeta() {
+  const el = document.getElementById('focusEndTime');
+  if (!el) return;
+  const full = getModeDuration(timerMode);
+  if (isTimerRunning) {
+    el.textContent = `Kết thúc lúc ${formatClock(new Date(targetTime))}`;
+  } else if (Math.round(timeLeft) < full) {
+    el.textContent = 'Đã tạm dừng';
+  } else {
+    el.textContent = `${Math.round(full / 60)} phút`;
+  }
+}
+
+function syncFocusModes() {
+  document.querySelectorAll('#focusModes [data-mode]').forEach(btn => {
+    const on = btn.dataset.mode === timerMode;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-checked', on);
+  });
+}
+
+function setTimerMode(mode) {
+  if (!timerModeSelect || timerModeSelect.value === mode) return;
+  timerModeSelect.value = mode;
+  timerModeSelect.dispatchEvent(new Event('change'));
+}
+
+// ---- Daily session stats (chrome.storage.local, resets each day) ----
+function getFocusStats(cb) {
+  chrome.storage.local.get('focusStats', (data) => {
+    const today = getDateStr(new Date());
+    const stats = data.focusStats && data.focusStats.date === today ? data.focusStats : { date: today, sessions: 0, minutes: 0 };
+    cb(stats);
+  });
+}
+
+function renderFocusSessions() {
+  getFocusStats((stats) => {
+    const dots = document.getElementById('focusSessionDots');
+    const text = document.getElementById('focusSessionText');
+    const inCycle = stats.sessions === 0 ? 0 : (stats.sessions % FOCUS_CYCLE || FOCUS_CYCLE);
+    if (dots) {
+      dots.innerHTML = '';
+      for (let i = 0; i < FOCUS_CYCLE; i++) {
+        const d = document.createElement('span');
+        d.className = 'session-dot' + (i < inCycle ? ' done' : '');
+        dots.appendChild(d);
+      }
+    }
+    if (text) {
+      text.textContent = stats.sessions === 0
+        ? 'Chưa có phiên nào hôm nay'
+        : `Hôm nay: ${stats.sessions} phiên · ${stats.minutes} phút tập trung`;
+    }
+  });
+}
+
+// Called when a countdown reaches zero: log focus time, then queue the next mode
+function onTimerComplete(finishedMode) {
+  if (finishedMode !== 'pomodoro') {
+    setTimerMode('pomodoro');
+    return;
+  }
+  getFocusStats((stats) => {
+    stats.sessions += 1;
+    stats.minutes += Math.round(getModeDuration('pomodoro') / 60);
+    chrome.storage.local.set({ focusStats: stats }, renderFocusSessions);
+    setTimerMode(stats.sessions % FOCUS_CYCLE === 0 ? 'long' : 'short');
+  });
+}
+
+// ---- Intention (shares today's journal entry with the Home view) ----
+function renderFocusIntention() {
+  const display = document.getElementById('focusIntentionDisplay');
+  const input = document.getElementById('focusIntentionInput');
+  if (!display || !input) return;
+  chrome.storage.sync.get('journal', (data) => {
+    const today = getDateStr(new Date());
+    const entry = (data.journal || []).find(e => e.date === today);
+    if (entry && entry.entry) {
+      display.textContent = entry.entry;
+      display.hidden = false;
+      input.hidden = true;
+    } else {
+      display.hidden = true;
+      input.hidden = false;
+      input.value = '';
+    }
+  });
+}
+
+(function initFocusIntention() {
+  const display = document.getElementById('focusIntentionDisplay');
+  const input = document.getElementById('focusIntentionInput');
+  if (!display || !input) return;
+  display.addEventListener('click', () => {
+    input.value = display.textContent;
+    display.hidden = true;
+    input.hidden = false;
+    input.focus();
+    input.select();
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && input.value.trim()) {
+      saveJournalEntry(input.value);
+      setTimeout(renderFocusIntention, 150);
+    } else if (e.key === 'Escape') {
+      renderFocusIntention();
+    }
+  });
+  input.addEventListener('blur', () => setTimeout(renderFocusIntention, 150));
+})();
+
+// ---- Ambient sound pills: drive the existing dock player so both stay in sync ----
+function syncFocusSounds() {
+  const active = ambientPlayer.isPlaying() ? ambientPlayer.kind : 'off';
+  document.querySelectorAll('#focusSounds [data-sound]').forEach(btn => {
+    const on = btn.dataset.sound === active;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-checked', on);
+  });
+}
+
+(function initFocusSounds() {
+  const selectEl = document.getElementById('ambientSoundSelect');
+  document.querySelectorAll('#focusSounds [data-sound]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sound = btn.dataset.sound;
+      if (sound === 'off') {
+        if (ambientPlayer.isPlaying()) playBtn.click();
+      } else {
+        if (selectEl && selectEl.value !== sound) {
+          selectEl.value = sound;
+          selectEl.dispatchEvent(new Event('change'));
+        }
+        if (!ambientPlayer.isPlaying()) playBtn.click();
+      }
+      setTimeout(syncFocusSounds, 120);
+    });
+  });
+  if (playBtn) playBtn.addEventListener('click', () => setTimeout(syncFocusSounds, 120));
+  if (selectEl) selectEl.addEventListener('change', () => setTimeout(syncFocusSounds, 120));
+})();
+
+// ---- Modes, fullscreen, keyboard shortcuts ----
+(function initFocusControls() {
+  document.querySelectorAll('#focusModes [data-mode]').forEach(btn => {
+    btn.addEventListener('click', () => setTimerMode(btn.dataset.mode));
+  });
+
+  const fsBtn = document.getElementById('focusFullscreenBtn');
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  };
+  if (fsBtn) fsBtn.addEventListener('click', toggleFullscreen);
+  document.addEventListener('fullscreenchange', () => {
+    document.documentElement.classList.toggle('is-fullscreen', !!document.fullscreenElement);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    const view = document.getElementById('view-focus');
+    if (!view || !view.classList.contains('active')) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const target = e.target instanceof Element ? e.target : null;
+    if (target && target.matches('input, textarea, select, [contenteditable]')) return;
+    if ([...document.querySelectorAll('.modal-overlay')].some(m => m.style.display !== 'none')) return;
+    const key = e.key.toLowerCase();
+    // A focused button already handles Space natively; don't toggle twice
+    if (key === ' ' && target && target.closest('button')) return;
+    if (key === ' ') { e.preventDefault(); toggleTimer(); }
+    else if (key === 'r') resetTimer();
+    else if (key === 'f') toggleFullscreen();
+    else if (key === '1') setTimerMode('pomodoro');
+    else if (key === '2') setTimerMode('short');
+    else if (key === '3') setTimerMode('long');
+  });
+
+  syncFocusModes();
+  renderFocusSessions();
 })();

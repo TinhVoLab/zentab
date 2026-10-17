@@ -429,14 +429,31 @@
         </div>
       </div>
       
-      <!-- VIEW 2: ZEN FOCUS MODE -->
+      <!-- VIEW 2: FOCUS -->
       <div id="view-focus" class="dashboard-view">
-        <div class="zen-focus-container">
-          <div id="focusClock" class="clock focus-clock">00:00</div>
-          <div id="focusDate" class="date focus-date">Thứ Tư, 17 tháng 5, 2026</div>
-          <p class="focus-intention-display" id="focusIntentionDisplay">Hôm nay hãy tập trung hoàn thành mục tiêu của bạn.</p>
-          
-          <div class="focus-timer-large">
+        <div class="focus-shell">
+          <header class="focus-topbar">
+            <div class="focus-now">
+              <span id="focusClock" class="focus-now-time">00:00</span>
+              <span id="focusDate" class="focus-now-date"></span>
+            </div>
+            <div class="segmented focus-modes" id="focusModes" role="radiogroup" aria-label="Chế độ hẹn giờ">
+              <button type="button" data-mode="pomodoro" role="radio">Tập trung</button>
+              <button type="button" data-mode="short" role="radio">Nghỉ ngắn</button>
+              <button type="button" data-mode="long" role="radio">Nghỉ dài</button>
+            </div>
+            <button type="button" class="focus-icon-btn" id="focusFullscreenBtn" title="Toàn màn hình (F)" aria-label="Toàn màn hình">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"/></svg>
+            </button>
+          </header>
+
+          <section class="focus-stage">
+            <div class="focus-intention">
+              <span class="focus-intention-label">Tiêu điểm</span>
+              <button type="button" class="focus-intention-display" id="focusIntentionDisplay" title="Bấm để sửa"></button>
+              <input type="text" class="focus-intention-input" id="focusIntentionInput" placeholder="Bạn sẽ tập trung vào điều gì?" autocomplete="off" hidden>
+            </div>
+
             <div class="timer-circle-wrapper large-timer">
               <svg class="timer-svg" viewBox="0 0 100 100">
                 <circle class="timer-track" cx="50" cy="50" r="44" />
@@ -445,23 +462,35 @@
               <div class="timer-center">
                 <span class="timer-mode-label focus-mode-label">Tập trung</span>
                 <div class="timer-display focus-timer-display">25:00</div>
+                <span class="focus-endtime" id="focusEndTime">25 phút</span>
               </div>
             </div>
-            
-            <div class="timer-controls focus-timer-controls">
-              <button id="focusTimerStart" class="timer-main-btn focus-main-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                </svg>
+
+            <div class="focus-controls">
+              <button type="button" id="focusTimerReset" class="focus-round-btn secondary" title="Đặt lại (R)"><span>Đặt lại</span></button>
+              <button type="button" id="focusTimerStart" class="focus-round-btn primary" title="Bắt đầu / Tạm dừng (Space)">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"></svg>
                 <span>Bắt đầu</span>
               </button>
-              <button id="focusTimerReset" class="timer-sub-btn" title="Đặt lại" aria-label="Đặt lại">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.2" />
-                </svg>
-              </button>
             </div>
-          </div>
+
+            <div class="focus-sessions">
+              <div class="session-dots" id="focusSessionDots" aria-hidden="true"></div>
+              <span class="focus-session-text" id="focusSessionText">Chưa có phiên nào hôm nay</span>
+            </div>
+          </section>
+
+          <footer class="focus-footer">
+            <div class="focus-sounds" id="focusSounds" role="radiogroup" aria-label="Âm thanh nền">
+              <button type="button" data-sound="off" role="radio">Tắt tiếng</button>
+              <button type="button" data-sound="forest" role="radio">🌲 Gió rừng</button>
+              <button type="button" data-sound="rain" role="radio">🌧️ Mưa</button>
+              <button type="button" data-sound="ocean" role="radio">🌊 Sóng biển</button>
+              <button type="button" data-sound="brown" role="radio">🎧 Ồn nâu</button>
+              <button type="button" data-sound="zen" role="radio">🧘 Thiền</button>
+            </div>
+            <p class="focus-kbd-hint"><kbd>Space</kbd> bắt đầu/tạm dừng · <kbd>R</kbd> đặt lại · <kbd>1</kbd>–<kbd>3</kbd> đổi chế độ · <kbd>F</kbd> toàn màn hình</p>
+          </footer>
         </div>
       </div>
       
