@@ -657,6 +657,10 @@
     <div class="modal-card astro-detail-card">
       <div class="modal-header-row">
         <h3 class="modal-title">Lá số Tử Vi</h3>
+        <div class="segmented chart-tabs" id="chartTabs" role="tablist" aria-label="Lá số và luận giải" hidden>
+          <button type="button" role="tab" data-chart-tab="board" class="active" aria-selected="true">Lá số</button>
+          <button type="button" role="tab" data-chart-tab="reading" aria-selected="false">Luận giải</button>
+        </div>
         <button class="modal-close-btn" id="closeAstroDetailsBtn" aria-label="Đóng">✕</button>
       </div>
       <div class="modal-scroll-body">
@@ -672,6 +676,17 @@
             <section class="chart-panel" id="chartPalaceDetail" aria-live="polite"></section>
             <section class="chart-panel" id="chartDecades"></section>
           </aside>
+        </div>
+
+        <div id="chartReading" class="chart-reading" role="tabpanel" hidden>
+          <div class="reading-head">
+            <p class="reading-intro">Mỗi chủ đề có phần <strong>Dữ kiện</strong> lấy thẳng từ lá số. Phần luận giải do AI viết chỉ dựa trên các dữ kiện đó và ghi rõ căn cứ cho từng ý. Chỉ tên sao và cung được gửi cho AI, không gửi ngày giờ sinh.</p>
+            <div class="reading-actions">
+              <button type="button" class="modal-btn" id="readingGenerateBtn">Tạo luận giải</button>
+              <span class="reading-status" id="readingStatus" role="status" aria-live="polite"></span>
+            </div>
+          </div>
+          <div class="reading-topics" id="readingTopics"></div>
         </div>
 
         <p class="chart-footnote">An sao theo thư viện iztro (cách an phổ thông của Tử Vi Trung Hoa); một số phụ tinh có thể khác cách an của Tử Vi Việt Nam. Nội dung mang tính tham khảo.</p>

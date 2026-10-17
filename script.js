@@ -1030,8 +1030,11 @@ function renderChartModal(birth) {
   const layout = document.getElementById('chartLayout');
   const summary = document.getElementById('modalZodiacInfo');
   const footnote = document.querySelector('.chart-footnote');
+  const tabs = document.getElementById('chartTabs');
+  showChartTab('board');
   if (!info || !info.ziwei) {
     // No chart without a birth hour: show the date-only facts with the "add hour" prompt
+    tabs.hidden = true;
     layout.hidden = true;
     if (footnote) footnote.hidden = !info;
     summary.hidden = false;
@@ -1041,6 +1044,7 @@ function renderChartModal(birth) {
   }
   summary.hidden = true;
   layout.hidden = false;
+  tabs.hidden = false;
   if (footnote) footnote.hidden = false;
 
   const z = info.ziwei;
@@ -1051,7 +1055,19 @@ function renderChartModal(birth) {
   drawChartLuck();
   drawChartDecades();
   drawPalaceDetail();
+  renderReading();
 }
+
+function showChartTab(tab) {
+  document.querySelectorAll('#chartTabs [data-chart-tab]').forEach(b => {
+    const on = b.dataset.chartTab === tab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on);
+  });
+  document.getElementById('chartLayout').classList.toggle('tab-hidden', tab !== 'board');
+  document.getElementById('chartReading').hidden = tab !== 'reading';
+}
+document.querySelectorAll('#chartTabs [data-chart-tab]').forEach(b => b.addEventListener('click', () => showChartTab(b.dataset.chartTab)));
 
 function drawChartBoard() {
   const { info, z, luck, selected } = chartState;
@@ -1166,6 +1182,161 @@ function drawPalaceDetail() {
       <dt>Tam phương tứ chính</dt><dd>${trine.slice(0, 2).join(', ')} (tam hợp) · ${trine[2]} (xung chiếu)</dd>
     </dl>`;
 }
+
+// ---- Chart reading: computed facts per topic, AI explains only those facts ----
+const READING_TOPICS = [
+  { id: 'tinh-cach', title: 'Tính cách', palaces: ['Mệnh', 'Phúc Đức'], withBody: true },
+  { id: 'su-nghiep', title: 'Sự nghiệp', palaces: ['Quan Lộc'] },
+  { id: 'tai-chinh', title: 'Tài chính', palaces: ['Tài Bạch'] },
+  { id: 'tinh-cam', title: 'Tình cảm', palaces: ['Phu Thê'] },
+  { id: 'suc-khoe', title: 'Sức khỏe', palaces: ['Tật Ách'], note: 'Chỉ là gợi ý về thói quen sinh hoạt, không thay cho tư vấn y tế.' }
+];
+const READING_VERSION = 1;
+
+const chartKeyOf = b => `${b.year}-${b.month}-${b.day}-${b.hour}-${b.gender || 'male'}`;
+const majorText = p => { const m = describePalaceStars(p); return m.length ? m.join(', ') : 'Vô chính diệu'; };
+const starWithHoa = st => `${st.name}${st.mutagen ? ` (Hóa ${st.mutagen})` : ''}`;
+
+function palaceFact(p) {
+  const cat = p.minorStars.filter(st => st.type !== 'tough').map(starWithHoa);
+  const sat = p.minorStars.filter(st => st.type === 'tough').map(starWithHoa);
+  return `${p.name}${p.isBodyPalace ? ' (Thân cư)' : ''} (${p.heavenlyStem} ${p.earthlyBranch}): ${majorText(p)}` +
+    (cat.length ? `; cát tinh: ${cat.join(', ')}` : '') + (sat.length ? `; sát tinh: ${sat.join(', ')}` : '');
+}
+
+// Facts for one topic: its palaces in full, plus the major stars of the primary palace's tam phương tứ chính
+function topicFacts(z, topic) {
+  const names = [...topic.palaces];
+  if (topic.withBody) {
+    const body = z.palaces.find(p => p.isBodyPalace);
+    if (body && !names.includes(body.name)) names.push(body.name);
+  }
+  const palaces = names.map(n => z.palaces.find(p => p.name === n)).filter(Boolean);
+  const facts = palaces.map(palaceFact);
+  const [t1, t2, opp] = trineOf(palaces[0].index).slice(1).map(i => z.palaces[i]);
+  facts.push(`Tam hợp của ${palaces[0].name}: ${t1.name}: ${majorText(t1)}; ${t2.name}: ${majorText(t2)}`);
+  facts.push(`Xung chiếu ${palaces[0].name}: ${opp.name}: ${majorText(opp)}`);
+  // Star names that a point's "basis" may cite (grounding check)
+  const stars = new Set();
+  [...palaces, t1, t2, opp].forEach(p => [...p.majorStars, ...p.minorStars].forEach(st => stars.add(st.name)));
+  if (palaces.some(p => !p.majorStars.length)) stars.add('Vô chính diệu');
+  return { facts, stars, palaceNames: palaces.map(p => p.name) };
+}
+
+function natalHoaFact(z) {
+  const lands = {};
+  z.palaces.forEach(p => [...p.majorStars, ...p.minorStars].forEach(st => { if (st.mutagen) lands[st.mutagen] = `${st.name} tại ${p.name}`; }));
+  return HOA_ORDER.filter(h => lands[h]).map(h => `Hóa ${h}: ${lands[h]}`).join('; ');
+}
+
+function buildReadingPrompt(z, info, gender) {
+  const yinYang = canOfYear(info.lunarYear) % 2 === 0 ? 'Dương' : 'Âm';
+  const topics = READING_TOPICS.map(t => {
+    const { facts } = topicFacts(z, t);
+    return `[${t.id}] ${t.title}\n${facts.map(f => '- ' + f).join('\n')}`;
+  }).join('\n\n');
+  return `Bạn là chuyên gia Tử Vi Đẩu Số, viết luận giải tham khảo cho người đọc phổ thông bằng tiếng Việt.
+
+QUY TẮC:
+- CHỈ dựa vào dữ kiện bên dưới. Không tự thêm sao, cung hay vận hạn nào khác.
+- Mỗi ý trong "points" phải có "basis" trích đúng tên sao và cung trong dữ kiện, ví dụ "Quan Lộc: Vũ Khúc (Đắc)".
+- Giọng điềm tĩnh, khách quan, nói về khuynh hướng ("thường", "có xu hướng"); không phán chắc chắn, không gây lo sợ.
+- Sức khỏe: chỉ nói về thể trạng và thói quen sinh hoạt nên chú ý; không chẩn đoán, không nêu bệnh nghiêm trọng, không đoán tai nạn hay tuổi thọ.
+- Không đưa quyết định tài chính, pháp lý, y tế cụ thể.
+- Mỗi chủ đề: "summary" 2–3 câu; "points" 2–4 ý; "action" một gợi ý thực tế làm được ngay.
+- Trả về DUY NHẤT một JSON hợp lệ, không markdown, theo mẫu:
+{"topics":[{"id":"tinh-cach","summary":"...","points":[{"text":"...","basis":"..."}],"action":"..."}]}
+
+DỮ KIỆN CHUNG:
+- ${yinYang} ${gender === 'female' ? 'Nữ' : 'Nam'}, ${z.fiveElementsClass}, Mệnh chủ ${z.soul}, Thân chủ ${z.body}
+- Tứ Hóa gốc: ${natalHoaFact(z)}
+
+CHỦ ĐỀ:
+${topics}`;
+}
+
+// Parse the model's JSON and keep only points whose basis cites a star from that topic's facts
+function parseReading(text, z) {
+  const raw = text.replace(/```json|```/g, '');
+  const json = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1));
+  const byId = Object.fromEntries((json.topics || []).map(t => [t.id, t]));
+  let dropped = 0;
+  const topics = READING_TOPICS.map(t => {
+    const r = byId[t.id];
+    if (!r) return { id: t.id, missing: true };
+    const { stars } = topicFacts(z, t);
+    const points = (r.points || []).filter(pt => {
+      const ok = pt && pt.text && pt.basis && [...stars].some(name => pt.basis.includes(name));
+      if (!ok) dropped++;
+      return ok;
+    });
+    return { id: t.id, summary: String(r.summary || ''), points, action: String(r.action || '') };
+  });
+  return { topics, dropped };
+}
+
+function renderReading(stored) {
+  if (!chartState) return;
+  const { z, birth } = chartState;
+  const key = chartKeyOf(birth);
+  const draw = (cache) => {
+    const reading = cache && cache.key === key && cache.v === READING_VERSION ? cache : null;
+    const btn = document.getElementById('readingGenerateBtn');
+    btn.textContent = reading ? 'Tạo lại' : 'Tạo luận giải';
+    const status = document.getElementById('readingStatus');
+    if (reading && !status.dataset.busy) status.textContent = `Tạo ngày ${new Date(reading.createdAt).toLocaleDateString('vi-VN')}`;
+
+    document.getElementById('readingTopics').innerHTML = READING_TOPICS.map(t => {
+      const { facts, palaceNames } = topicFacts(z, t);
+      const r = reading && reading.topics.find(x => x.id === t.id);
+      const body = !r ? '' : r.missing ? '<p class="reading-empty">AI chưa trả lời phần này. Bấm "Tạo lại" để thử lại.</p>' : `
+        <p class="reading-summary">${escapeHtml(r.summary)}</p>
+        <ul class="reading-points">${r.points.map(pt => `<li>${escapeHtml(pt.text)}<span class="reading-basis">Căn cứ: ${escapeHtml(pt.basis)}</span></li>`).join('')}</ul>
+        ${r.action ? `<p class="reading-action"><strong>Gợi ý:</strong> ${escapeHtml(r.action)}</p>` : ''}`;
+      return `<article class="reading-card">
+        <h4 class="reading-title">${t.title} <span class="cc-muted">· cung ${palaceNames.join(', ')}</span></h4>
+        ${t.note ? `<p class="reading-note">${t.note}</p>` : ''}
+        ${body}
+        <details class="reading-facts"${reading ? '' : ' open'}>
+          <summary>Dữ kiện từ lá số</summary>
+          <ul>${facts.map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
+        </details>
+      </article>`;
+    }).join('');
+  };
+  if (stored !== undefined) draw(stored);
+  else chrome.storage.local.get('chartReading', ({ chartReading }) => draw(chartReading));
+}
+
+async function generateReading() {
+  if (!chartState) return;
+  const { z, info, birth } = chartState;
+  const btn = document.getElementById('readingGenerateBtn');
+  const status = document.getElementById('readingStatus');
+  btn.disabled = true;
+  status.dataset.busy = '1';
+  status.textContent = 'Đang luận giải… (khoảng 10–30 giây)';
+  const res = await callGemini(buildReadingPrompt(z, info, birth.gender), 0.4, 8192);
+  btn.disabled = false;
+  delete status.dataset.busy;
+  if (res.error === 'no-key') {
+    status.innerHTML = 'Cần Gemini API key. <button type="button" class="link-btn" id="readingAddKey">Thêm API key</button>';
+    document.getElementById('readingAddKey').onclick = () => {
+      document.getElementById('astroDetailsModal').style.display = 'none';
+      openSettingsAt('geminiKey');
+    };
+    return;
+  }
+  if (res.error) { status.textContent = 'Không kết nối được AI. Thử lại sau ít phút.'; return; }
+  let parsed;
+  try { parsed = parseReading(res.text, z); }
+  catch (e) { status.textContent = 'AI trả về sai định dạng. Bấm "Tạo luận giải" để thử lại.'; return; }
+  const cache = { key: chartKeyOf(birth), v: READING_VERSION, createdAt: Date.now(), topics: parsed.topics };
+  chrome.storage.local.set({ chartReading: cache });
+  renderReading(cache);
+  if (parsed.dropped) status.textContent = `Đã tạo. Bỏ ${parsed.dropped} ý không có căn cứ trong lá số.`;
+}
+document.getElementById('readingGenerateBtn')?.addEventListener('click', generateReading);
 
 function renderToday(birth, opts) {
   const now = new Date();
@@ -2899,7 +3070,8 @@ initAmbientSoundSelector();
 // ---------------- VIEW 3 ADD-ON: MINDMAP CANVAS CONTROLLER ----------------
 
 // Reusable Gemini helper for Mindmap (reuses the key stored in Settings)
-function callMindmapGemini(prompt, temperature) {
+// Shared Gemini caller (mind map, chart reading): retries on 429/503, falls back across models
+function callGemini(prompt, temperature, maxTokens) {
   return new Promise((resolve) => {
     chrome.storage.sync.get('geminiKey', async (data) => {
       const apiKey = data.geminiKey;
@@ -2916,7 +3088,7 @@ function callMindmapGemini(prompt, temperature) {
               headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
               body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { temperature: temperature || 0.7, maxOutputTokens: 4096 }
+                generationConfig: { temperature: temperature || 0.7, maxOutputTokens: maxTokens || 4096 }
               })
             });
             const body = await res.text();
@@ -3512,7 +3684,7 @@ async function expandNodeScamper(nodeId) {
 SCAMPER = Substitute, Combine, Adapt, Modify, Put to other use, Eliminate, Reverse.
 
 Trả về đúng 7 dòng, mỗi dòng bắt đầu bằng tên chữ cái viết hoa (S, C, A, M, P, E, R), dấu hai chấm, rồi MỘT ý tưởng con cụ thể bằng tiếng Việt, ngắn gọn dưới 15 từ. Không giải thích, không đề mục khác.`;
-  const res = await callMindmapGemini(prompt, 0.8);
+  const res = await callGemini(prompt, 0.8);
   if (res.error) { mindmapAiStatus(res.error === 'no-key' ? '⚠ Chưa có Gemini Key (Cài đặt)' : '⚠ Lỗi: ' + res.error, true); return; }
   const lines = res.text.split('\n').map(l => l.trim()).filter(Boolean);
   pushUndo();
@@ -3553,7 +3725,7 @@ Trả về đúng 6 dòng, mỗi dòng bắt đầu bằng một trong: TRẮNG:
 - XANH LÁ: hướng sáng tạo, cải tiến
 - XANH DƯƠNG: kết luận và bước hành động tiếp theo
 Không thêm dòng khác.`;
-  const res = await callMindmapGemini(prompt, 0.6);
+  const res = await callGemini(prompt, 0.6);
   if (res.error) { mindmapAiStatus(res.error === 'no-key' ? '⚠ Chưa có Gemini Key (Cài đặt)' : '⚠ Lỗi: ' + res.error, true); return; }
   const lines = res.text.split('\n').map(l => l.trim()).filter(Boolean);
   pushUndo();
