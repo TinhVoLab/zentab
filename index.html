@@ -53,6 +53,12 @@
           </svg>
           <span>Nhiệm vụ</span>
         </button>
+        <button class="nav-item" data-tab="journal" title="Nhật ký">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 3.5h11a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6z"/><path d="M6 3.5v17M9.5 8h5.5M9.5 11.5h5.5"/><path d="M4.5 7h3M4.5 12h3M4.5 17h3"/>
+          </svg>
+          <span>Nhật ký</span>
+        </button>
         <button class="nav-item" data-tab="ai" title="AI Mentor">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 113.536 0V21h2v-2.243a4.973 4.973 0 013.536 0V21h-2v-2a1 1 0 00-1-1h-2a1 1 0 00-1 1v2H9v-2.243z"/>
@@ -527,6 +533,78 @@
       </div>
       
       <!-- VIEW 4: AI MENTOR CHAT -->
+      <!-- VIEW: JOURNAL (a notebook spread: month index on the left, the day's page on the right) -->
+      <div id="view-journal" class="dashboard-view">
+        <div class="journal-book" id="journalBook" data-paper="cream">
+          <aside class="jb-page jb-left">
+            <div class="jb-month-head">
+              <button type="button" class="jb-nav" id="jbPrevMonth" aria-label="Tháng trước">‹</button>
+              <h3 class="jb-month-title" id="jbMonthTitle"></h3>
+              <button type="button" class="jb-nav" id="jbNextMonth" aria-label="Tháng sau">›</button>
+            </div>
+            <div class="jb-calendar" id="jbCalendar" role="grid" aria-label="Lịch tháng"></div>
+            <div class="jb-legend" aria-hidden="true">
+              <span><i class="jb-dot"></i> Đã viết</span>
+              <span><i class="jb-dot mood-5"></i><i class="jb-dot mood-3"></i><i class="jb-dot mood-1"></i> Tâm trạng</span>
+            </div>
+            <div class="jb-paper-pick">
+              <span class="jb-small-label">Giấy</span>
+              <div class="segmented" id="jbPaper" role="radiogroup" aria-label="Kiểu giấy">
+                <button type="button" role="radio" data-paper="cream">Kem cổ điển</button>
+                <button type="button" role="radio" data-paper="white">Trắng tối giản</button>
+              </div>
+            </div>
+          </aside>
+
+          <div class="jb-spine" aria-hidden="true"></div>
+
+          <article class="jb-page jb-right" id="jbDay" aria-live="polite">
+            <header class="jb-day-head">
+              <button type="button" class="jb-nav" id="jbPrevDay" aria-label="Ngày trước (←)">‹</button>
+              <div class="jb-date">
+                <h2 class="jb-date-solar" id="jbDateSolar"></h2>
+                <span class="jb-date-lunar" id="jbDateLunar"></span>
+              </div>
+              <button type="button" class="jb-nav" id="jbNextDay" aria-label="Ngày sau (→)">›</button>
+              <button type="button" class="jb-today" id="jbToday">Hôm nay</button>
+            </header>
+
+            <div class="jb-mood" id="jbMood" role="radiogroup" aria-label="Tâm trạng hôm nay">
+              <button type="button" role="radio" data-mood="1" title="Rất tệ">😞</button>
+              <button type="button" role="radio" data-mood="2" title="Không ổn">😕</button>
+              <button type="button" role="radio" data-mood="3" title="Bình thường">😐</button>
+              <button type="button" role="radio" data-mood="4" title="Tốt">🙂</button>
+              <button type="button" role="radio" data-mood="5" title="Rất tốt">😄</button>
+            </div>
+
+            <section class="jb-section">
+              <h4 class="jb-label">☀ Ý định</h4>
+              <p class="jb-intention" id="jbIntention"></p>
+            </section>
+
+            <section class="jb-section jb-grow">
+              <h4 class="jb-label"><label for="jbNotes">Ghi chép</label></h4>
+              <textarea class="jb-lines" id="jbNotes" data-field="notes" placeholder="Hôm nay thế nào?"></textarea>
+            </section>
+
+            <section class="jb-section jb-evening">
+              <h4 class="jb-label">🌙 Cuối ngày</h4>
+              <label class="jb-q" for="jbDid">Hôm nay mình làm được gì?</label>
+              <textarea class="jb-lines jb-short" id="jbDid" data-field="did" rows="2"></textarea>
+              <label class="jb-q" for="jbGrateful">Mình biết ơn điều gì?</label>
+              <textarea class="jb-lines jb-short" id="jbGrateful" data-field="grateful" rows="2"></textarea>
+              <label class="jb-q" for="jbTomorrow">Ngày mai ưu tiên gì?</label>
+              <textarea class="jb-lines jb-short" id="jbTomorrow" data-field="tomorrow" rows="2"></textarea>
+            </section>
+
+            <footer class="jb-foot">
+              <span class="jb-facts" id="jbFacts"></span>
+              <span class="jb-saved" id="jbSaved" role="status" aria-live="polite"></span>
+            </footer>
+          </article>
+        </div>
+      </div>
+
       <div id="view-ai" class="dashboard-view">
         <div class="ai-mentor-container">
           <!-- Context Panel Left -->
@@ -1078,5 +1156,6 @@ Chợ online thực phẩm
   <script src="ambient.js" defer></script>
   <script src="script.js" defer></script>
   <script src="relax.js" defer></script>
+  <script src="journal.js" defer></script>
 </body>
 </html>

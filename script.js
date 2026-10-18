@@ -2158,7 +2158,7 @@ function switchTab(tab) {
   
   const targetView = document.getElementById(`view-${tab}`);
   if (targetView) {
-    targetView.style.display = (tab === 'focus' || tab === 'ai') ? 'flex' : 'block';
+    targetView.style.display = (tab === 'focus' || tab === 'ai' || tab === 'journal') ? 'flex' : 'block';
     // Reflow trigger
     void targetView.offsetWidth;
     targetView.classList.add('active');
@@ -2180,6 +2180,8 @@ function switchTab(tab) {
     initAiView();
   } else if (tab === 'stats') {
     initStatsView();
+  } else if (tab === 'journal') {
+    window.ZenJournal?.open();
   }
 }
 
