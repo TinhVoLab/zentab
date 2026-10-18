@@ -2553,3 +2553,60 @@ select[aria-invalid] { box-shadow: 0 0 0 2px var(--red, #ff453a); }
   .jb-right { border-radius: 0 0 14px 14px; padding-left: 52px; }
   .jb-right::before { left: 36px; }
 }
+
+/* Nhật ký — search, tags, export menu */
+.jb-search input {
+  width: 100%; height: 34px; padding: 0 12px; border: none; border-radius: 10px; outline: none;
+  font: 14px var(--font-display); color: var(--jb-ink);
+  background: color-mix(in srgb, var(--jb-ink) 7%, transparent);
+}
+.jb-search input::placeholder { color: var(--jb-ink-faint); }
+.jb-search input:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--jb-accent) 55%, transparent); }
+.jb-index { display: flex; flex-direction: column; gap: 14px; }
+.jb-index[hidden], .jb-results[hidden] { display: none; }
+.jb-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.jb-tag {
+  border: none; border-radius: 999px; padding: 3px 9px; cursor: pointer;
+  font: 600 12px var(--font-display); color: var(--jb-accent); background: color-mix(in srgb, var(--jb-accent) 13%, transparent);
+}
+.jb-tag small { font-weight: 500; opacity: 0.7; }
+.jb-hint { font: 12px/1.45 var(--font-display); color: var(--jb-ink-faint); }
+.jb-results { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; min-height: 0; }
+.jb-results-count { margin: 0 0 4px; font: 12px var(--font-display); color: var(--jb-ink-faint); }
+.jb-hit {
+  display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: none; border-radius: 10px;
+  text-align: left; cursor: pointer; background: transparent; color: var(--jb-ink);
+}
+.jb-hit:hover { background: color-mix(in srgb, var(--jb-ink) 7%, transparent); }
+.jb-hit-date { font: 600 12px var(--font-display); color: var(--jb-ink-soft); }
+.jb-hit-text { font: 14px/1.4 var(--jb-font); }
+.jb-hit mark { background: color-mix(in srgb, var(--jb-accent) 28%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+.jb-menu { margin-top: auto; font: 13px var(--font-display); }
+.jb-menu summary { cursor: pointer; color: var(--jb-ink-soft); font-weight: 600; list-style: none; }
+.jb-menu summary::-webkit-details-marker { display: none; }
+.jb-menu summary::before { content: '⇩ '; }
+.jb-menu-list { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.jb-menu-list button, .jb-import {
+  padding: 6px 8px; border: none; border-radius: 8px; text-align: left; cursor: pointer;
+  font: 13px var(--font-display); color: var(--jb-ink); background: transparent;
+}
+.jb-menu-list button:hover, .jb-import:hover { background: color-mix(in srgb, var(--jb-ink) 7%, transparent); }
+.jb-paper-pick { margin-top: 0; }
+
+/* Print: only the journal month, as clean notebook pages */
+#journalPrint { display: none; }
+@media print {
+  body.printing-journal > *:not(#journalPrint) { display: none !important; }
+  body.printing-journal { background: #fff !important; }
+  body.printing-journal #journalPrint {
+    display: block; color: #2b241b; font: 12pt/1.6 "New York", "Iowan Old Style", Palatino, Georgia, serif;
+  }
+  #journalPrint .jp-title { font-size: 20pt; margin: 0 0 12pt; }
+  #journalPrint .jp-page { break-inside: avoid; padding: 10pt 0 14pt; border-bottom: 0.5pt solid #d8cdb8; }
+  #journalPrint h2 { font-size: 14pt; margin: 0; }
+  #journalPrint .jp-lunar { margin: 0 0 6pt; font-style: italic; color: #7a6b55; }
+  #journalPrint .jp-intention { font-style: italic; margin: 0 0 6pt; }
+  #journalPrint .jp-notes { white-space: pre-wrap; margin: 0 0 6pt; }
+  #journalPrint .jp-q { margin: 4pt 0 0; font-style: italic; color: #7a6b55; }
+  #journalPrint .jp-a { margin: 0; white-space: pre-wrap; }
+}
