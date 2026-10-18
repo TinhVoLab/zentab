@@ -330,6 +330,27 @@
       };
     },
 
+    // Turning a paper page: a short, airy swish with a crisp edge
+    pageTurn() {
+      ensureContext();
+      const t = ctx.currentTime;
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer('white');
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 0.7;
+      bp.frequency.setValueAtTime(1800, t);
+      bp.frequency.exponentialRampToValueAtTime(4200, t + 0.28);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16, t + 0.06);
+      g.gain.exponentialRampToValueAtTime(0.05, t + 0.22);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+      src.connect(bp).connect(g).connect(ctx.destination);
+      src.start(t, Math.random() * 5);
+      src.stop(t + 0.5);
+    },
+
     // Setting a lantern on the water: a soft drop followed by a distant bell
     lanternRelease() {
       ensureContext();

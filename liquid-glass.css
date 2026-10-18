@@ -2610,3 +2610,65 @@ select[aria-invalid] { box-shadow: 0 0 0 2px var(--red, #ff453a); }
   #journalPrint .jp-q { margin: 4pt 0 0; font-style: italic; color: #7a6b55; }
   #journalPrint .jp-a { margin: 0; white-space: pre-wrap; }
 }
+
+/* Nhật ký — turning pages: a leaf hinged on the spine edge of the right page */
+.journal-book { position: relative; perspective: 4800px; perspective-origin: 50% 50%; }
+.jb-leaf, .jb-under { position: absolute; pointer-events: none; }
+.jb-under { z-index: 4; }
+.jb-leaf { z-index: 5; transform-origin: left center; transform-style: preserve-3d; will-change: transform; }
+.jb-leaf > .jb-leaf-face,
+.jb-leaf > .jb-leaf-back,
+.jb-under > .jb-leaf-face {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.jb-leaf > .jb-leaf-face { box-shadow: -6px 0 22px rgba(0, 0, 0, 0.18); }
+/* The reverse of a sheet: blank paper of the same kind, seen from the left page */
+.jb-leaf-back {
+  transform: rotateY(180deg);
+  border-radius: 14px 0 0 14px;
+  background-color: var(--jb-paper-2);
+  box-shadow: 6px 0 22px rgba(0, 0, 0, 0.18);
+}
+.journal-book[data-paper="cream"] .jb-leaf-back {
+  background-image: linear-gradient(to bottom, transparent calc(var(--jb-line) - 1px), var(--jb-rule) calc(var(--jb-line) - 1px));
+  background-size: 100% var(--jb-line);
+  background-position: 0 98px;
+}
+/* Shading on the turning sheet: darker toward the hinge, strongest mid-turn */
+.jb-leaf-shade {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 0 14px 14px 0;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.12) 45%, rgba(255, 255, 255, 0.06) 80%, transparent);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Dog-eared corners: a little fold that lifts on hover */
+.jb-corner {
+  position: absolute;
+  bottom: 0;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  cursor: grab;
+  touch-action: none;
+  background: none;
+  transition: width 0.25s var(--ease-spring), height 0.25s var(--ease-spring);
+}
+.jb-corner[hidden] { display: none; }
+.jb-corner:hover, .jb-corner:focus-visible { width: 52px; height: 52px; }
+.jb-corner:active { cursor: grabbing; }
+.jb-corner:focus-visible { outline: none; }
+.jb-corner-next { right: 0; border-bottom-right-radius: 14px; background: linear-gradient(135deg, transparent 50%, color-mix(in srgb, var(--jb-ink) 14%, var(--jb-paper-2)) 50%, var(--jb-paper-2) 70%); box-shadow: -3px -3px 6px -4px rgba(0, 0, 0, 0.35) inset; }
+.jb-corner-prev { left: 0; background: linear-gradient(225deg, transparent 50%, color-mix(in srgb, var(--jb-ink) 14%, var(--jb-paper-2)) 50%, var(--jb-paper-2) 70%); box-shadow: 3px -3px 6px -4px rgba(0, 0, 0, 0.35) inset; }
+.jb-corner:focus-visible { box-shadow: 0 0 0 2px var(--jb-accent); }

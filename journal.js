@@ -8,6 +8,8 @@
   if (!book) return;
 
   const $ = id => document.getElementById(id);
+  // Sounds are a nicety: never let audio problems interrupt writing
+  const sound = (name, ...args) => { try { window.ZenAmbient?.[name]?.(...args); } catch (e) {} };
   const fields = [...book.querySelectorAll('textarea[data-field]')];
   const WEEKDAYS = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
   const MOODS = { 1: 'rất tệ', 2: 'không ổn', 3: 'bình thường', 4: 'tốt', 5: 'rất tốt' };
@@ -120,6 +122,7 @@
     $('jbDateSolar').textContent = `${WEEKDAYS[selected.getDay()]}, ${selected.getDate()} tháng ${selected.getMonth() + 1}, ${selected.getFullYear()}`;
     $('jbDateLunar').textContent = lunarLabel(selected);
     $('jbNextDay').disabled = isToday(selected);
+    $('jbCornerNext').hidden = isToday(selected);
     $('jbToday').hidden = isToday(selected);
 
     fields.forEach(f => { f.value = page[f.dataset.field] || ''; autosize(f); });
@@ -168,21 +171,165 @@
     $('jbFacts').textContent = parts.join(' · ');
   }
 
-  function go(date, dir) {
-    flush();
-    const prev = selected;
+  // ---- Turning pages: a 3D leaf hinged on the spine ----
+  // Forward: the current page lifts from the right and turns over onto the left.
+  // Back: the previous page comes over from the left and settles on the right.
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const TURN_MS = 820;
+  let turning = false;
+
+  // A static copy of the day page (textarea values come along with cloneNode)
+  function snapshot() {
+    const c = $('jbDay').cloneNode(true);
+    c.removeAttribute('id');
+    c.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+    c.classList.remove('turn-next', 'turn-prev');
+    c.classList.add('jb-leaf-face');
+    c.setAttribute('aria-hidden', 'true');
+    c.inert = true;
+    return c;
+  }
+
+  // A layer exactly over the right-hand page
+  function overlay(cls, children) {
+    const day = $('jbDay');
+    const el = document.createElement('div');
+    el.className = cls;
+    Object.assign(el.style, { left: `${day.offsetLeft}px`, top: `${day.offsetTop}px`, width: `${day.offsetWidth}px`, height: `${day.offsetHeight}px` });
+    children.forEach(c => el.appendChild(c));
+    book.appendChild(el);
+    return el;
+  }
+
+  function buildLeaf(front) {
+    const back = document.createElement('div');
+    back.className = 'jb-page jb-leaf-back';
+    const shade = document.createElement('div');
+    shade.className = 'jb-leaf-shade';
+    return overlay('jb-leaf', [front, back, shade]);
+  }
+
+  // Leaf angle for progress p (0 → 1) in a direction
+  const angleAt = (dir, p) => dir > 0 ? -180 * p : -180 * (1 - p);
+  // The right page is wider than the left one, so the sheet narrows as it turns until it
+  // lies exactly over the left page instead of overhanging the book
+  function leafTransform(dir, p) {
+    const a = angleAt(dir, p);
+    const day = $('jbDay');
+    const ratio = Math.min(1, day.offsetLeft / day.offsetWidth);
+    const t = Math.abs(a) / 180;
+    const k = t * t * (3 - 2 * t); // smoothstep: barely narrows early, lands at the left page's width
+    return `rotateY(${a}deg) scaleX(${1 - (1 - ratio) * k})`;
+  }
+  function pose(t, p) {
+    t.leaf.style.transform = leafTransform(t.dir, p);
+    // Light falls off as the page stands up, brightest when flat
+    t.leaf.lastChild.style.opacity = String(Math.sin(Math.PI * p) * 0.55);
+  }
+
+  function applyDate(date) {
     selected = startOfDay(date);
     if (selected.getMonth() !== viewMonth.getMonth() || selected.getFullYear() !== viewMonth.getFullYear()) {
       viewMonth = new Date(selected.getFullYear(), selected.getMonth(), 1);
     }
     renderCalendar();
     renderDay();
-    // Page-turn cue (CSS honours reduced motion)
-    const day = $('jbDay');
-    day.classList.remove('turn-next', 'turn-prev');
-    void day.offsetWidth;
-    day.classList.add((dir || (selected > prev ? 1 : -1)) > 0 ? 'turn-next' : 'turn-prev');
   }
+
+  // Start a turn: the new day is rendered underneath right away
+  function beginTurn(date, dir) {
+    flush();
+    const prevDate = selected;
+    const old = snapshot();
+    applyDate(date);
+    const t = { dir, prevDate, under: null, leaf: null };
+    if (dir > 0) {
+      t.leaf = buildLeaf(old);
+    } else {
+      // keep showing the old page until the incoming one lands on it
+      t.under = overlay('jb-under', [old]);
+      t.leaf = buildLeaf(snapshot());
+    }
+    pose(t, 0);
+    return t;
+  }
+
+  function endTurn(t, fromP, complete) {
+    const toP = complete ? 1 : 0;
+    const dur = TURN_MS * Math.max(0.25, Math.abs(toP - fromP));
+    // Sample the path so the narrowing past 90° follows the turn smoothly
+    const steps = 16;
+    const frames = Array.from({ length: steps + 1 }, (_, i) => ({ transform: leafTransform(t.dir, fromP + (toP - fromP) * (i / steps)) }));
+    const anim = t.leaf.animate(frames, { duration: dur, easing: 'cubic-bezier(0.4, 0.1, 0.25, 1)', fill: 'forwards' });
+    t.leaf.lastChild.animate([{ opacity: 0.3 }, { opacity: 0 }], { duration: dur, fill: 'forwards' });
+    anim.onfinish = () => {
+      t.leaf.remove();
+      if (t.under) t.under.remove();
+      if (!complete) applyDate(t.prevDate); // released too early: stay on the old day
+      turning = false;
+    };
+  }
+
+  function go(date, dir) {
+    const target = startOfDay(date);
+    if (key(target) === key(selected) || turning) return;
+    dir = dir || (target > selected ? 1 : -1);
+    if (reduceMotion.matches) {
+      flush();
+      applyDate(target);
+      const day = $('jbDay');
+      day.classList.remove('turn-next', 'turn-prev');
+      void day.offsetWidth;
+      day.classList.add(dir > 0 ? 'turn-next' : 'turn-prev');
+      return;
+    }
+    turning = true;
+    sound('pageTurn');
+    try {
+      endTurn(beginTurn(target, dir), 0, true);
+    } catch (e) {
+      // never leave the notebook stuck mid-turn
+      turning = false;
+      book.querySelectorAll('.jb-leaf, .jb-under').forEach(el => el.remove());
+      applyDate(target);
+      console.warn('ZenTab: page turn failed,', e.message);
+    }
+  }
+
+  // Grab a dog-eared corner and drag across the page; a click turns it outright
+  function cornerTurn(dir, e) {
+    if (turning) return;
+    const target = new Date(selected);
+    target.setDate(target.getDate() + dir);
+    if (target > startOfDay(new Date())) return;
+    if (reduceMotion.matches) { go(target, dir); return; }
+    e.preventDefault();
+    turning = true;
+    const startX = e.clientX;
+    const width = $('jbDay').offsetWidth;
+    let t = null, p = 0, moved = false;
+    const onMove = ev => {
+      const dx = (ev.clientX - startX) * (dir > 0 ? -1 : 1);
+      if (!moved && Math.abs(dx) < 6) return;
+      if (!moved) { moved = true; t = beginTurn(target, dir); sound('pageTurn'); }
+      p = Math.max(0, Math.min(1, dx / (width * 0.9)));
+      pose(t, p);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      if (!moved) { turning = false; go(target, dir); return; }
+      endTurn(t, p, p > 0.35);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }
+  $('jbCornerNext').addEventListener('pointerdown', e => cornerTurn(1, e));
+  $('jbCornerPrev').addEventListener('pointerdown', e => cornerTurn(-1, e));
+  // keyboard users: the corners are buttons too
+  $('jbCornerNext').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); shift(1); } });
+  $('jbCornerPrev').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); shift(-1); } });
+
   const shift = n => {
     const d = new Date(selected);
     d.setDate(d.getDate() + n);
