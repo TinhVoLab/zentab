@@ -79,12 +79,27 @@
   document.querySelectorAll('#relaxTabs [data-relax-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.relaxTab)));
   document.getElementById('closeRelaxBtn').addEventListener('click', close);
   modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  // ---- Phóng to: a bigger card; remembered for next time ----
+  const card = modal.querySelector('.relax-card');
+  const sizeBtn = document.getElementById('relaxSizeBtn');
+  function setLarge(on) {
+    card.classList.toggle('is-large', on);
+    sizeBtn.setAttribute('aria-pressed', on);
+    sizeBtn.title = sizeBtn.ariaLabel = on ? 'Thu nhỏ (F)' : 'Phóng to (F)';
+    try { localStorage.setItem('zt-relax-large', on ? '1' : ''); } catch (e) {}
+    // canvases follow the new size once the card has settled
+    setTimeout(() => { if (currentTab === 'garden') garden.init(); }, 480);
+  }
+  sizeBtn.addEventListener('click', () => setLarge(!card.classList.contains('is-large')));
+  try { if (localStorage.getItem('zt-relax-large')) setLarge(true); } catch (e) {}
+
   const TABS = ['breath', 'bubbles', 'garden', 'lantern'];
   let currentTab = 'breath';
   document.addEventListener('keydown', e => {
     if (modal.style.display === 'none') return;
     if (e.key === 'Escape') { close(); return; }
     if (e.target.matches('input, textarea') || !endPanel.hidden) return;
+    if (e.key === 'f' || e.key === 'F') { setLarge(!card.classList.contains('is-large')); return; }
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
       e.preventDefault();
       const i = TABS.indexOf(currentTab) + (e.key === 'ArrowRight' ? 1 : -1);
@@ -268,14 +283,22 @@
       const cw = stage.offsetWidth, ch = stage.offsetHeight;
       if (!cw || (cw === w && ch === h)) return;
       const dpr = window.devicePixelRatio || 1;
+      // Resized (Phóng to): keep the garden, centred on the larger or smaller tray
+      const keep = w ? [sand, stones].map(c => { const k = document.createElement('canvas'); k.width = c.width; k.height = c.height; k.getContext('2d').drawImage(c, 0, 0); return k; }) : null;
+      const [ow, oh] = [w, h];
       w = cw; h = ch;
       [[sand, sctx], [stones, tctx]].forEach(([c, x]) => {
         c.width = Math.round(w * dpr);
         c.height = Math.round(h * dpr);
         x.setTransform(dpr, 0, 0, dpr, 0, 0);
       });
-      pattern = makePattern();
+      if (!pattern) pattern = makePattern(); else pattern = makePattern();
       smooth();
+      if (keep) {
+        const dx = (w - ow) / 2, dy = (h - oh) / 2;
+        sctx.drawImage(keep[0], dx, dy, ow, oh);
+        tctx.drawImage(keep[1], dx, dy, ow, oh);
+      }
     }
 
     function smooth() {
@@ -446,7 +469,7 @@
     const countEl = document.getElementById('lanternCount');
     const DRIFT_MS = 14000, FAR_MAX = 14, NEXT_MS = 1400, WAIT_SCALE = 1.25;
     const VB = { w: 1600, h: 1000, horizon: 660, moonX: 1220, moonY: 230 }; // moon.svg geometry
-    let w = 0, h = 0, dpr = 1, raf = null, released = 0;
+    let w = 0, h = 0, dpr = 1, raf = null, released = 0, U = 1; // U: lantern scale, grows with Phóng to
     let scene = null, map = null, waiting = null;
     const drifting = [], far = [];
     const bg = new Image();
@@ -470,6 +493,7 @@
       map.horizon = map.oy + VB.horizon * k;
       map.moonX = map.ox + VB.moonX * k;
       map.moonY = map.oy + VB.moonY * k;
+      U = Math.max(1, h / 340);
       scene = null;
       waiting = waiting || newWaiting(performance.now());
     }
@@ -567,7 +591,7 @@
       // far shore: lights that stay, drifting slowly along the horizon
       far.forEach(l => {
         const x = l.x + Math.sin(t / 4000 + l.seed) * 14;
-        lantern(x, map.horizon + 6 + l.dy, 0.2, l.a, flick(t, l.seed));
+        lantern(x, map.horizon + 6 + l.dy, 0.2 * U, l.a, flick(t, l.seed));
       });
       // released lanterns crossing the river
       for (let i = drifting.length - 1; i >= 0; i--) {
@@ -575,7 +599,7 @@
         const k = Math.min(1, (t - l.born) / DRIFT_MS);
         const e = 1 - Math.pow(1 - k, 2.2);
         const y = l.y0 + (map.horizon + 6 + l.dy - l.y0) * e;
-        const s = WAIT_SCALE * (1 - 0.84 * e);
+        const s = WAIT_SCALE * U * (1 - 0.84 * e);
         const x = l.x0 + (l.x1 - l.x0) * e + Math.sin(t / 900 + l.seed) * 6 * s;
         lantern(x, y, s, 1, flick(t, l.seed));
         text(l.text, x, y - 36 * s - e * 30, 15 * Math.max(0.7, s), Math.max(0, 1 - k / 0.4));
@@ -590,8 +614,8 @@
         const appear = Math.min(1, (t - waiting.born) / 700);
         const bob = reduceMotion.matches ? 0 : Math.sin(t / 1100 + waiting.seed) * 2.5;
         const y = restY() + bob + (1 - appear) * 12;
-        lantern(waiting.x, y, WAIT_SCALE, appear, flick(t, waiting.seed));
-        text(input.value.trim(), waiting.x, y - 48, 16, appear * 0.95);
+        lantern(waiting.x, y, WAIT_SCALE * U, appear, flick(t, waiting.seed));
+        text(input.value.trim(), waiting.x, y - 48 * U, 16 * U, appear * 0.95);
       }
       raf = requestAnimationFrame(frame);
     }
