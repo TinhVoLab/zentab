@@ -2,12 +2,12 @@
 // The QR payload (NAPAS/EMVCo) is built here and drawn locally with qrcode.js, so
 // nothing is fetched and nobody is tracked. Any banking app can scan it.
 (function () {
-  // Fill these in to turn the section on; it stays hidden while account is empty.
+  // The section stays hidden if account is empty.
   const DONATE = {
-    bankBin: '',       // NAPAS BIN, e.g. 970436 Vietcombank, 970407 Techcombank, 970422 MB
-    bankName: '',      // shown to the user, e.g. 'Vietcombank'
-    account: '',       // account number
-    holder: '',        // account holder, as the bank shows it (no diacritics)
+    bankBin: '970436',        // NAPAS BIN of Vietcombank
+    bankName: 'Vietcombank',
+    account: '0071000815935',
+    holder: 'VO LINH TINH',   // as banking apps show it (no diacritics)
     note: 'Ung ho ZenTab',
   };
   const AMOUNTS = [
