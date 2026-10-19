@@ -117,36 +117,37 @@
           <div class="header-right">
             <!-- Zen Control Buttons -->
             <div class="zen-controls-bar">
-              <button id="toggleLeftBtn" class="zen-control-btn" aria-label="Lá số Tử Vi" title="Lá số Tử Vi (Trái)">
+              <button id="toggleLeftBtn" class="zen-control-btn" aria-label="Lá số Tử Vi">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a4.5 4.5 0 0 1 0 9 4.5 4.5 0 0 0 0 9"/><circle cx="12" cy="7.5" r="0.9" fill="currentColor"/><circle cx="12" cy="16.5" r="0.9"/></svg>
+                <span class="ctl-tip">Lá số Tử Vi</span>
               </button>
-              <button id="toggleTasksBtn" class="zen-control-btn" aria-label="Nhiệm vụ hôm nay" title="Nhiệm vụ hôm nay">
+              <button id="toggleTasksBtn" class="zen-control-btn" aria-label="Nhiệm vụ hôm nay">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M3.5 6l1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2"/></svg>
+                <span class="ctl-tip">Nhiệm vụ hôm nay</span>
               </button>
-              <button id="toggleRightBtn" class="zen-control-btn" aria-label="Tiện ích" title="Tiện ích">
+              <button id="toggleRightBtn" class="zen-control-btn" aria-label="Tiện ích">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></svg>
+                <span class="ctl-tip">Tiện ích</span>
               </button>
-              <button id="toggleZenBtn" class="zen-control-btn main-zen-toggle" aria-label="Chế độ tối giản" title="Chế độ tối giản (Zen)">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
+              <button id="toggleZenBtn" class="zen-control-btn main-zen-toggle" aria-pressed="false" aria-label="Chế độ tối giản">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M17.6 5.4A8 8 0 1 0 20 11.2"/><path d="M20 11.2c.1-1 .1-1.9-.2-2.8" opacity=".55"/></svg>
+                <span class="ctl-tip">Chế độ tối giản</span>
               </button>
             </div>
           </div>
         </div>
 
-        <div class="zen-hint" id="zenHint" role="status" hidden>Di chuột để hiện công cụ · nút ở góc phải trên để tắt chế độ tối giản</div>
+        <div class="zen-hint" id="zenHint" role="status" hidden>Rê chuột để hiện công cụ</div>
 
         <div class="main-dashboard-new">
           <!-- CENTER VIEWPORT: Main Focus -->
           <div class="main-focus-center">
             <!-- Greetings and Time -->
             <header class="center-header">
-              <h2 class="greeting" id="greeting">Chào buổi sáng, <span id="userName" class="name-editable">bạn</span> 💜</h2>
+              <h2 class="greeting" id="greeting">Chào buổi sáng, <span id="userName" class="name-editable">bạn</span></h2>
               <div id="clock" class="clock">00:00</div>
               <div id="date" class="date"></div>
-              <div id="sparkline" class="sparkline"></div>
+              <div id="sparkline" class="sparkline week-dots" role="img" hidden></div>
 
             </header>
 
@@ -162,11 +163,11 @@
                 </div>
               </div>
 
-              <div id="journalIntention" class="journal-section">
+              <div id="journalIntention" class="journal-section is-asking">
                 <p class="journal-label" id="intentionLabel">Điều gì quan trọng nhất hôm nay?</p>
                 <div class="journal-input-row" id="journalInputRow">
-                  <input type="text" id="journalInput" placeholder="Hôm nay bạn muốn tập trung vào điều gì?" autocomplete="off">
-                  <button class="intention-submit-btn" id="intentionSubmitBtn">
+                  <input type="text" id="journalInput" placeholder="Điều gì quan trọng nhất hôm nay?" aria-labelledby="intentionLabel" autocomplete="off">
+                  <button class="intention-submit-btn" id="intentionSubmitBtn" aria-label="Lưu ý định">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                     </svg>

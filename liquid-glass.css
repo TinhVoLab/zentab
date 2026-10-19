@@ -1322,7 +1322,7 @@ input[type="range"]::-webkit-slider-thumb:active { transform: scale(1.12); }
    both appearances (like the Lock Screen); the mind-map canvas stays dark. */
 .center-header,
 .dock-quote-section,
-.intention-container :is(.journal-label, .journal-prompt, .journal-entry),
+.intention-container :is(.journal-label, .journal-prompt, .journal-entry, .journal-input-row),
 #view-focus,
 .view-header,
 .mindmap-card {
@@ -1458,7 +1458,7 @@ html[data-custom-bg] body { background-size: cover !important; background-positi
 
 /* Light-toned wallpapers: dark text on the wallpaper, softer vignette */
 html[data-wp-tone="light"] :is(.center-header, .dock-quote-section, #view-focus, .view-header,
-  .intention-container :is(.journal-label, .journal-prompt, .journal-entry), .weather-widget-minimal, .zen-controls-bar) {
+  .intention-container :is(.journal-label, .journal-prompt, .journal-entry, .journal-input-row), .weather-widget-minimal, .zen-controls-bar) {
   --text: rgba(0, 0, 0, 0.86);
   --text-dim: rgba(30, 30, 40, 0.8);
   --text-muted: rgba(30, 30, 40, 0.62);
@@ -2028,6 +2028,80 @@ html.is-fullscreen .app-layout:has(#view-focus.active) .sidebar-left { display: 
   background: var(--field-bg-focus);
   box-shadow: var(--lg-edge), 0 0 0 4px rgba(255, 255, 255, 0.08), 0 18px 48px -10px rgba(0, 0, 0, 0.45);
 }
+
+/* One question, written on the wallpaper: while asking, the label steps aside (it stays the
+   input's accessible name) and the input itself asks, in the Focus page's handwriting */
+#journalIntention.is-asking #intentionLabel {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.intention-container .journal-input-row {
+  position: relative;
+  width: min(520px, 80vw);
+  align-self: center;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+.intention-container .journal-input-row:focus-within { background: none; box-shadow: none; }
+.intention-container .journal-input-row input {
+  width: 100%;
+  padding: 4px 44px 8px;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 22%, transparent);
+  border-radius: 0;
+  background: none;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: clamp(20px, 2.2vw, 25px);
+  color: var(--text);
+  caret-color: var(--accent);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 18px rgba(0, 0, 0, 0.45);
+  transition: border-color 0.3s ease;
+}
+.intention-container .journal-input-row input::placeholder { color: color-mix(in srgb, var(--text) 82%, transparent); font-style: italic; }
+.intention-container .journal-input-row input:focus { border-bottom-color: color-mix(in srgb, var(--text) 50%, transparent); }
+.intention-container .journal-input-row input:focus::placeholder { color: color-mix(in srgb, var(--text) 62%, transparent); }
+html[data-wp-tone="light"] .intention-container .journal-input-row input { text-shadow: none; }
+/* the arrow only appears once there's something to save */
+.intention-container .intention-submit-btn {
+  position: absolute; right: 0; top: 50%;
+  width: 32px; height: 32px;
+  transform: translateY(-55%) scale(0.85);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.3s var(--ease-spring);
+}
+.intention-container .journal-input-row:has(input:not(:placeholder-shown)) .intention-submit-btn { opacity: 1; pointer-events: auto; transform: translateY(-55%) scale(1); }
+.intention-container .intention-submit-btn svg { width: 15px; height: 15px; }
+
+/* Seven dots for the week's intentions */
+.week-dots { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 14px; height: auto; }
+.week-dots[hidden] { display: none; }
+.week-dot { width: 6px; height: 6px; border-radius: 50%; background: color-mix(in srgb, var(--on-wallpaper) 22%, transparent); }
+.week-dot.set { background: color-mix(in srgb, var(--on-wallpaper) 55%, transparent); }
+.week-dot.kept { background: var(--on-wallpaper); }
+.week-dot.today { box-shadow: 0 0 0 2px color-mix(in srgb, var(--on-wallpaper) 85%, transparent); background-clip: content-box; padding: 1px; width: 8px; height: 8px; }
+.week-dot.today:not(.set):not(.kept) { background-color: transparent; }
+
+/* Toolbar tooltips, like the sidebar's, below the buttons */
+.zen-control-btn { position: relative; }
+.ctl-tip {
+  position: absolute; top: calc(100% + 12px); left: 50%;
+  padding: 5px 10px; border-radius: 8px;
+  background: var(--menu-bg); color: var(--text);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+  font-size: 12px; font-weight: 560; white-space: nowrap; text-shadow: none;
+  opacity: 0; transform: translate(-50%, -4px); pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.2s var(--ease-spring);
+  z-index: 30;
+}
+.zen-control-btn:last-child .ctl-tip { left: auto; right: 0; transform: translate(0, -4px); }
+.zen-control-btn:hover .ctl-tip, .zen-control-btn:focus-visible .ctl-tip { opacity: 1; transform: translate(-50%, 0); transition-delay: 0.35s; }
+.zen-control-btn:last-child:hover .ctl-tip, .zen-control-btn:last-child:focus-visible .ctl-tip { transform: translate(0, 0); }
+html[data-wp-tone="light"] .zen-controls-bar .ctl-tip { color: rgba(0, 0, 0, 0.86); background: #fff; }
 
 /* ---------- Setup states: say what's missing and offer the one fix ---------- */
 .ai-status.offline { color: var(--text-muted); }

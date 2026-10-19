@@ -142,6 +142,9 @@
     if (greetEnabled === false) return;
     const state = greetState || { date: null, milestones: [] };
     if (state.date === today) return; // once a day
+    // First tab after install: the Zen hint speaks first; the greeting waits for the next tab
+    const { zenHintSeen } = await get('local', 'zenHintSeen');
+    if (!zenHintSeen) return;
     // Don't speak over a running focus session
     if (document.documentElement.classList.contains('timer-is-running')) return;
 

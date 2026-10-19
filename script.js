@@ -170,7 +170,7 @@ function updateGreeting() {
   nameEl.id = 'userName';
   nameEl.className = 'name-editable';
   nameEl.textContent = currentUserName;
-  greetingEl.replaceChildren(`${g}, `, nameEl, ' 💜');
+  greetingEl.replaceChildren(`${g}, `, nameEl);
   attachNameEdit();
 }
 
@@ -277,12 +277,14 @@ function loadJournal() {
         journalTodayEntry.textContent = `\u201C${todayEntry.entry}\u201D`;
       }
       if (intentionLabel) intentionLabel.textContent = 'Ý định hôm nay:';
+      if (journalIntention) journalIntention.classList.remove('is-asking');
       if (startFocusFromIntention) startFocusFromIntention.hidden = false;
     } else {
       if (jInputRow) jInputRow.style.display = '';
       if (journalTodayEntry) journalTodayEntry.style.display = 'none';
       if (startFocusFromIntention) startFocusFromIntention.hidden = true;
       if (intentionLabel) intentionLabel.textContent = 'Điều gì quan trọng nhất hôm nay?';
+      if (journalIntention) journalIntention.classList.add('is-asking');
       if ((!yesterdayEntry || yesterdayEntry.honored !== null) && journalInput) journalInput.focus();
     }
 
@@ -313,6 +315,7 @@ function saveJournalEntry(text) {
         journalTodayEntry.textContent = `\u201C${text.trim()}\u201D`;
       }
       if (intentionLabel) intentionLabel.textContent = 'Ý định hôm nay:';
+      if (journalIntention) journalIntention.classList.remove('is-asking');
       if (startFocusFromIntention) {
         startFocusFromIntention.hidden = false;
         // Pressing Enter again starts the session
@@ -351,29 +354,31 @@ if (startFocusFromIntention) {
   });
 }
 
+// Seven dots under the date: the last week's intentions (kept · set · none), today ringed.
+// Hidden until there is at least one intention to show, so a new tab doesn't open on blanks.
 function renderSparkline(entries) {
   const container = document.getElementById('sparkline');
   if (!container) return;
+  const today = getDateStr(new Date());
   const days = [];
-  const now = new Date();
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(now); d.setDate(d.getDate() - i);
+    const d = new Date(); d.setDate(d.getDate() - i);
     days.push(getDateStr(d));
   }
-
-  container.innerHTML = days.map(d => {
-    const entry = entries.find(e => e.date === d);
-    const isToday = d === getDateStr(new Date());
-    let level = 0;
-    if (entry) {
-      if (entry.honored === true) level = 2;
-      else if (entry.honored === false) level = 1;
-      else if (entry.honored === null && entry.entry) level = 1;
-    }
-    const height = level === 0 ? 2 : level === 1 ? 8 : 14;
-    const cls = isToday ? 'sparkline-bar today' : (level > 0 ? 'sparkline-bar filled' : 'sparkline-bar empty');
-    return `<div class="${cls}" style="height:${height}px" title="${d}"></div>`;
-  }).join('');
+  const byDay = days.map(d => entries.find(e => e.date === d && e.entry));
+  const kept = byDay.filter(e => e && e.honored === true).length;
+  const set = byDay.filter(Boolean).length;
+  container.hidden = set === 0;
+  if (!set) { container.replaceChildren(); return; }
+  container.replaceChildren(...days.map((d, i) => {
+    const e = byDay[i];
+    const dot = document.createElement('span');
+    dot.className = 'week-dot' + (e ? (e.honored === true ? ' kept' : ' set') : '') + (d === today ? ' today' : '');
+    return dot;
+  }));
+  const label = `Ý định 7 ngày qua: đặt ${set}, giữ được ${kept}`;
+  container.title = label;
+  container.setAttribute('aria-label', label);
 }
 
 loadJournal();
@@ -4230,7 +4235,7 @@ window.addEventListener('keydown', (e) => {
       setTimeout(() => { hint.hidden = true; }, 400);
       chrome.storage.local.set({ zenHintSeen: true });
     };
-    setTimeout(dismiss, 7000);
+    setTimeout(dismiss, 5000);
     toggleZenBtn.addEventListener('click', dismiss, { once: true });
   }
 
@@ -4239,6 +4244,7 @@ window.addEventListener('keydown', (e) => {
     if (data.zenActive ?? true) {
       appLayout.classList.add('zen-active');
       toggleZenBtn.classList.add('active');
+      toggleZenBtn.setAttribute('aria-pressed', 'true');
       markZenIdle();
       if (!data.zenHintSeen) showZenHint();
     } else {
@@ -4265,6 +4271,7 @@ window.addEventListener('keydown', (e) => {
     if (appLayout.classList.contains('zen-active')) {
       appLayout.classList.remove('zen-active', 'zen-idle');
       toggleZenBtn.classList.remove('active');
+      toggleZenBtn.setAttribute('aria-pressed', 'false');
       chrome.storage.local.set({ zenActive: false });
     }
 
@@ -4338,6 +4345,7 @@ window.addEventListener('keydown', (e) => {
   toggleZenBtn.addEventListener('click', () => {
     const isZen = appLayout.classList.toggle('zen-active');
     toggleZenBtn.classList.toggle('active', isZen);
+    toggleZenBtn.setAttribute('aria-pressed', String(isZen));
     chrome.storage.local.set({ zenActive: isZen });
     wakeZenChrome();
 
