@@ -160,6 +160,12 @@ function updateGreeting() {
   if (hour >= 12 && hour < 18) g = 'Chào buổi chiều';
   if (hour >= 18) g = 'Chào buổi tối';
 
+  // Runs every second from updateTime: rebuild only when the text changes, so a click on
+  // the name never lands on a span that's being replaced
+  const key = `${g}|${currentUserName}`;
+  if (greetingEl.dataset.rendered === key && document.getElementById('userName')) return;
+  greetingEl.dataset.rendered = key;
+
   const nameEl = document.createElement('span');
   nameEl.id = 'userName';
   nameEl.className = 'name-editable';
