@@ -96,7 +96,9 @@ styleSheet.textContent = `
 document.head.appendChild(styleSheet);
 
 // Clock, Date, Greeting
-let currentUserName = 'Tinh';
+// Shown until the user sets a name: "Chào buổi sáng, bạn"
+const DEFAULT_USER_NAME = 'bạn';
+let currentUserName = DEFAULT_USER_NAME;
 let selectedAvatarType = 'lotus';
 let tempCustomAvatarData = null;
 
@@ -158,7 +160,11 @@ function updateGreeting() {
   if (hour >= 12 && hour < 18) g = 'Chào buổi chiều';
   if (hour >= 18) g = 'Chào buổi tối';
 
-  greetingEl.innerHTML = `${g}, <span id="userName" class="name-editable">${currentUserName}</span> 💜`;
+  const nameEl = document.createElement('span');
+  nameEl.id = 'userName';
+  nameEl.className = 'name-editable';
+  nameEl.textContent = currentUserName;
+  greetingEl.replaceChildren(`${g}, `, nameEl, ' 💜');
   attachNameEdit();
 }
 
@@ -200,9 +206,10 @@ function attachNameEdit() {
     input.select();
 
     const save = () => {
-      const name = input.value.trim() || 'Tinh';
+      const name = input.value.trim() || DEFAULT_USER_NAME;
       currentUserName = name;
-      chrome.storage.sync.set({ userName: name });
+      if (name === DEFAULT_USER_NAME) chrome.storage.sync.remove('userName');
+      else chrome.storage.sync.set({ userName: name });
       const span = document.createElement('span');
       span.id = 'userName';
       span.className = 'name-editable';
@@ -787,7 +794,7 @@ settingsBtn.addEventListener('click', () => {
       birthGender.value = b.gender || 'male';
       document.getElementById('geminiKey').value = syncData.geminiKey || '';
       document.getElementById('customAudioUrl').value = syncData.customAudioUrl || '';
-      document.getElementById('settingsUserName').value = syncData.userName || currentUserName;
+      document.getElementById('settingsUserName').value = syncData.userName || '';
       document.getElementById('settingsWeatherLocation').value = syncData.weatherLocation || '';
       document.getElementById('labsMindmap').checked = !!syncData.labsMindmap;
       
@@ -850,12 +857,14 @@ function flashSettingsSaved() {
 
 function saveSettingsGroup(group) {
   if (group === 'name') {
-    const userNameVal = document.getElementById('settingsUserName').value.trim() || 'Tinh';
-    chrome.storage.sync.set({ userName: userNameVal }, () => {
-      currentUserName = userNameVal;
+    const userNameVal = document.getElementById('settingsUserName').value.trim();
+    const done = () => {
+      currentUserName = userNameVal || DEFAULT_USER_NAME;
       updateGreeting();
       flashSettingsSaved();
-    });
+    };
+    if (userNameVal) chrome.storage.sync.set({ userName: userNameVal }, done);
+    else chrome.storage.sync.remove('userName', done);
   } else if (group === 'weather') {
     chrome.storage.sync.set({ weatherLocation: document.getElementById('settingsWeatherLocation').value.trim() }, () => {
       if (typeof initWeather === 'function') initWeather(true);
@@ -1976,16 +1985,6 @@ function toggleTimer() {
         toggleTimerUIEffects(false);
         
         timerChime.play().catch(e => console.log('Audio play failed', e));
-        
-        if (typeof chrome !== 'undefined' && chrome.notifications) {
-          chrome.notifications.create({
-            type: 'basic',
-            iconUrl: 'icons/icon128.png',
-            title: timerMode === 'pomodoro' ? 'Hoàn thành!' : 'Hết giờ nghỉ!',
-            message: timerMode === 'pomodoro' ? 'Tuyệt vời! Bạn đã hoàn thành phiên tập trung. Hãy nghỉ ngơi một chút nhé.' : 'Thời gian nghỉ đã hết! Cùng quay lại làm việc nào.',
-            priority: 2
-          });
-        }
         
         timeLeft = getModeDuration(timerMode);
         updateTimerDisplay();
@@ -4634,28 +4633,35 @@ function initWeather(forceRefresh = false) {
             setWeatherError('Lỗi kết nối định vị');
           });
       } else {
-        // Auto Geolocation
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            fetchWeatherFromApi(pos.coords.latitude, pos.coords.longitude, 'Vị trí của bạn', '');
-          },
-          () => {
-            // Fallback to IP Geolocation
-            fetchIpLocation();
-          },
-          { timeout: 4000 }
-        );
+        // No city set: guess it from the IP. (navigator.geolocation needs the "geolocation"
+        // permission in an extension, and its install warning isn't worth it for weather.)
+        fetchIpLocation();
       }
     });
   });
 }
 
+// The guessed city rarely changes, and ipapi.co's free tier rate-limits (HTTP 429):
+// keep the guess for a day instead of asking on every weather refresh
+const IP_LOCATION_TTL = 24 * 60 * 60 * 1000;
 function fetchIpLocation() {
+  chrome.storage.local.get('ipLocation', ({ ipLocation }) => {
+    if (ipLocation && Date.now() - ipLocation.timestamp < IP_LOCATION_TTL) {
+      fetchWeatherFromApi(ipLocation.latitude, ipLocation.longitude, ipLocation.city, '');
+      return;
+    }
+    requestIpLocation();
+  });
+}
+
+function requestIpLocation() {
   fetch('https://ipapi.co/json/')
-    .then(res => res.json())
+    .then(res => res.ok ? res.json() : {})
     .then(data => {
       if (data.latitude && data.longitude) {
-        fetchWeatherFromApi(data.latitude, data.longitude, data.city || 'Vị trí của bạn', '');
+        const city = data.city || 'Vị trí của bạn';
+        chrome.storage.local.set({ ipLocation: { latitude: data.latitude, longitude: data.longitude, city, timestamp: Date.now() } });
+        fetchWeatherFromApi(data.latitude, data.longitude, city, '');
       } else {
         // Hard fallback to Hanoi
         fetchWeatherFromApi(21.0285, 105.8542, 'Hà Nội', '');
