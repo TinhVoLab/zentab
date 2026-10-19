@@ -465,6 +465,9 @@
   // Not a physics engine: each stone rests on the one below, and after every drop the
   // centre of mass of everything above each stone is checked against that stone's flat top.
   // If it falls outside, that part of the stack tips over its edge and drops into the water.
+  // It gets harder as it grows, the way a real cairn does: round stones bear less than flat
+  // ones, a breeze sways the next stone more the higher you are, stones slip a little as
+  // they settle, and each stone's tilt carries the ones above it further off centre.
   const cairn = (() => {
     const stage = document.getElementById('stonesStage');
     const canvas = document.getElementById('stonesCanvas');
@@ -472,7 +475,12 @@
     const meta = document.getElementById('stonesMeta');
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const G = 2200;            // px/s², falling
-    const TOP = 0.36;          // fraction of a stone's width that is flat enough to bear weight
+    // half-width of a stone's flat top, as a fraction of its width: flat stones ~0.34, round ~0.16
+    const topFrac = st => st.base ? 0.4 : 0.16 + 0.18 * Math.max(0, Math.min(1, (st.w / st.h - 2) / 3));
+    const level = () => stack.length - 1;
+    // the breeze on the waiting stone, in px: calm for the first few, then growing
+    const swayAmp = () => reduceMotion.matches ? 0 : Math.min(26, Math.max(0, level() - 2) * 2.2);
+    let swayX = 0;
     const PALETTE = [['#9aa09c', '#5f6662'], ['#a9a091', '#6b6255'], ['#8c949a', '#545b61'], ['#b3aca0', '#776f63'], ['#7f8783', '#4b524e'], ['#a39a8e', '#62594f']];
     let w = 0, h = 0, dpr = 1, raf = null, last = 0;
     let groundY = 0, cx = 0, view = 1, viewTarget = 1;
@@ -498,7 +506,7 @@
     // A river stone: a flattened, slightly lumpy ellipse with its own colours
     function makeStone(base) {
       const sw = base ? Math.min(240, w * 0.34) : 46 + Math.random() * 74;
-      const sh = base ? 34 : 15 + Math.random() * 15;
+      const sh = base ? 34 : 14 + Math.random() * 18;
       const pts = Array.from({ length: 14 }, (_, i) => {
         const a = (i / 14) * Math.PI * 2;
         const r = 1 + (Math.random() - 0.5) * 0.12;
@@ -540,7 +548,7 @@
       if (falling || !next) return;
       const top = stack[stack.length - 1];
       const st = next;
-      st.x = wx(hoverX);
+      st.x = wx(hoverX + swayX);
       st.y = groundY - (groundY - hoverY()) / view;
       st.vy = 0;
       st.restY = topOf(top) - st.h / 2 + 2;
@@ -551,7 +559,7 @@
 
     function land(st) {
       const top = stack[stack.length - 1];
-      const reach = top.w * TOP + st.w * 0.3;
+      const reach = top.w * topFrac(top) + st.w * 0.25;
       if (Math.abs(st.x - top.x) > reach) {
         // missed the stone below: it glances off and drops into the lake
         toppling.push({ ...st, vx: Math.sign(st.x - top.x) * 140, vy: 40, vr: Math.sign(st.x - top.x) * 3, free: true });
@@ -560,8 +568,12 @@
         nextStone(700);
         return;
       }
+      // it slips a little as it settles, more on a tall stack
+      st.x += (Math.random() - 0.5) * 2 * (1.5 + level() * 0.45);
       st.y = st.restY;
-      st.rot = Math.max(-0.12, Math.min(0.12, (st.x - top.x) / (top.w * TOP) * 0.08));
+      // a stone sitting off-centre tilts, and the tilt adds to the one below
+      const lean = (st.x - top.x) / (top.w * topFrac(top));
+      st.rot = Math.max(-0.22, Math.min(0.22, top.rot * 0.6 + lean * 0.1));
       stack.push(st);
       sound('stoneClack', Math.min(1, st.w / 120));
       settle();
@@ -573,8 +585,9 @@
       for (let k = 0; k < stack.length - 1; k++) {
         const above = stack.slice(k + 1);
         const m = above.reduce((a, st) => a + st.w * st.h, 0);
-        const com = above.reduce((a, st) => a + st.x * st.w * st.h, 0) / m;
-        const half = stack[k].w * TOP;
+        // a tilted stone shifts the weight above it toward its low side
+        const com = above.reduce((a, st, j) => a + (st.x + (stack[k + j].rot || 0) * st.h * 1.6) * st.w * st.h, 0) / m;
+        const half = stack[k].w * topFrac(stack[k]);
         if (Math.abs(com - stack[k].x) > half) {
           const dir = Math.sign(com - stack[k].x);
           const pivot = { x: stack[k].x + dir * half, y: topOf(stack[k]) };
@@ -725,14 +738,16 @@
       // the next stone, waiting above where it will drop
       if (next && !falling) {
         const sway = reduceMotion.matches ? 0 : Math.sin(t / 700) * 1.5;
-        const x = hoverX;
+        const amp = swayAmp();
+        swayX = amp * (0.7 * Math.sin(t / 820) + 0.3 * Math.sin(t / 310 + 1.3));
+        const x = hoverX + swayX;
         ctx.save();
         ctx.globalAlpha = 0.25;
         ctx.strokeStyle = '#4b5552';
         ctx.setLineDash([3, 5]);
         ctx.beginPath(); ctx.moveTo(x, hoverY() + next.h * view / 2 + 6); ctx.lineTo(x, sy(topOf(top)) - 4); ctx.stroke();
         ctx.restore();
-        drawStone(next, x, hoverY() + sway, 0, view);
+        drawStone(next, x, hoverY() + sway, swayX * 0.004, view);
       }
       raf = requestAnimationFrame(frame);
     }
