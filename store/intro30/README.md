@@ -1,7 +1,9 @@
-# ZenTab intro (30 s, 1920×1080)
+# ZenTab intro (30 s, 1920×1080 and 1080×1920)
 
 Live footage of the extension, cut into one film. `intro30.html` draws any frame at time `t`
 (`window.render(t)` seeks the clips exactly), so every frame is repeatable.
+`intro30-vertical.html` is the same film re-framed at 9:16 for phones (Reels, Shorts, TikTok):
+full-screen scenes show the middle strip of the footage, the relax corner and the notebook are cropped closer.
 
 | Time | Scene |
 |---|---|
@@ -29,4 +31,7 @@ ffmpeg -framerate 30 -i frames/%04d.png -t 30 -i ../../sounds/zentab-music.m4a \
   -filter_complex "[1:a]afade=t=in:st=0:d=1.2,afade=t=out:st=27.8:d=2.2[a]" \
   -map 0:v -map "[a]" -c:v libx264 -crf 17 -pix_fmt yuv420p -movflags +faststart \
   -c:a aac -b:a 192k -shortest ZenTab-intro-30s.mp4
+# 9:16: same steps, into frames-v (render.js picks the page size from window.SIZE)
+node render.js intro30-vertical.html frames-v full
+# …then the ffmpeg line above with frames-v/%04d.png → ZenTab-intro-30s-9x16.mp4
 ```
