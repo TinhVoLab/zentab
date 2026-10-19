@@ -42,7 +42,7 @@ Không máy chủ, không tài khoản, không quảng cáo, không theo dõi. C
 
 **Ảnh chụp màn hình** (1280×800, thư mục `store/screenshots/`): trang chủ, bảng điều khiển, tập trung, nhật ký, Tử Vi.
 
-**Ảnh quảng cáo nhỏ 440×280:** cần tạo (bắt buộc).
+**Ảnh quảng cáo:** `store/promo-tile-440x280.png` (nhỏ, bắt buộc) và `store/promo-marquee-1400x560.png` (marquee, tuỳ chọn). Nguồn: `store/promo/promo.html`, xuất lại bằng `store/promo/render.js`.
 
 ## Quyền riêng tư (Privacy practices)
 
