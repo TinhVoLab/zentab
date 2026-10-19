@@ -215,6 +215,14 @@
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M9 5l7 7-7 7" /></svg>
                 </button>
               </span>
+              <span class="quote-actions">
+                <button type="button" class="quote-nav-btn quote-fav-btn" id="quoteFavBtn" title="Giữ lại câu này" aria-label="Giữ lại câu này" aria-pressed="false" hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 10c0 5.65-7 10-7 10z"/></svg>
+                </button>
+                <button type="button" class="quote-nav-btn" id="quoteHideBtn" title="Không hiện câu này nữa" aria-label="Không hiện câu này nữa" hidden>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                </button>
+              </span>
             </div>
           </div>
           
@@ -583,6 +591,7 @@
               <button type="button" class="jb-nav" id="jbNextDay" aria-label="Ngày sau (→)">›</button>
               <button type="button" class="jb-today" id="jbToday">Hôm nay</button>
             </header>
+            <p class="jb-day-quote" id="jbQuote" hidden></p>
 
             <div class="jb-mood" id="jbMood" role="radiogroup" aria-label="Tâm trạng hôm nay">
               <button type="button" role="radio" data-mood="1" title="Rất tệ">😞</button>
@@ -946,6 +955,25 @@
           <input type="text" id="customAudioUrl" placeholder="Dán link .mp3 hoặc link bài hát Suno..." autocomplete="off">
           <span class="field-hint">Xuất hiện thành lựa chọn "Nhạc cá nhân" trong trình phát.</span>
         </div>
+      </section>
+
+      <section class="settings-group">
+        <h4 class="settings-group-title">Lời nhắn</h4>
+        <p class="field-hint settings-group-hint">Câu trích dẫn ở Trang chủ được chọn theo ngày của bạn. Câu của riêng bạn sẽ hiện thường hơn.</p>
+        <div class="modal-field">
+          <label for="ownQuoteText">Câu của riêng bạn</label>
+          <div class="own-quote-form">
+            <input type="text" id="ownQuoteText" placeholder="Một câu bạn muốn đọc lại mỗi ngày…" maxlength="240" autocomplete="off">
+            <input type="text" id="ownQuoteAuthor" placeholder="Tác giả (tuỳ chọn)" maxlength="60" autocomplete="off" aria-label="Tác giả">
+            <button type="button" id="ownQuoteAdd" class="modal-btn modal-btn-secondary btn-sm">Thêm</button>
+          </div>
+          <ul class="quote-rows" id="ownQuoteList"></ul>
+        </div>
+        <div class="modal-field">
+          <label>Câu đã giữ lại ♡</label>
+          <ul class="quote-rows" id="favQuoteList"></ul>
+        </div>
+        <div class="hidden-quotes-row field-hint" id="hiddenQuotesRow" hidden><span></span> · <button type="button" class="link-btn">Hiện lại tất cả</button></div>
       </section>
 
       <section class="settings-group">

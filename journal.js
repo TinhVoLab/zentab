@@ -20,6 +20,7 @@
   let pages = {};          // { 'YYYY-MM-DD': { notes, did, grateful, tomorrow, mood, updatedAt } }
   let intentions = {};     // { 'YYYY-MM-DD': { entry, honored } } from the sync journal
   let focusByDay = {};
+  let dayQuotes = {};      // { 'YYYY-MM-DD': { text, author } }: the day's dock quote (quotes.js)
   let selected = startOfDay(new Date());
   let viewMonth = new Date(selected.getFullYear(), selected.getMonth(), 1);
   let saveTimer = null;
@@ -31,8 +32,9 @@
 
   // ---- Load ----
   function load(cb) {
-    chrome.storage.local.get(['journalPages', 'journalPaper'], ({ journalPages, journalPaper }) => {
+    chrome.storage.local.get(['journalPages', 'journalPaper', 'quoteLog'], ({ journalPages, journalPaper, quoteLog }) => {
       pages = journalPages || {};
+      dayQuotes = quoteLog || {};
       setPaper(journalPaper || 'cream', false);
       chrome.storage.sync.get('journal', ({ journal }) => {
         intentions = {};
@@ -153,9 +155,26 @@
       box.innerHTML = '<span class="jb-muted">Không đặt ý định</span>';
     }
 
+    renderDayQuote(k);
     renderFacts(k);
     $('jbSaved').textContent = page.updatedAt ? `Sửa lần cuối ${new Date(page.updatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : '';
   }
+
+  function renderDayQuote(k) {
+    const q = dayQuotes[k];
+    const el = $('jbQuote');
+    el.hidden = !q;
+    if (!q) return;
+    const by = document.createElement('span');
+    by.textContent = q.author ? ` — ${q.author}` : '';
+    el.replaceChildren(`“${q.text}”`, by);
+  }
+  // Today's quote is usually picked after the notebook has loaded
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.quoteLog) return;
+    dayQuotes = changes.quoteLog.newValue || {};
+    if (loaded) renderDayQuote(key(selected));
+  });
 
   // The day's footprint, from data ZenTab already has
   function renderFacts(k) {
@@ -474,6 +493,8 @@
     const it = intentionOf(k);
     const { solar, lunar } = dayHeading(k);
     const out = [`## ${solar}`, `*${lunar}*${p.mood ? ` · Tâm trạng: ${MOOD_EMOJI[p.mood]} ${MOODS[p.mood]}` : ''}`, ''];
+    const q = dayQuotes[k];
+    if (q) out.push(`> “${q.text}”${q.author ? ` — ${q.author}` : ''}`, '');
     if (it && it.entry) out.push(`**Ý định:** ${it.entry}${it.honored === true ? ' ✓' : ''}`, '');
     if ((p.notes || '').trim()) out.push(p.notes.trim(), '');
     Object.entries(QUESTIONS).forEach(([f, q]) => { if ((p[f] || '').trim()) out.push(`**${q}** ${p[f].trim()}`, ''); });
@@ -555,6 +576,7 @@
         .map(([f, q]) => `<p class="jp-q">${q}</p><p class="jp-a">${escapeText(p[f].trim())}</p>`).join('');
       return `<section class="jp-page">
         <h2>${solar}</h2><p class="jp-lunar">${lunar}${p.mood ? ` · ${MOOD_EMOJI[p.mood]} ${MOODS[p.mood]}` : ''}</p>
+        ${dayQuotes[k] ? `<p class="jp-quote">“${escapeText(dayQuotes[k].text)}”${dayQuotes[k].author ? ` — ${escapeText(dayQuotes[k].author)}` : ''}</p>` : ''}
         ${it && it.entry ? `<p class="jp-intention">☀ ${escapeText(it.entry)}${it.honored === true ? ' ✓' : ''}</p>` : ''}
         ${(p.notes || '').trim() ? `<p class="jp-notes">${escapeText(p.notes.trim())}</p>` : ''}
         ${qa}

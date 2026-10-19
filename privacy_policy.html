@@ -56,14 +56,14 @@
   <ul>
     <li>Tên hiển thị, ngày giờ sinh và giới tính (dùng để tính Bát Tự, Tử Vi).</li>
     <li>Khoá API Gemini của bạn.</li>
-    <li>Nhiệm vụ, ý định hằng ngày (khoảng 30 ngày gần nhất), ghi chú nhanh, thói quen.</li>
+    <li>Nhiệm vụ, ý định hằng ngày (khoảng 30 ngày gần nhất), ghi chú nhanh, thói quen, danh sách câu trích dẫn bạn giữ lại (♡) hoặc ẩn.</li>
     <li>Địa phương xem thời tiết, đường link nhạc riêng, lựa chọn hình đại diện.</li>
   </ul>
 
   <h3>Chỉ trên máy này (<code>chrome.storage.local</code> và <code>localStorage</code>)</h3>
   <ul>
     <li>Ảnh nền và ảnh đại diện bạn tải lên (đã nén, không rời khỏi máy).</li>
-    <li>Các trang Nhật ký (ghi chép, tâm trạng, câu hỏi cuối ngày) và Ý tưởng / Sơ đồ ý tưởng.</li>
+    <li>Các trang Nhật ký (ghi chép, tâm trạng, câu hỏi cuối ngày, câu trích dẫn của ngày), Ý tưởng / Sơ đồ ý tưởng và những câu trích dẫn bạn tự thêm.</li>
     <li>Lịch sử trò chuyện với AI Mentor và lời khuyên AI đã lưu tạm trong ngày.</li>
     <li>Lịch sử phiên tập trung, dữ liệu thời tiết và thành phố đoán theo IP lưu tạm, chế độ giao diện, hình nền, độ mờ nền và trạng thái các bảng đang mở.</li>
   </ul>
@@ -129,7 +129,7 @@
   <hr>
 
   <h2>Privacy Policy (English summary)</h2>
-  <p>ZenTab has no backend; the developer receives none of your data. Settings, birth details, your Gemini API key, tasks, daily intentions, quick notes and habits are stored in <code>chrome.storage.sync</code> (synced by Google if Chrome Sync is on). Journal pages, ideas and mind maps, uploaded images, AI chat history, focus history, cached weather and UI state stay on this device (<code>chrome.storage.local</code>, <code>localStorage</code>).</p>
+  <p>ZenTab has no backend; the developer receives none of your data. Settings, birth details, your Gemini API key, tasks, daily intentions, quick notes, habits and the quotes you keep or hide are stored in <code>chrome.storage.sync</code> (synced by Google if Chrome Sync is on). Journal pages, ideas and mind maps, quotes you add yourself, uploaded images, AI chat history, focus history, cached weather and UI state stay on this device (<code>chrome.storage.local</code>, <code>localStorage</code>).</p>
   <p>Data leaves your browser only to: <strong>Google Gemini API</strong> (birth details and derived chart, task list, text you enter into AI features, your API key; only when you add a key and use AI features); <strong>Open-Meteo</strong> (approximate coordinates or city name); <strong>ipapi.co</strong> (your IP address, only if no location is set, at most once a day); and, only if you choose to play your own music link, that URL's host. Built-in ambient sounds and the timer chime are synthesized locally with the Web Audio API. Journal exports and backups are created locally and saved to your device. The donation QR code in Settings is generated locally; ZenTab never learns whether you donate. Precise device location is never used. No analytics, tracking or ads; the only permission requested is <code>storage</code>. Uninstalling ZenTab removes its data. Contact: <a href="mailto:tinhvo@x-dmaic.com">tinhvo@x-dmaic.com</a>.</p>
 </main>
 <footer>© 2026 ZenTab</footer>

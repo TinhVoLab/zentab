@@ -1717,6 +1717,7 @@ function displayDailyInsight(insight) {
     txtEl.dataset.source = 'insight';
     txtEl.removeAttribute('title');
   }
+  syncQuoteActions();
   if (authEl) authEl.textContent = '☯ Tử Vi · Bát Tự · Chiêm Tinh';
   updateQuoteExpand();
   // Update astro panel via renderToday
@@ -1729,10 +1730,9 @@ function displayDailyInsight(insight) {
 // The daily AI insight, when there is one, keeps the dock.
 function showChosenQuote(opts) {
   if (!window.ZenQuotes) return;
-  ZenQuotes.choose(opts).then(({ index, hint }) => {
+  ZenQuotes.choose(opts).then(({ quote, hint }) => {
     if (document.getElementById('quoteText')?.dataset.source === 'insight') return;
-    currentQuoteIdx = index;
-    displayQuoteAt(index, hint);
+    displayQuote(quote, hint);
   }).catch(e => console.warn('ZenTab: quote,', e.message));
 }
 
@@ -2053,7 +2053,7 @@ document.getElementById('drawerFocusBtn')?.addEventListener('click', () => {
 });
 
 // ---- Quotes Carousel & Audio Player ----
-let currentQuoteIdx = 0;
+let currentQuoteId = null;
 const relaxingAudio = document.getElementById('relaxingAudio');
 const playBtn = document.getElementById('playBtn');
 
@@ -2079,10 +2079,9 @@ const ambientPlayer = {
   }
 };
 
-function displayQuoteAt(index, hint) {
-  const list = window.ZenQuotes ? ZenQuotes.list : [];
-  if (!list.length) return;
-  const q = list[index];
+function displayQuote(q, hint) {
+  if (!q) return;
+  currentQuoteId = q.id;
   const textEl = document.getElementById('quoteText');
   const authEl = document.getElementById('quoteAuthor');
   if (textEl) {
@@ -2091,20 +2090,40 @@ function displayQuoteAt(index, hint) {
     textEl.dataset.source = 'quote';
     if (hint) textEl.title = hint; else textEl.removeAttribute('title');
   }
-  if (authEl) authEl.textContent = `— ${q.author}`;
+  if (authEl) authEl.textContent = q.author ? `— ${q.author}` : '';
+  syncQuoteActions();
   updateQuoteExpand();
 }
 
-document.getElementById('prevQuoteBtn').addEventListener('click', () => {
-  const n = ZenQuotes.list.length;
-  currentQuoteIdx = (currentQuoteIdx - 1 + n) % n;
-  displayQuoteAt(currentQuoteIdx);
-});
+// ‹ › step through every quote the reader hasn't hidden, from the one on screen
+function stepQuote(dir) {
+  const list = ZenQuotes.all();
+  if (!list.length) return;
+  const i = list.findIndex(q => q.id === currentQuoteId);
+  displayQuote(list[((i < 0 ? 0 : i + dir) + list.length) % list.length]);
+}
+document.getElementById('prevQuoteBtn').addEventListener('click', () => stepQuote(-1));
+document.getElementById('nextQuoteBtn').addEventListener('click', () => stepQuote(1));
 
-document.getElementById('nextQuoteBtn').addEventListener('click', () => {
-  currentQuoteIdx = (currentQuoteIdx + 1) % ZenQuotes.list.length;
-  displayQuoteAt(currentQuoteIdx);
+// ♡ keeps a quote (it comes back now and then); Ẩn retires it for good
+const quoteFavBtn = document.getElementById('quoteFavBtn');
+const quoteHideBtn = document.getElementById('quoteHideBtn');
+function syncQuoteActions() {
+  const isQuote = document.getElementById('quoteText')?.dataset.source === 'quote' && currentQuoteId;
+  [quoteFavBtn, quoteHideBtn].forEach(b => { if (b) b.hidden = !isQuote; });
+  if (!isQuote || !quoteFavBtn) return;
+  const on = ZenQuotes.isFav(currentQuoteId);
+  quoteFavBtn.classList.toggle('active', on);
+  quoteFavBtn.setAttribute('aria-pressed', on);
+  quoteFavBtn.title = on ? 'Đã giữ lại · bấm để bỏ' : 'Giữ lại câu này';
+}
+if (quoteFavBtn) quoteFavBtn.addEventListener('click', () => { ZenQuotes.toggleFav(currentQuoteId); syncQuoteActions(); });
+if (quoteHideBtn) quoteHideBtn.addEventListener('click', () => {
+  const id = currentQuoteId;
+  stepQuote(1);
+  ZenQuotes.hide(id);
 });
+document.addEventListener('zenquotes:change', syncQuoteActions);
 
 showChosenQuote();
 

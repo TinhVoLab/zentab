@@ -2,7 +2,8 @@
 // (yesterday's mood and intention, focus streak, a finished Pomodoro, a long task list,
 // rain, the lunar calendar, the time of day). Everything is read locally; nothing is sent.
 // A pick holds for its moment (one per morning/afternoon/evening, or per signal), and a
-// quote shown in the last two weeks isn't picked again while others fit.
+// quote shown in the last two weeks isn't picked again while others fit. The reader can
+// keep (♡) or hide a quote and add their own; those shape later picks.
 // Loaded before script.js; at call time it uses script.js helpers (getDateStr, solarToLunar,
 // getFocusHistory, tasks). Exposes window.ZenQuotes.
 (function () {
@@ -136,28 +137,158 @@
     return h >>> 0;
   }
 
+  // ---- The reader's own touch: ♡ kept, hidden, and their own quotes ----
+  // Kept and hidden ids sync across devices (small); own quotes stay on this device.
+  const OWN_MAX = 50, OWN_TEXT_MAX = 240, OWN_AUTHOR_MAX = 60;
+  let prefs = { fav: [], hidden: [] };
+  let own = [];
+  const ready = Promise.all([get('sync', 'quotePrefs'), get('local', 'ownQuotes')]).then(([{ quotePrefs }, { ownQuotes }]) => {
+    prefs = { fav: [], hidden: [], ...(quotePrefs || {}) };
+    own = ownQuotes || [];
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'sync' && changes.quotePrefs) prefs = { fav: [], hidden: [], ...(changes.quotePrefs.newValue || {}) };
+    else if (area === 'local' && changes.ownQuotes) own = changes.ownQuotes.newValue || [];
+    else return;
+    document.dispatchEvent(new CustomEvent('zenquotes:change'));
+  });
+  const savePrefs = () => chrome.storage.sync.set({ quotePrefs: prefs });
+
+  // Own quotes first: they fit every moment
+  const all = () => [...own.map(q => ({ ...q, own: true, tags: [] })), ...LIST].filter(q => !prefs.hidden.includes(q.id));
+  const byId = id => [...own.map(q => ({ ...q, own: true, tags: [] })), ...LIST].find(q => q.id === id);
+
+  // Weighted pick: own quotes ×3, kept ×2, and +1 for the theme the reader keeps most often
+  function pick(pool, seed) {
+    const favTags = {};
+    prefs.fav.forEach(id => (byId(id)?.tags || []).forEach(t => { favTags[t] = (favTags[t] || 0) + 1; }));
+    const top = Object.entries(favTags).sort((a, b) => b[1] - a[1])[0];
+    const weights = pool.map(q => (q.own ? 3 : 1) + (prefs.fav.includes(q.id) ? 1 : 0) + (top && q.tags.includes(top[0]) ? 1 : 0));
+    let n = hash(seed) % weights.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < pool.length; i++) { n -= weights[i]; if (n < 0) return pool[i]; }
+    return pool[0];
+  }
+
   async function choose(opts = {}) {
+    await ready;
     const signal = await readSignal(opts);
     const today = getDateStr(new Date());
     const momentKey = `${today}|${signal.key}`;
-    const { quoteState } = await get('local', 'quoteState');
+    const { quoteState, quoteLog } = await get('local', ['quoteState', 'quoteLog']);
     const state = quoteState || { moment: null, id: null, shown: [] };
+    const list = all();
 
-    let quote = state.moment === momentKey && LIST.find(q => q.id === state.id);
+    let quote = state.moment === momentKey && list.find(q => q.id === state.id);
     let hint = quote && state.hint ? state.hint : signal.hint; // the note that came with the pick
     if (!quote) {
       hint = signal.hint;
       const cutoff = getDateStr(new Date(Date.now() - REPEAT_DAYS * 86400000));
       const recent = new Set(state.shown.filter(s => s.date > cutoff).map(s => s.id));
-      const fits = LIST.filter(q => q.tags.some(t => signal.tags.includes(t)));
+      const fits = list.filter(q => q.own || q.tags.some(t => signal.tags.includes(t)));
       const fresh = fits.filter(q => !recent.has(q.id));
-      const pool = fresh.length ? fresh : (fits.length ? fits : LIST);
-      quote = pool[hash(momentKey) % pool.length];
+      const pool = fresh.length ? fresh : (fits.length ? fits : list);
+      quote = pick(pool, momentKey);
       const shown = [...state.shown.filter(s => s.date > cutoff && s.id !== quote.id), { id: quote.id, date: today }];
       chrome.storage.local.set({ quoteState: { moment: momentKey, id: quote.id, hint, shown } });
     }
-    return { quote, index: LIST.indexOf(quote), hint };
+    // The first quote of each day goes into the journal page for that day
+    const log = quoteLog || {};
+    if (quote && !log[today]) {
+      log[today] = { text: quote.text, author: quote.author || '' };
+      const keep = Object.keys(log).sort().slice(-400);
+      chrome.storage.local.set({ quoteLog: Object.fromEntries(keep.map(k => [k, log[k]])) });
+    }
+    return { quote, hint };
   }
 
-  window.ZenQuotes = { list: LIST, choose };
+  function toggleFav(id) {
+    const on = !prefs.fav.includes(id);
+    prefs.fav = on ? [...prefs.fav, id] : prefs.fav.filter(x => x !== id);
+    savePrefs();
+    return on;
+  }
+  function hide(id) {
+    if (!prefs.hidden.includes(id)) prefs.hidden = [...prefs.hidden, id];
+    prefs.fav = prefs.fav.filter(x => x !== id);
+    savePrefs();
+  }
+  function unhideAll() { prefs.hidden = []; savePrefs(); }
+  function addOwn(text, author) {
+    text = text.trim().replace(/^["“”']+|["“”']+$/g, '').slice(0, OWN_TEXT_MAX);
+    if (!text || own.length >= OWN_MAX) return false;
+    own = [{ id: 'own-' + Date.now().toString(36), text, author: author.trim().slice(0, OWN_AUTHOR_MAX) }, ...own];
+    chrome.storage.local.set({ ownQuotes: own });
+    return true;
+  }
+  function removeOwn(id) {
+    own = own.filter(q => q.id !== id);
+    prefs.fav = prefs.fav.filter(x => x !== id);
+    chrome.storage.local.set({ ownQuotes: own });
+    savePrefs();
+  }
+
+  // ---- Settings → Lời nhắn: own quotes, kept quotes, hidden count ----
+  function initSettings() {
+    const ownList = document.getElementById('ownQuoteList');
+    if (!ownList) return;
+    const favList = document.getElementById('favQuoteList');
+    const textEl = document.getElementById('ownQuoteText');
+    const authorEl = document.getElementById('ownQuoteAuthor');
+    const addBtn = document.getElementById('ownQuoteAdd');
+    const hiddenRow = document.getElementById('hiddenQuotesRow');
+
+    const row = (q, label, onRemove) => {
+      const li = document.createElement('li');
+      li.className = 'quote-row';
+      const body = document.createElement('div');
+      const t = document.createElement('p');
+      t.className = 'quote-row-text';
+      t.textContent = `“${q.text}”`;
+      body.append(t);
+      if (q.author) {
+        const a = document.createElement('span');
+        a.className = 'quote-row-author';
+        a.textContent = q.author;
+        body.append(a);
+      }
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.className = 'quote-row-remove';
+      x.textContent = '✕';
+      x.title = x.ariaLabel = label;
+      x.addEventListener('click', onRemove);
+      li.append(body, x);
+      return li;
+    };
+    const empty = text => { const li = document.createElement('li'); li.className = 'quote-row-empty'; li.textContent = text; return li; };
+
+    function render() {
+      ownList.replaceChildren(...(own.length ? own.map(q => row(q, 'Xoá câu này', () => removeOwn(q.id)))
+        : [empty('Chưa có. Một câu mẹ dặn, một dòng trong cuốn sách bạn yêu…')]));
+      const favs = prefs.fav.map(byId).filter(Boolean);
+      favList.replaceChildren(...(favs.length ? favs.map(q => row(q, 'Bỏ giữ lại', () => toggleFav(q.id)))
+        : [empty('Bấm ♡ dưới câu trích dẫn ở Trang chủ để giữ lại câu bạn thích.')]));
+      const n = prefs.hidden.length;
+      hiddenRow.hidden = !n;
+      hiddenRow.querySelector('span').textContent = `Đã ẩn ${n} câu`;
+      addBtn.disabled = own.length >= OWN_MAX;
+    }
+
+    const add = () => {
+      if (addOwn(textEl.value, authorEl.value)) { textEl.value = ''; authorEl.value = ''; render(); textEl.focus(); }
+    };
+    addBtn.addEventListener('click', add);
+    textEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); add(); } });
+    authorEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+    hiddenRow.querySelector('button').addEventListener('click', unhideAll);
+    document.addEventListener('zenquotes:change', render);
+    ready.then(render);
+  }
+  initSettings();
+
+  window.ZenQuotes = {
+    choose, all, byId, ready, toggleFav, hide,
+    isFav: id => prefs.fav.includes(id),
+    dayQuote: date => get('local', 'quoteLog').then(({ quoteLog }) => (quoteLog || {})[date] || null),
+  };
 })();
