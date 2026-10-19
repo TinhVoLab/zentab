@@ -1026,6 +1026,63 @@ input[type="range"]::-webkit-slider-thumb:active { transform: scale(1.12); }
 .quote-fav-btn.active:active svg, .quote-fav-btn:active svg { transform: scale(0.85); }
 .quote-fav-btn svg { transition: transform 0.25s var(--ease-bounce); }
 
+/* ---------- Lời hỏi thăm: the once-a-day toast ---------- */
+.greet-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 104px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 8px 8px 8px 18px;
+  border-radius: 999px;
+  background: var(--sheet-1);
+  backdrop-filter: var(--lg-blur-heavy);
+  -webkit-backdrop-filter: var(--lg-blur-heavy);
+  box-shadow: var(--lg-edge), var(--lg-shadow);
+  color: var(--text);
+  opacity: 0;
+  transform: translate(-50%, 10px) scale(0.98);
+  transition: opacity 0.4s ease, transform 0.5s var(--ease-spring), border-radius 0.3s ease;
+}
+.greet-toast[hidden] { display: none; }
+.greet-toast.visible { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.greet-toast.opened { border-radius: 20px; padding: 14px 10px 14px 20px; align-items: flex-start; }
+.greet-text { margin: 0; font-size: 14px; font-weight: 510; line-height: 1.45; }
+.greet-moods { display: flex; gap: 2px; }
+.greet-moods button {
+  width: 34px; height: 34px;
+  border: none; border-radius: 50%;
+  background: none;
+  font-size: 19px; line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.3s var(--ease-bounce);
+}
+.greet-moods button:hover, .greet-moods button:focus-visible { background: var(--wash-2); transform: scale(1.15); outline: none; }
+.greet-envelope { font-size: 18px; }
+.greet-open {
+  height: 30px; padding: 0 14px;
+  border: none; border-radius: 999px;
+  background: var(--prominent-bg); color: var(--prominent-fg);
+  font: 600 13px var(--font);
+  cursor: pointer;
+}
+.greet-wish { display: flex; flex-direction: column; gap: 4px; }
+.greet-wish .greet-text { font-family: var(--font-serif); font-style: italic; font-size: 16px; font-weight: 400; text-wrap: balance; }
+.greet-occasion { font-size: 11px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+.greet-close {
+  flex-shrink: 0;
+  width: 28px; height: 28px;
+  border: none; border-radius: 50%;
+  background: none; color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.greet-close:hover { background: var(--wash-2); color: var(--text); }
+@media (prefers-reduced-motion: reduce) { .greet-toast { transition: opacity 0.3s ease; transform: translate(-50%, 0); } }
+
 /* Settings → Lời nhắn */
 .own-quote-form { display: grid; grid-template-columns: 1fr 160px auto; gap: 8px; }
 .quote-rows { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow-y: auto; }

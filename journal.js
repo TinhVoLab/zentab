@@ -606,6 +606,16 @@
   window.ZenJournal = {
     open() {
       load(() => { renderCalendar(); renderTags(); runSearch(); renderDay(); });
+    },
+    // Mood from the daily check-in (greet.js). Re-reads the stored pages first: the notebook
+    // may not have been opened yet, and writePage saves the whole map.
+    setMood(k, mood) {
+      flush();
+      chrome.storage.local.get('journalPages', ({ journalPages }) => {
+        pages = journalPages || {};
+        writePage(k, { mood });
+        if (loaded && key(selected) === k) renderDay();
+      });
     }
   };
 })();

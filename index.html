@@ -960,6 +960,13 @@
       <section class="settings-group">
         <h4 class="settings-group-title">Lời nhắn</h4>
         <p class="field-hint settings-group-hint">Câu trích dẫn ở Trang chủ được chọn theo ngày của bạn. Câu của riêng bạn sẽ hiện thường hơn.</p>
+        <label class="switch-row" for="greetEnabled">
+          <span class="switch-text">
+            <span class="switch-title">Lời hỏi thăm mỗi ngày</span>
+            <span class="field-hint">Một lần mỗi ngày: hỏi bạn thấy thế nào (ghi vào Nhật ký), hoặc một lời chúc vào sinh nhật, Tết, cuối tuần.</span>
+          </span>
+          <input type="checkbox" id="greetEnabled" class="switch" role="switch" checked>
+        </label>
         <div class="modal-field">
           <label for="ownQuoteText">Câu của riêng bạn</label>
           <div class="own-quote-form">
@@ -1225,10 +1232,13 @@ Chợ online thực phẩm
   </div>
 
   <script src="ambient.js" defer></script>
+  <div class="greet-toast" id="greetToast" role="status" aria-live="polite" hidden></div>
+
   <script src="quotes.js" defer></script>
   <script src="script.js" defer></script>
   <script src="relax.js" defer></script>
   <script src="journal.js" defer></script>
   <script src="donate.js" defer></script>
+  <script src="greet.js" defer></script>
 </body>
 </html>
