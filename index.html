@@ -15,74 +15,56 @@
   <div class="app-layout" data-view="home">
     <!-- Left Navigation Sidebar -->
     <aside class="sidebar-left">
-      <div class="sidebar-top">
-        <div class="logo-container">
-          <svg viewBox="0 0 100 100" class="logo-lotus" xmlns="http://www.w3.org/2000/svg">
-            <path d="M50 15 C45 35, 30 45, 10 50 C30 55, 45 65, 50 85 C55 65, 70 55, 90 50 C70 45, 55 35, 50 15 Z" fill="url(#lotus-grad)"/>
-            <path d="M50 25 C47 40, 37 47, 20 50 C37 53, 47 60, 50 75 C53 60, 63 53, 80 50 C63 47, 53 40, 50 25 Z" fill="url(#lotus-grad-inner)" opacity="0.8"/>
-            <defs>
-              <linearGradient id="lotus-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#c084fc" />
-                <stop offset="100%" stop-color="#db2777" />
-              </linearGradient>
-              <linearGradient id="lotus-grad-inner" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#e879f9" />
-                <stop offset="100%" stop-color="#fb7185" />
-              </linearGradient>
-            </defs>
-          </svg>
-        </div>
-      </div>
-      
       <nav class="sidebar-nav">
-        <button class="nav-item active" data-tab="home" title="Trang chủ">
+        <button class="nav-item active" data-tab="home" aria-label="Trang chủ">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
           </svg>
-          <span>Trang chủ</span>
+          <span class="nav-tip">Trang chủ</span>
         </button>
-        <button class="nav-item" data-tab="focus" title="Tập trung">
+        <button class="nav-item" data-tab="focus" aria-label="Tập trung">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          <span>Tập trung</span>
+          <span class="nav-tip">Tập trung</span>
         </button>
-        <button class="nav-item" data-tab="tasks" title="Nhiệm vụ">
+        <button class="nav-item" data-tab="tasks" aria-label="Nhiệm vụ">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
           </svg>
-          <span>Nhiệm vụ</span>
+          <span class="nav-tip">Nhiệm vụ</span>
         </button>
-        <button class="nav-item" data-tab="journal" title="Nhật ký">
+        <button class="nav-item" data-tab="journal" aria-label="Nhật ký">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M6 3.5h11a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6z"/><path d="M6 3.5v17M9.5 8h5.5M9.5 11.5h5.5"/><path d="M4.5 7h3M4.5 12h3M4.5 17h3"/>
           </svg>
-          <span>Nhật ký</span>
+          <span class="nav-tip">Nhật ký</span>
         </button>
-        <button class="nav-item" data-tab="ai" title="AI Mentor">
+        <button class="nav-item" data-tab="ai" aria-label="AI Mentor">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 113.536 0V21h2v-2.243a4.973 4.973 0 013.536 0V21h-2v-2a1 1 0 00-1-1h-2a1 1 0 00-1 1v2H9v-2.243z"/>
           </svg>
-          <span>AI Mentor</span>
+          <span class="nav-tip">AI Mentor</span>
         </button>
-        <button class="nav-item" data-tab="stats" title="Thống kê">
+        <button class="nav-item" data-tab="stats" aria-label="Thống kê">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z"/>
           </svg>
-          <span>Thống kê</span>
+          <span class="nav-tip">Thống kê</span>
         </button>
-        <button class="nav-item" id="settingsBtn" title="Cài đặt">
+        <span class="nav-divider" aria-hidden="true"></span>
+        <button class="nav-item" id="settingsBtn" aria-label="Cài đặt">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
           </svg>
-          <span>Cài đặt</span>
+          <span class="nav-tip">Cài đặt</span>
         </button>
       </nav>
 
       <div class="sidebar-bottom">
         <div class="profile-container">
-          <img src="icons/icon128.png" alt="Avatar" class="user-avatar" id="userAvatar" title="Cài đặt">
+          <img src="icons/icon128.png" alt="Ảnh đại diện · mở Cài đặt" class="user-avatar" id="userAvatar">
         </div>
       </div>
     </aside>
