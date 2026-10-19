@@ -1005,6 +1005,27 @@
         </label>
       </section>
 
+      <section class="settings-group donate-group" id="donateSection" hidden>
+        <h4 class="settings-group-title">Ủng hộ ZenTab 💜</h4>
+        <p class="field-hint settings-group-hint">ZenTab miễn phí, không quảng cáo và không thu thập dữ liệu. Nếu nó giúp bạn tập trung hơn, bạn có thể mời tác giả một ly cà phê — hoàn toàn tuỳ tâm.</p>
+        <div class="donate-body">
+          <div class="donate-qr-wrap">
+            <canvas id="donateQr" class="donate-qr" role="img"></canvas>
+            <span class="donate-amount-line" id="donateAmountLine"></span>
+          </div>
+          <div class="donate-side">
+            <div class="donate-amounts" id="donateAmounts" role="radiogroup" aria-label="Số tiền ủng hộ"></div>
+            <dl class="donate-details">
+              <div><dt>Ngân hàng</dt><dd id="donateBank"></dd></div>
+              <div><dt>Chủ tài khoản</dt><dd id="donateHolder"></dd></div>
+              <div><dt>Số tài khoản</dt><dd><span id="donateAccount"></span><button type="button" class="link-btn" data-copy="donateAccount">Chép</button></dd></div>
+              <div><dt>Nội dung</dt><dd><span id="donateNote"></span><button type="button" class="link-btn" data-copy="donateNote">Chép</button></dd></div>
+            </dl>
+            <span class="field-hint">Mở app ngân hàng bất kỳ và quét mã VietQR. Cảm ơn bạn rất nhiều!</span>
+          </div>
+        </div>
+      </section>
+
       <div class="modal-actions">
         <button id="saveBirthBtn" class="modal-btn">Xong</button>
       </div>
@@ -1181,5 +1202,6 @@ Chợ online thực phẩm
   <script src="script.js" defer></script>
   <script src="relax.js" defer></script>
   <script src="journal.js" defer></script>
+  <script src="donate.js" defer></script>
 </body>
 </html>
