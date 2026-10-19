@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #070b18; }
+  body { font-family: -apple-system, "SF Pro Display", system-ui, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+  .layer { position: absolute; inset: 0; }
+  .bg { background:
+      radial-gradient(ellipse 50% 45% at 72% 22%, rgba(150,175,225,0.10), transparent 70%),
+      radial-gradient(ellipse 70% 60% at 50% 110%, rgba(40,80,90,0.35), transparent 70%),
+      linear-gradient(180deg, #060a17 0%, #0b1428 60%, #0c1a26 100%); }
+  .star { position: absolute; border-radius: 50%; background: #fff; }
+  .serif { font-family: "New York", "Iowan Old Style", Georgia, serif; }
+  .title { position: absolute; left: 0; right: 0; text-align: center; font-weight: 600; letter-spacing: -0.02em; }
+  .w { display: inline-block; white-space: pre; }
+  .accent { color: #d9b3ff; }
+  .underline { position: absolute; height: 4px; border-radius: 2px; background: linear-gradient(90deg, #c98af0, #e9c8ff); transform-origin: left center; }
+  .frame { position: absolute; overflow: hidden; border-radius: 22px; box-shadow: 0 40px 120px -30px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.08); background: #000; }
+  .frame video, .frame img { position: absolute; display: block; }
+  .full video, .full img { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+  .bloom { background: radial-gradient(circle at 50% 55%, rgba(201,138,240,0.9) 0%, rgba(150,90,220,0.55) 30%, rgba(40,30,80,0) 70%); mix-blend-mode: screen; }
+  .chip { position: absolute; display: inline-flex; align-items: center; gap: 12px; padding: 12px 22px; border-radius: 999px; background: rgba(12,14,30,0.6); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.14); font-size: 24px; font-weight: 600; white-space: nowrap; }
+  .chip i { width: 10px; height: 10px; border-radius: 50%; background: #c98af0; }
+  .dots { display: inline-flex; gap: 8px; margin-left: 10px; }
+  .dots b { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.28); }
+  .dots b.on { background: #e6c9ff; }
+  .counter { position: absolute; padding: 16px 30px 20px; border-radius: 20px; border: 2px solid rgba(217,179,255,0.7); background: rgba(12,14,34,0.72); backdrop-filter: blur(10px); }
+  .counter b { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 104px; font-weight: 600; color: #e6c9ff; line-height: 1; font-variant-numeric: tabular-nums; }
+  .counter span { display: block; margin-top: 8px; font-size: 22px; color: rgba(255,255,255,0.68); }
+  .feat { position: absolute; left: 0; right: 0; text-align: center; font-size: 56px; font-weight: 600; letter-spacing: -0.015em; }
+  .feat .dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: #c98af0; margin-right: 22px; vertical-align: middle; transform: translateY(-6px); }
+  .endlogo { position: absolute; left: 0; right: 0; top: 410px; display: flex; align-items: center; justify-content: center; gap: 30px; }
+  .endlogo img { width: 120px; height: 120px; border-radius: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+  .endlogo h1 { font-family: "New York", Georgia, serif; font-size: 140px; font-weight: 600; letter-spacing: -0.03em; }
+  .tagline { position: absolute; left: 0; right: 0; top: 610px; text-align: center; font-size: 40px; font-weight: 500; color: rgba(255,255,255,0.92); }
+  .foot { position: absolute; left: 0; right: 0; top: 690px; text-align: center; font-size: 22px; color: rgba(255,255,255,0.5); letter-spacing: 0.02em; }
+  .vignette { background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,0.5) 100%); pointer-events: none; }
+  .shade-left { background: linear-gradient(90deg, rgba(6,10,23,0.88) 0%, rgba(6,10,23,0.45) 36%, transparent 58%); }
+  .shade-low { background: linear-gradient(0deg, rgba(6,10,23,0.85) 0%, rgba(6,10,23,0.35) 30%, transparent 50%); }
+</style></head>
+<body>
+<div class="layer bg"></div>
+<div class="layer" id="stars"></div>
+
+<div class="layer" id="S1">
+  <div class="title serif" id="t1a" style="top:380px;font-size:128px"></div>
+  <div class="title serif accent" id="t1b" style="top:530px;font-size:128px"></div>
+  <div class="underline" id="uline"></div>
+</div>
+
+<div class="layer" id="S2">
+  <div class="title" id="t2" style="top:58px;font-size:62px"></div>
+  <div class="frame" id="f2"><video id="v_home" src="assets/home-type.mp4" muted preload="auto"></video></div>
+</div>
+
+<div class="layer" id="S3">
+  <div class="layer" id="wps"></div>
+  <div class="layer shade-low"></div>
+  <div id="t3" class="serif" style="position:absolute;left:120px;top:780px;font-size:84px;font-weight:600;line-height:1.08;letter-spacing:-0.02em"></div>
+  <div class="chip" id="wpchip" style="right:120px;bottom:120px"><i></i><span id="wpname">Hoa sen</span></div>
+</div>
+
+<div class="layer" id="S4">
+  <div class="layer full" id="f4"><video id="v_focus" src="assets/focus.mp4" muted preload="auto"></video></div>
+  <div class="layer shade-left"></div>
+  <div id="t4" class="serif" style="position:absolute;left:120px;top:330px;font-size:96px;font-weight:600;line-height:1.08;letter-spacing:-0.02em"></div>
+  <div class="counter" id="cnt" style="left:120px;top:600px"><b id="cntV">0</b><span>phút tập trung, rồi 5 phút nghỉ ngơi</span></div>
+</div>
+
+<div class="layer" id="S5">
+  <div class="title serif" id="t5" style="top:56px;font-size:72px"></div>
+  <div class="frame" id="f5"></div>
+  <div class="chip" id="gchip" style="left:50%;top:972px;transform:translateX(-50%)"><i></i><span id="gname">Thở</span><span class="dots" id="gdots"><b></b><b></b><b></b><b></b><b></b></span></div>
+</div>
+
+<div class="layer" id="S6">
+  <div class="title serif" id="t6" style="top:56px;font-size:72px"></div>
+  <div class="frame" id="f6a"><video id="v_journal" src="assets/journal.mp4" muted preload="auto"></video></div>
+  <div class="frame" id="f6b"><video id="v_greet" src="assets/greet.mp4" muted preload="auto"></video></div>
+</div>
+
+<div class="layer" id="S7"></div>
+<div class="layer bloom" id="bloom"></div>
+
+<div class="layer" id="S8">
+  <div class="endlogo" id="elogo"><img src="assets/icon.jpg"><h1>ZenTab</h1></div>
+  <div class="tagline" id="etag">Tập trung <span class="accent">nhẹ nhàng</span>, ngay trong tab mới.</div>
+  <div class="foot" id="efoot">Tiện ích Chrome · Miễn phí · Dữ liệu ở lại trên máy bạn</div>
+</div>
+<div class="layer vignette"></div>
+<div class="layer" id="fade" style="background:#000"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eo = x => 1 - Math.pow(1 - x, 3);
+const eio = x => 0.5 - 0.5 * Math.cos(Math.PI * x);
+const lerp = (a, b, k) => a + (b - a) * k;
+const win = (t, a, b, fi = 0.45, fo = 0.4) => eo(prog(t, a, a + fi)) * (1 - prog(t, b - fo, b));
+
+(() => { let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647; const box = $('stars');
+  for (let i = 0; i < 130; i++) { const d = document.createElement('i'); d.className = 'star'; const z = r() * 2.2 + 0.6;
+    Object.assign(d.style, { left: r() * 1920 + 'px', top: Math.pow(r(), 1.4) * 780 + 'px', width: z + 'px', height: z + 'px' }); d.dataset.p = r() * 6; d.dataset.o = 0.3 + r() * 0.6; box.appendChild(d); } })();
+
+function words(el, text) { el.innerHTML = text.split(/(\s+)/).map(w => `<span class="w">${w}</span>`).join(''); return [...el.querySelectorAll('.w')]; }
+function reveal(spans, t, start, stagger = 0.12, dur = 0.7) {
+  spans.forEach((s, i) => { const k = eo(prog(t, start + i * stagger, start + i * stagger + dur));
+    s.style.opacity = k; s.style.filter = `blur(${(1 - k) * 14}px)`; s.style.transform = `translateY(${(1 - k) * 18}px)`; });
+}
+const W1a = words($('t1a'), 'Mỗi tab mới.'), W1b = words($('t1b'), 'Một khoảng lặng.');
+const W2 = words($('t2'), 'Một ý định cho cả ngày.');
+$('t3').innerHTML = '<div id="t3a"></div><div id="t3b" class="accent"></div>';
+const W3a = words($('t3a'), 'Mười bốn khung cảnh,'), W3b = words($('t3b'), 'một sự tĩnh lặng.');
+$('t4').innerHTML = '<div id="t4a"></div><div id="t4b" class="accent"></div>';
+const W4a = words($('t4a'), 'Tập trung,'), W4b = words($('t4b'), 'không vội.');
+const W5 = words($('t5'), 'Giờ nghỉ, thật sự nghỉ.'); W5.slice(-2).forEach(s => s.classList.add('accent'));
+const W6a = words($('t6'), '');
+
+// S3: wallpapers
+const WPS = [['lotus', 'Hoa sen'], ['moon', 'Đêm trăng'], ['mist', 'Sương mai'], ['sunrise', 'Bình minh'], ['aurora', 'Cực quang'], ['ocean', 'Đại dương'], ['lavender', 'Oải hương'], ['forest', 'Rừng sâu']];
+WPS.forEach(([id]) => { const im = document.createElement('img'); im.src = `assets/wp-${id}.jpg`; Object.assign(im.style, { position: 'absolute', left: 0, top: 0, width: '1920px', height: '1080px', opacity: 0 }); im.id = 'wp_' + id; $('wps').appendChild(im); });
+
+// S5: games — clip, in-point, name
+const GAMES = [['breath', 0.6, 'Thở'], ['bubbles', 0.3, 'Bong bóng'], ['garden', 1.4, 'Vườn cát'], ['stones', 8.6, 'Xếp đá'], ['lantern', 1.1, 'Thả đèn']];
+const G0 = 14.95, GD = 1.5;
+GAMES.forEach(([id]) => { const v = document.createElement('video'); v.src = `assets/${id}.mp4`; v.muted = true; v.preload = 'auto'; v.id = 'v_' + id; $('f5').appendChild(v); });
+
+// S7: features
+const FEATS = ['Lời nhắn đúng lúc', 'Nhạc nền & âm thanh thư giãn', 'Âm lịch · Tử Vi · giờ hoàng đạo', 'Riêng tư — không máy chủ'];
+FEATS.forEach((f, i) => { const d = document.createElement('div'); d.className = 'feat'; d.id = 'feat' + i; d.style.top = (330 + i * 105) + 'px'; d.innerHTML = `<span class="dot"></span>${f}`; $('S7').appendChild(d); });
+
+function setLayer(id, o) { const el = $(id); el.style.opacity = o; el.style.visibility = o > 0.002 ? 'visible' : 'hidden'; return o > 0.002; }
+
+// place a video so that the source rectangle (sx,sy,sw,sh in 1920×1080) fills the frame
+function fit(v, frame, fw, fh, src = [0, 0, 1920, 1080]) {
+  const k = fw / src[2];
+  Object.assign(v.style, { width: 1920 * k + 'px', height: 1080 * k + 'px', left: -src[0] * k + 'px', top: -src[1] * k + 'px' });
+  Object.assign(frame.style, { width: fw + 'px', height: fh + 'px' });
+}
+const seeks = [];
+function show(v, time) {
+  v.style.visibility = 'visible';
+  const target = Math.max(0, Math.min(v.duration - 0.05 || time, time));
+  if (Math.abs(v.currentTime - target) > 0.001) {
+    // wait for the seek and for that frame to actually be painted
+    seeks.push(new Promise(r => {
+      v.addEventListener('seeked', () => {
+        if (!v.requestVideoFrameCallback) return r();
+        const done = setTimeout(r, 400);
+        v.requestVideoFrameCallback(() => { clearTimeout(done); r(); });
+      }, { once: true });
+      v.currentTime = target;
+    }));
+  }
+}
+function hide(v) { v.style.visibility = 'hidden'; }
+
+window.render = async function (t) {
+  seeks.length = 0;
+  document.querySelectorAll('.star').forEach(s => { s.style.opacity = s.dataset.o * (0.6 + 0.4 * Math.sin(t * 1.3 + +s.dataset.p)); });
+  $('stars').style.opacity = 1 - prog(t, 2.8, 3.4) * 0.6 + prog(t, 25.8, 26.4) * 0.6;
+
+  // S1
+  reveal(W1a, t, 0.35, 0.16, 0.9); reveal(W1b, t, 1.05, 0.16, 0.9);
+  if (!window._ul) { const r = document.createRange(); r.selectNodeContents($('t1b')); const b = r.getBoundingClientRect(); window._ul = { l: b.left + 6, w: b.width - 12, top: b.bottom - 6 }; }
+  Object.assign($('uline').style, { left: _ul.l + 'px', top: _ul.top + 'px', width: _ul.w + 'px', transform: `scaleX(${eio(prog(t, 1.7, 2.4))})` });
+  const o1 = 1 - prog(t, 2.5, 3.0); setLayer('S1', o1); $('S1').style.filter = `blur(${prog(t, 2.5, 3.0) * 10}px)`;
+
+  // bloom transitions
+  const b1 = Math.sin(Math.PI * prog(t, 2.55, 3.45)), b2 = Math.sin(Math.PI * prog(t, 26.9, 27.8));
+  setLayer('bloom', Math.max(b1, b2) * 0.85);
+  $('bloom').style.transform = `scale(${0.8 + Math.max(prog(t, 2.55, 3.45), prog(t, 26.9, 27.8)) * 0.7})`;
+
+  // S2 — typing the intention
+  const o2 = win(t, 2.9, 6.75, 0.7, 0.45);
+  if (setLayer('S2', o2)) {
+    reveal(W2, t, 3.1, 0.1, 0.7);
+    const k = eo(prog(t, 2.9, 3.7)), z = eio(prog(t, 3.0, 6.7));
+    const fw = lerp(1480, 1560, z), fh = fw * 9 / 16;
+    fit($('v_home'), $('f2'), fw, fh);
+    Object.assign($('f2').style, { left: (960 - fw / 2) + 'px', top: (600 - fh / 2) + 'px', transform: `scale(${lerp(0.94, 1, k)})` });
+    show($('v_home'), 0.4 + (t - 2.9) * 1.0);
+  } else hide($('v_home'));
+
+  // S3 — wallpapers, one after another
+  const o3 = win(t, 6.65, 10.55, 0.4, 0.45);
+  if (setLayer('S3', o3)) {
+    const T0 = 6.75, D = 0.47, X = 0.22;
+    let current = WPS[0][1];
+    WPS.forEach(([id, name], i) => {
+      const a = T0 + i * D; const o = i === 0 ? 1 - prog(t, a + D, a + D + X) : prog(t, a, a + X) * (i === WPS.length - 1 ? 1 : 1 - prog(t, a + D, a + D + X));
+      const im = $('wp_' + id); im.style.opacity = o; im.style.transform = `scale(${lerp(1.06, 1.0, prog(t, a - 0.2, a + D + X))})`;
+      if (t >= a + X / 2) current = name;
+    });
+    $('wpname').textContent = current;
+    reveal(W3a, t, 7.0, 0.12, 0.8); reveal(W3b, t, 7.5, 0.12, 0.8);
+    const ck = eo(prog(t, 7.0, 7.5)); $('wpchip').style.opacity = ck;
+  }
+
+  // S4 — focus
+  const o4 = win(t, 10.45, 14.35, 0.5, 0.45);
+  if (setLayer('S4', o4)) {
+    fit($('v_focus'), $('f4'), 1920, 1080);
+    $('f4').style.transform = `scale(${lerp(1.04, 1.1, prog(t, 10.45, 14.35))}) translateX(${lerp(30, 0, prog(t, 10.45, 14.35))}px)`;
+    show($('v_focus'), 0.2 + (t - 10.45));
+    reveal(W4a, t, 10.8, 0.14, 0.8); reveal(W4b, t, 11.25, 0.14, 0.8);
+    const nk = eo(prog(t, 11.7, 12.2)); $('cnt').style.opacity = nk; $('cnt').style.transform = `translateY(${(1 - nk) * 20}px)`;
+    $('cntV').textContent = Math.round(eo(prog(t, 11.8, 12.9)) * 25);
+  } else hide($('v_focus'));
+
+  // S5 — the relax corner: five activities, live
+  const o5 = win(t, 14.1, 22.55, 0.4, 0.45);
+  if (setLayer('S5', o5)) {
+    reveal(W5, t, 14.15, 0.11, 0.7);
+    const fw = 1260, fh = fw * 756 / 1224;
+    $('f5').style.left = (960 - fw / 2) + 'px'; $('f5').style.top = (166) + 'px';
+    $('f5').style.width = fw + 'px'; $('f5').style.height = fh + 'px';
+    const fk = eo(prog(t, 14.25, 14.85)); $('f5').style.transform = `translateY(${(1 - fk) * 40}px) scale(${lerp(0.95, 1, fk)})`; $('f5').style.opacity = fk;
+    let active = 0;
+    GAMES.forEach(([id, inPt, name], i) => {
+      const a = G0 + i * GD, v = $('v_' + id);
+      const o = i === 0 ? 1 - prog(t, a + GD, a + GD + 0.25) : prog(t, a, a + 0.25) * (i === GAMES.length - 1 ? 1 : 1 - prog(t, a + GD, a + GD + 0.25));
+      if (o > 0.002) { fit(v, $('f5'), fw, fh, [348, 156, 1224, 756]); v.style.opacity = o; show(v, inPt + Math.max(0, t - a)); } else hide(v);
+      if (t >= a) active = i;
+    });
+    $('gname').textContent = GAMES[active][2];
+    [...$('gdots').children].forEach((d, i) => d.classList.toggle('on', i === active));
+    $('gchip').style.opacity = eo(prog(t, 14.9, 15.3));
+  } else GAMES.forEach(([id]) => hide($('v_' + id)));
+
+  // S6 — the notebook, then the morning greeting
+  const o6 = win(t, 22.45, 26.05, 0.45, 0.45);
+  if (setLayer('S6', o6)) {
+    const journalPhase = t < 24.05;
+    if (!window._t6 || window._t6 !== journalPhase) { window._t6 = journalPhase; W6a.splice(0, W6a.length, ...words($('t6'), journalPhase ? 'Viết, rồi nhìn lại.' : 'Mỗi ngày, một lời hỏi thăm.')); W6a.slice(-2).forEach(s => s.classList.add('accent')); }
+    reveal(W6a, t, journalPhase ? 22.6 : 24.15, 0.1, 0.7);
+    $('t6').style.opacity = journalPhase ? 1 - prog(t, 23.8, 24.05) : 1;
+    const fw = 1500, fh = fw * 9 / 16;
+    const oa = journalPhase ? 1 : 1 - prog(t, 24.05, 24.3), ob = prog(t, 23.95, 24.25);
+    $('f6a').style.opacity = oa; $('f6b').style.opacity = ob;
+    if (oa > 0.002) { fit($('v_journal'), $('f6a'), fw, fh); Object.assign($('f6a').style, { left: (960 - fw / 2) + 'px', top: (610 - fh / 2) + 'px' }); show($('v_journal'), 0.2 + (t - 22.45)); } else hide($('v_journal'));
+    if (ob > 0.002) {
+      // zoom toward the toast at the bottom of the home screen
+      const z = eio(prog(t, 24.0, 26.0)); const src = [lerp(0, 462, z), lerp(0, 520, z), lerp(1920, 996, z), lerp(1080, 560, z)];
+      fit($('v_greet'), $('f6b'), fw, fh, src); Object.assign($('f6b').style, { left: (960 - fw / 2) + 'px', top: (610 - fh / 2) + 'px' });
+      show($('v_greet'), 2.9 + (t - 24.0));
+    } else hide($('v_greet'));
+  } else { hide($('v_journal')); hide($('v_greet')); }
+
+  // S7 — what else is inside
+  const o7 = win(t, 25.95, 27.45, 0.3, 0.35);
+  if (setLayer('S7', o7)) FEATS.forEach((f, i) => { const k = eo(prog(t, 26.0 + i * 0.16, 26.55 + i * 0.16)); const el = $('feat' + i); el.style.opacity = k; el.style.filter = `blur(${(1 - k) * 10}px)`; el.style.transform = `translateY(${(1 - k) * 20}px)`; });
+
+  // S8 — end card
+  const f8 = eo(prog(t, 27.3, 28.1));
+  if (setLayer('S8', f8)) {
+    $('elogo').style.transform = `translateY(${(1 - f8) * 24}px)`; $('elogo').style.filter = `blur(${(1 - f8) * 12}px)`;
+    const tk = eo(prog(t, 27.8, 28.5)); $('etag').style.opacity = tk; $('etag').style.transform = `translateY(${(1 - tk) * 14}px)`;
+    $('efoot').style.opacity = eo(prog(t, 28.2, 28.8)) * 0.9;
+  }
+  $('fade').style.opacity = 1 - prog(t, 0, 0.35) + prog(t, 29.45, 30.0);
+  await Promise.all(seeks);
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+};
+window.ready = Promise.all([...document.querySelectorAll('video')].map(v => v.readyState >= 4 ? 0 : new Promise(r => v.addEventListener('canplaythrough', r, { once: true }))));
+</script>
+</body></html>
