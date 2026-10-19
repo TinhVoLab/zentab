@@ -777,6 +777,7 @@
           <button type="button" role="tab" data-relax-tab="breath">Thở</button>
           <button type="button" role="tab" data-relax-tab="bubbles">Bong bóng</button>
           <button type="button" role="tab" data-relax-tab="garden">Vườn cát</button>
+          <button type="button" role="tab" data-relax-tab="stones">Xếp đá</button>
           <button type="button" role="tab" data-relax-tab="lantern">Thả đèn</button>
         </div>
         <button type="button" class="relax-size-btn" id="relaxSizeBtn" aria-label="Phóng to (F)" aria-pressed="false" title="Phóng to (F)">
@@ -837,6 +838,17 @@
           <button type="button" class="modal-btn modal-btn-secondary" id="gardenSmooth">Làm phẳng</button>
         </div>
         <p class="relax-note">Kéo chuột để cào những đường cát. Không có đúng sai.</p>
+      </section>
+
+      <section class="relax-pane" id="relaxStones" role="tabpanel" hidden>
+        <div class="relax-stage stones-stage" id="stonesStage">
+          <canvas id="stonesCanvas" aria-label="Bờ hồ: rê chuột để chọn chỗ, bấm để đặt viên đá lên chồng"></canvas>
+        </div>
+        <div class="relax-controls">
+          <span class="stones-meta" id="stonesMeta">Chồng đá: 0 viên</span>
+          <button type="button" class="modal-btn modal-btn-secondary" id="stonesReset">Xếp lại</button>
+        </div>
+        <p class="relax-note">Rê chuột (hoặc ← →) để chọn chỗ, bấm (hoặc phím cách) để đặt đá. Chậm thôi, không vội.</p>
       </section>
 
       <section class="relax-pane" id="relaxLantern" role="tabpanel" hidden>

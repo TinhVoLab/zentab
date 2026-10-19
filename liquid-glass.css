@@ -2410,6 +2410,10 @@ select[aria-invalid] { box-shadow: 0 0 0 2px var(--red, #ff453a); }
 #gardenStones { pointer-events: none; }
 .garden-stage::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: inset 0 0 0 6px #6b4f35, inset 0 0 0 7px rgba(0, 0, 0, 0.25), inset 0 8px 18px rgba(0, 0, 0, 0.22); }
 
+/* Xếp đá: a misty lake shore at dawn */
+.stones-stage { background: #dfe6e4; cursor: pointer; touch-action: none; }
+.stones-meta { font-size: 13px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
 /* Thả đèn hoa đăng: night river canvas + one-line form */
 .lantern-stage { background: #0b1730; }
 .lantern-form input {

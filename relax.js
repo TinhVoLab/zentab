@@ -9,6 +9,7 @@
     breath: document.getElementById('relaxBreath'),
     bubbles: document.getElementById('relaxBubbles'),
     garden: document.getElementById('relaxGarden'),
+    stones: document.getElementById('relaxStones'),
     lantern: document.getElementById('relaxLantern')
   };
   const endPanel = document.getElementById('relaxEnd');
@@ -58,6 +59,7 @@
     stopBreath();
     garden.stop();
     lanterns.stop();
+    cairn.stop();
     clearInterval(tickTimer);
     modal.style.display = 'none';
     syncInvite();
@@ -75,6 +77,7 @@
     if (tab === 'bubbles' && !bubbleSheet.children.length) newSheet();
     if (tab === 'garden') garden.init();
     if (tab === 'lantern') lanterns.start(); else lanterns.stop();
+    if (tab === 'stones') cairn.start(); else cairn.stop();
   }
   document.querySelectorAll('#relaxTabs [data-relax-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.relaxTab)));
   document.getElementById('closeRelaxBtn').addEventListener('click', close);
@@ -93,20 +96,22 @@
   sizeBtn.addEventListener('click', () => setLarge(!card.classList.contains('is-large')));
   try { if (localStorage.getItem('zt-relax-large')) setLarge(true); } catch (e) {}
 
-  const TABS = ['breath', 'bubbles', 'garden', 'lantern'];
+  const TABS = ['breath', 'bubbles', 'garden', 'stones', 'lantern'];
   let currentTab = 'breath';
   document.addEventListener('keydown', e => {
     if (modal.style.display === 'none') return;
     if (e.key === 'Escape') { close(); return; }
     if (e.target.matches('input, textarea') || !endPanel.hidden) return;
     if (e.key === 'f' || e.key === 'F') { setLarge(!card.classList.contains('is-large')); return; }
-    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && currentTab !== 'stones') {
       e.preventDefault();
       const i = TABS.indexOf(currentTab) + (e.key === 'ArrowRight' ? 1 : -1);
       showTab(TABS[(i + TABS.length) % TABS.length]);
     } else if (e.key === ' ' && currentTab === 'breath' && !e.target.matches('button')) {
       e.preventDefault();
       breathTimer ? stopBreath() : startBreath();
+    } else if (currentTab === 'stones' && cairn.key(e)) {
+      e.preventDefault();
     }
   });
 
@@ -453,6 +458,300 @@
     setTool('rake');
 
     return { init, stop: endStroke };
+  })();
+
+
+  // ---- Xếp đá cân bằng: stack river stones on a rock in a misty lake ----
+  // Not a physics engine: each stone rests on the one below, and after every drop the
+  // centre of mass of everything above each stone is checked against that stone's flat top.
+  // If it falls outside, that part of the stack tips over its edge and drops into the water.
+  const cairn = (() => {
+    const stage = document.getElementById('stonesStage');
+    const canvas = document.getElementById('stonesCanvas');
+    const ctx = canvas.getContext('2d');
+    const meta = document.getElementById('stonesMeta');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const G = 2200;            // px/s², falling
+    const TOP = 0.36;          // fraction of a stone's width that is flat enough to bear weight
+    const PALETTE = [['#9aa09c', '#5f6662'], ['#a9a091', '#6b6255'], ['#8c949a', '#545b61'], ['#b3aca0', '#776f63'], ['#7f8783', '#4b524e'], ['#a39a8e', '#62594f']];
+    let w = 0, h = 0, dpr = 1, raf = null, last = 0;
+    let groundY = 0, cx = 0, view = 1, viewTarget = 1;
+    let stack = [], falling = null, toppling = [], ripples = [], next = null, hoverX = null, best = 0, scene = null;
+
+    function size() {
+      const cw = stage.offsetWidth, ch = stage.offsetHeight;
+      if (!cw || (cw === w && ch === h)) return;
+      dpr = window.devicePixelRatio || 1;
+      const dx = cw / 2 - (w / 2 || cw / 2);
+      w = cw; h = ch;
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cx = w / 2;
+      groundY = h * 0.8;
+      scene = null;
+      if (!stack.length) reset(false);
+      else stack.forEach(st => { st.x += dx; });   // stay centred when Phóng to resizes
+      if (hoverX === null) hoverX = cx;
+    }
+
+    // A river stone: a flattened, slightly lumpy ellipse with its own colours
+    function makeStone(base) {
+      const sw = base ? Math.min(240, w * 0.34) : 46 + Math.random() * 74;
+      const sh = base ? 34 : 15 + Math.random() * 15;
+      const pts = Array.from({ length: 14 }, (_, i) => {
+        const a = (i / 14) * Math.PI * 2;
+        const r = 1 + (Math.random() - 0.5) * 0.12;
+        // flatter top and bottom: stones lie on their broad side
+        const y = Math.sin(a) * Math.pow(Math.abs(Math.sin(a)), 0.25);
+        return { x: Math.cos(a) * r, y: y * r };
+      });
+      const [light, dark] = base ? ['#6f7773', '#3f4542'] : PALETTE[Math.floor(Math.random() * PALETTE.length)];
+      return { w: sw, h: sh, pts, light, dark, rot: 0, base: !!base, speck: Math.random() * 1000 };
+    }
+
+    function reset(animate = true) {
+      if (animate && stack.length > 1) {
+        // the stones slide off into the water rather than vanish
+        stack.slice(1).forEach(st => toppling.push({ ...st, vx: (st.x < cx ? -1 : 1) * (120 + Math.random() * 160), vy: -120 - Math.random() * 80, vr: (Math.random() - 0.5) * 6, free: true }));
+      }
+      const base = makeStone(true);
+      base.x = cx; base.y = groundY - base.h / 2 + 6;
+      stack = [base];
+      falling = null;
+      next = makeStone(false);
+      viewTarget = 1;
+      updateMeta();
+    }
+
+    const topOf = st => st.y - st.h / 2;
+    function updateMeta(msg) {
+      const n = stack.length - 1;
+      best = Math.max(best, n);
+      meta.textContent = msg || `Chồng đá: ${n} viên${best > n ? ` · cao nhất ${best}` : ''}`;
+    }
+
+    // ---- world ↔ screen: the view zooms out as the stack grows, anchored at the rock ----
+    const sx = x => cx + (x - cx) * view;
+    const sy = y => groundY - (groundY - y) * view;
+    const wx = x => cx + (x - cx) / view;
+
+    function drop() {
+      if (falling || !next) return;
+      const top = stack[stack.length - 1];
+      const st = next;
+      st.x = wx(hoverX);
+      st.y = groundY - (groundY - hoverY()) / view;
+      st.vy = 0;
+      st.restY = topOf(top) - st.h / 2 + 2;
+      falling = st;
+      next = null;
+    }
+    const hoverY = () => Math.min(h * 0.16, 48);
+
+    function land(st) {
+      const top = stack[stack.length - 1];
+      const reach = top.w * TOP + st.w * 0.3;
+      if (Math.abs(st.x - top.x) > reach) {
+        // missed the stone below: it glances off and drops into the lake
+        toppling.push({ ...st, vx: Math.sign(st.x - top.x) * 140, vy: 40, vr: Math.sign(st.x - top.x) * 3, free: true });
+        sound('stoneClack', 0.2);
+        updateMeta('Trượt mất rồi · nhắm vào giữa viên dưới nhé');
+        nextStone(700);
+        return;
+      }
+      st.y = st.restY;
+      st.rot = Math.max(-0.12, Math.min(0.12, (st.x - top.x) / (top.w * TOP) * 0.08));
+      stack.push(st);
+      sound('stoneClack', Math.min(1, st.w / 120));
+      settle();
+      nextStone(450);
+    }
+
+    // The lowest stone whose load leans past its flat top decides what falls
+    function settle() {
+      for (let k = 0; k < stack.length - 1; k++) {
+        const above = stack.slice(k + 1);
+        const m = above.reduce((a, st) => a + st.w * st.h, 0);
+        const com = above.reduce((a, st) => a + st.x * st.w * st.h, 0) / m;
+        const half = stack[k].w * TOP;
+        if (Math.abs(com - stack[k].x) > half) {
+          const dir = Math.sign(com - stack[k].x);
+          const pivot = { x: stack[k].x + dir * half, y: topOf(stack[k]) };
+          stack = stack.slice(0, k + 1);
+          toppling.push({ group: above, pivot, dir, angle: 0, omega: 0 });
+          updateMeta(above.length > 1 ? `Đổ mất ${above.length} viên · không sao, xếp lại nhé` : 'Một viên rơi xuống hồ · thử lại nhé');
+          return;
+        }
+      }
+      updateMeta();
+    }
+
+    function nextStone(delay) {
+      setTimeout(() => { if (!next) next = makeStone(false); }, delay);
+    }
+
+    // ---- drawing ----
+    function renderScene() {
+      const off = document.createElement('canvas');
+      off.width = canvas.width; off.height = canvas.height;
+      const o = off.getContext('2d');
+      o.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const sky = o.createLinearGradient(0, 0, 0, h);
+      sky.addColorStop(0, '#e9eeec'); sky.addColorStop(0.55, '#f3f1ea'); sky.addColorStop(1, '#dfe7e6');
+      o.fillStyle = sky; o.fillRect(0, 0, w, h);
+      const sun = o.createRadialGradient(w * 0.72, h * 0.3, 0, w * 0.72, h * 0.3, h * 0.6);
+      sun.addColorStop(0, 'rgba(255,244,222,0.9)'); sun.addColorStop(0.2, 'rgba(255,240,215,0.35)'); sun.addColorStop(1, 'rgba(255,240,215,0)');
+      o.fillStyle = sun; o.fillRect(0, 0, w, h);
+      // hills fading into mist
+      [[0.5, 0.07, '#c7d3cf', 0.6], [0.58, 0.06, '#b5c5c0', 0.6], [0.66, 0.05, '#a3b7b2', 0.55]].forEach(([base, amp, col, a], i) => {
+        o.globalAlpha = a; o.fillStyle = col; o.beginPath(); o.moveTo(0, h);
+        for (let x = 0; x <= w; x += 12) o.lineTo(x, h * base - h * amp * (0.6 * Math.sin(x / (w * 0.18) + i * 2) + 0.4 * Math.sin(x / (w * 0.07) + i)));
+        o.lineTo(w, h); o.closePath(); o.fill();
+        const fog = o.createLinearGradient(0, h * (base - 0.05), 0, h);
+        fog.addColorStop(0, 'rgba(242,245,242,0)'); fog.addColorStop(0.3, 'rgba(242,245,242,0.6)'); fog.addColorStop(1, 'rgba(242,245,242,0.9)');
+        o.globalAlpha = 1; o.fillStyle = fog; o.fillRect(0, h * (base - 0.05), w, h);
+      });
+      // still water
+      const water = o.createLinearGradient(0, h * 0.72, 0, h);
+      water.addColorStop(0, '#cfdcdc'); water.addColorStop(1, '#b6c8ca');
+      o.fillStyle = water; o.fillRect(0, h * 0.72, w, h);
+      o.strokeStyle = 'rgba(255,255,255,0.35)'; o.lineWidth = 1;
+      for (let i = 0; i < 7; i++) { const y = h * 0.75 + i * h * 0.035; o.beginPath(); o.moveTo(w * (0.1 + 0.07 * i), y); o.lineTo(w * (0.35 + 0.05 * i), y); o.stroke(); o.beginPath(); o.moveTo(w * (0.6 - 0.03 * i), y + 4); o.lineTo(w * (0.85 - 0.02 * i), y + 4); o.stroke(); }
+      scene = off;
+    }
+
+    function drawStone(st, x, y, rot, scale) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rot);
+      ctx.scale(st.w / 2 * scale, st.h / 2 * scale);
+      ctx.beginPath();
+      st.pts.forEach((p, i) => {
+        const n = st.pts[(i + 1) % st.pts.length];
+        const mx = (p.x + n.x) / 2, my = (p.y + n.y) / 2;
+        if (i === 0) ctx.moveTo(mx, my); else ctx.quadraticCurveTo(p.x, p.y, mx, my);
+      });
+      ctx.closePath();
+      ctx.restore();
+      ctx.save();
+      ctx.shadowColor = 'rgba(30,40,40,0.28)';
+      ctx.shadowBlur = 6 * scale;
+      ctx.shadowOffsetY = 3 * scale;
+      const g = ctx.createRadialGradient(x - st.w * 0.18 * scale, y - st.h * 0.35 * scale, 1, x, y, st.w * 0.6 * scale);
+      g.addColorStop(0, st.light); g.addColorStop(1, st.dark);
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.restore();
+      // a soft sheen along the top
+      ctx.save();
+      ctx.clip();
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.fillRect(x - st.w * scale, y - st.h * 0.5 * scale, st.w * 2 * scale, st.h * 0.28 * scale);
+      ctx.restore();
+    }
+
+    function frame(t) {
+      size();
+      const dt = Math.min(0.05, (t - (last || t)) / 1000);
+      last = t;
+      // zoom out so the whole stack (plus room to drop) stays in view
+      const top = stack[stack.length - 1];
+      const need = groundY - topOf(top) + h * 0.32;
+      viewTarget = Math.min(1, (groundY - 12) / need);
+      view += (viewTarget - view) * Math.min(1, dt * 3);
+
+      if (!scene) renderScene();
+      ctx.drawImage(scene, 0, 0, w, h);
+
+      // reflections of the stack in the water
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      ctx.translate(0, 2 * groundY + 8);
+      ctx.scale(1, -1);
+      stack.forEach(st => drawStone(st, sx(st.x), sy(st.y), st.rot, view));
+      ctx.restore();
+
+      stack.forEach(st => drawStone(st, sx(st.x), sy(st.y), st.rot, view));
+
+      // the stone being dropped
+      if (falling) {
+        falling.vy += G * dt;
+        falling.y += falling.vy * dt;
+        if (falling.y >= falling.restY) { const st = falling; falling = null; land(st); }
+        else drawStone(falling, sx(falling.x), sy(falling.y), 0, view);
+      }
+
+      // tipping groups pivot over the edge, then fall free
+      for (let i = toppling.length - 1; i >= 0; i--) {
+        const g = toppling[i];
+        if (g.group) {
+          g.omega += g.dir * 7 * dt;
+          g.angle += g.omega * dt;
+          const c = Math.cos(g.angle), s2 = Math.sin(g.angle);
+          g.group.forEach(st => {
+            const rx = st.x - g.pivot.x, ry = st.y - g.pivot.y;
+            drawStone(st, sx(g.pivot.x + rx * c - ry * s2), sy(g.pivot.y + rx * s2 + ry * c), st.rot + g.angle, view);
+          });
+          if (Math.abs(g.angle) > 0.55) {
+            g.group.forEach(st => {
+              const rx = st.x - g.pivot.x, ry = st.y - g.pivot.y;
+              const x = g.pivot.x + rx * c - ry * s2, y = g.pivot.y + rx * s2 + ry * c;
+              toppling.push({ ...st, x, y, rot: st.rot + g.angle, vx: -g.omega * (y - g.pivot.y) + g.dir * 60, vy: g.omega * (x - g.pivot.x) * 0.5, vr: g.omega * 0.8, free: true });
+            });
+            toppling.splice(i, 1);
+          }
+        } else {
+          g.vy += G * dt; g.x += g.vx * dt; g.y += g.vy * dt; g.rot += g.vr * dt;
+          if (!g.splashed && sy(g.y) > groundY + 14) {
+            g.splashed = true;
+            ripples.push({ x: sx(g.x), y: Math.min(h - 10, groundY + 18 + Math.random() * 20), born: t });
+            sound('splash');
+          }
+          if (sy(g.y) > h + 60) toppling.splice(i, 1);
+          else drawStone(g, sx(g.x), sy(g.y), g.rot, view);
+        }
+      }
+
+      // rings on the water where stones went in
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        const r = ripples[i], k = (t - r.born) / 1400;
+        if (k >= 1) { ripples.splice(i, 1); continue; }
+        ctx.strokeStyle = `rgba(255,255,255,${0.6 * (1 - k)})`;
+        ctx.lineWidth = 1.4;
+        [1, 0.6].forEach(f => { ctx.beginPath(); ctx.ellipse(r.x, r.y, 50 * k * f + 4, (50 * k * f + 4) * 0.28, 0, 0, Math.PI * 2); ctx.stroke(); });
+      }
+
+      // the next stone, waiting above where it will drop
+      if (next && !falling) {
+        const sway = reduceMotion.matches ? 0 : Math.sin(t / 700) * 1.5;
+        const x = hoverX;
+        ctx.save();
+        ctx.globalAlpha = 0.25;
+        ctx.strokeStyle = '#4b5552';
+        ctx.setLineDash([3, 5]);
+        ctx.beginPath(); ctx.moveTo(x, hoverY() + next.h * view / 2 + 6); ctx.lineTo(x, sy(topOf(top)) - 4); ctx.stroke();
+        ctx.restore();
+        drawStone(next, x, hoverY() + sway, 0, view);
+      }
+      raf = requestAnimationFrame(frame);
+    }
+
+    const pointerX = e => { const r = stage.getBoundingClientRect(); return (e.clientX - r.left) * (w / r.width); };
+    stage.addEventListener('pointermove', e => { hoverX = Math.max(20, Math.min(w - 20, pointerX(e))); });
+    stage.addEventListener('pointerdown', e => { hoverX = Math.max(20, Math.min(w - 20, pointerX(e))); drop(); });
+    document.getElementById('stonesReset').addEventListener('click', () => reset(true));
+
+    // ← → move the stone, Space / Enter drops it (from the corner's keydown handler)
+    function key(e) {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { hoverX = Math.max(20, Math.min(w - 20, hoverX + (e.key === 'ArrowLeft' ? -12 : 12) * (e.shiftKey ? 0.25 : 1))); return true; }
+      if (e.key === ' ' || e.key === 'Enter') { if (!e.target.matches('button')) { drop(); return true; } }
+      return false;
+    }
+
+    function start() { if (!raf) { last = 0; raf = requestAnimationFrame(frame); } }
+    function stop() { if (raf) cancelAnimationFrame(raf); raf = null; }
+    return { start, stop, key };
   })();
 
   // ---- Thả đèn hoa đăng: write a worry, set it on the river, watch it drift away ----
