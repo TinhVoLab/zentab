@@ -1702,11 +1702,7 @@ ADVICE:`;
 }
 
 function handleGeminiFail(birth) {
-  const q = quotes[Math.floor(Math.random() * quotes.length)];
-  const txtEl = document.getElementById('quoteText');
-  const authEl = document.getElementById('quoteAuthor');
-  if (txtEl) txtEl.textContent = `"${q.text}"`;
-  if (authEl) authEl.textContent = q.author;
+  showRandomQuote();
   if (birth) renderToday(birth, { error: true });
 }
 
@@ -1728,12 +1724,10 @@ function displayDailyInsight(insight) {
   });
 }
 
-function fallbackDailyInsight() {
-  const q = quotes[Math.floor(Math.random() * quotes.length)];
-  const txtEl = document.getElementById('quoteText');
-  const authEl = document.getElementById('quoteAuthor');
-  if (txtEl) txtEl.textContent = `"${q.text}"`;
-  if (authEl) authEl.textContent = q.author;
+// Start from a random quote; ‹ › then step from that one
+function showRandomQuote() {
+  currentQuoteIdx = Math.floor(Math.random() * quotes.length);
+  displayQuoteAt(currentQuoteIdx);
 }
 
 // Task List
@@ -2081,7 +2075,7 @@ function displayQuoteAt(index) {
     textEl.textContent = `"${q.text}"`;
     textEl.classList.remove('expanded');
   }
-  if (authEl) authEl.textContent = q.author;
+  if (authEl) authEl.textContent = `— ${q.author}`;
   const expandBtn = document.getElementById('expandQuoteBtn');
   if (expandBtn) expandBtn.textContent = 'Xem đầy đủ';
 }
@@ -2095,6 +2089,9 @@ document.getElementById('nextQuoteBtn').addEventListener('click', () => {
   currentQuoteIdx = (currentQuoteIdx + 1) % quotes.length;
   displayQuoteAt(currentQuoteIdx);
 });
+
+// The daily AI insight, when there is one, replaces this once it loads
+showRandomQuote();
 
 if (playBtn) {
   playBtn.addEventListener('click', () => {

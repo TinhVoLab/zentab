@@ -445,7 +445,8 @@ button { -webkit-tap-highlight-color: transparent; }
   border: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
-.dock-player-controls .play-pause-btn:hover { background: #fff; color: var(--prominent-fg); }
+/* keep the theme's colours on hover: a white background hid the white icon */
+.dock-player-controls .play-pause-btn:hover { background: var(--prominent-bg); color: var(--prominent-fg); box-shadow: 0 3px 12px rgba(0, 0, 0, 0.3); }
 .dock-player-controls .play-pause-btn svg { width: 20px; height: 20px; }
 .dock-player-controls .ambient-sound-select {
   height: 38px;
@@ -1001,6 +1002,18 @@ input[type="range"]::-webkit-slider-thumb:active { transform: scale(1.12); }
   transition: opacity 0.2s ease;
 }
 .quote-expand-btn:hover { opacity: 1; }
+/* ‹ › for the quote sit with the quote, not in the player (they looked like track skips) */
+.quote-nav { display: inline-flex; gap: 2px; margin-left: -2px; }
+.quote-nav-btn {
+  display: grid; place-items: center;
+  width: 24px; height: 24px; padding: 0;
+  border: none; border-radius: 50%;
+  background: none; color: var(--text);
+  opacity: 0.6; cursor: pointer;
+  transition: opacity 0.2s ease, background 0.2s ease;
+}
+.quote-nav-btn:hover { opacity: 1; background: rgba(255, 255, 255, 0.14); }
+.quote-nav-btn svg { width: 14px; height: 14px; }
 
 .context-empty { color: var(--text-muted); font-size: 13px; }
 
