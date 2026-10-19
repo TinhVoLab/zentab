@@ -44,7 +44,7 @@
     if (!isBreak()) return; // focus time stays focused
     if (window.ZenAmbient) ZenAmbient.unlock();
     endPanel.hidden = true;
-    document.getElementById('relaxTabs').hidden = false;
+    document.getElementById('relaxTabs').style.visibility = '';
     modal.style.display = 'flex';
     showTab(tab || 'breath');
     recordRelax();
@@ -64,6 +64,7 @@
   }
 
   function showTab(tab) {
+    currentTab = tab;
     Object.entries(panes).forEach(([k, el]) => { el.hidden = k !== tab; });
     document.querySelectorAll('#relaxTabs [data-relax-tab]').forEach(b => {
       const on = b.dataset.relaxTab === tab;
@@ -78,7 +79,21 @@
   document.querySelectorAll('#relaxTabs [data-relax-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.relaxTab)));
   document.getElementById('closeRelaxBtn').addEventListener('click', close);
   modal.addEventListener('click', e => { if (e.target === modal) close(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.style.display !== 'none') close(); });
+  const TABS = ['breath', 'bubbles', 'garden', 'lantern'];
+  let currentTab = 'breath';
+  document.addEventListener('keydown', e => {
+    if (modal.style.display === 'none') return;
+    if (e.key === 'Escape') { close(); return; }
+    if (e.target.matches('input, textarea') || !endPanel.hidden) return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const i = TABS.indexOf(currentTab) + (e.key === 'ArrowRight' ? 1 : -1);
+      showTab(TABS[(i + TABS.length) % TABS.length]);
+    } else if (e.key === ' ' && currentTab === 'breath' && !e.target.matches('button')) {
+      e.preventDefault();
+      breathTimer ? stopBreath() : startBreath();
+    }
+  });
 
   function updateBreakLeft() {
     if (!isBreak() || typeof timeLeft === 'undefined') { breakLeft.textContent = ''; return; }
@@ -100,7 +115,8 @@
   // ---- Breathing ----
   const PATTERNS = {
     box: [['Hít vào', 4, 'in'], ['Giữ hơi', 4, 'hold'], ['Thở ra', 4, 'out'], ['Nghỉ', 4, 'hold']],
-    '478': [['Hít vào', 4, 'in'], ['Giữ hơi', 7, 'hold'], ['Thở ra', 8, 'out']]
+    '478': [['Hít vào', 4, 'in'], ['Giữ hơi', 7, 'hold'], ['Thở ra', 8, 'out']],
+    calm: [['Hít vào', 4, 'in'], ['Thở ra', 6, 'out']]
   };
   let pattern = 'box';
   let breathTimer = null;
@@ -110,6 +126,17 @@
   const countEl = document.getElementById('breathCount');
   const roundsEl = document.getElementById('breathRounds');
   const toggleBtn = document.getElementById('breathToggle');
+  const orb = circle.parentElement;
+  const ring = document.getElementById('breathRing');
+  const hintEl = document.getElementById('breathHint');
+  // The ring fills over each phase: reset instantly, then run for the phase's length
+  function traceRing(secs) {
+    ring.style.transition = 'none';
+    ring.style.strokeDashoffset = '100';
+    void ring.getBoundingClientRect();
+    ring.style.transition = `stroke-dashoffset ${secs}s linear`;
+    ring.style.strokeDashoffset = '0';
+  }
 
   function setPattern(p) {
     pattern = p;
@@ -127,6 +154,7 @@
     let step = 0, left = steps[0][1];
     rounds = 0;
     roundsEl.textContent = '';
+    hintEl.hidden = true;
     toggleBtn.textContent = 'Dừng';
     const enter = () => {
       const [label, secs, kind] = steps[step];
@@ -136,7 +164,8 @@
       circle.style.transitionDuration = `${secs}s`;
       if (kind === 'in') circle.classList.add('expanded');
       if (kind === 'out') circle.classList.remove('expanded');
-      circle.dataset.phase = kind;
+      orb.dataset.phase = kind;
+      traceRing(secs);
       if (kind !== 'hold') sound('breathCue', kind === 'in');
     };
     enter();
@@ -146,7 +175,7 @@
       step = (step + 1) % steps.length;
       if (step === 0) {
         rounds += 1;
-        roundsEl.textContent = `${rounds} nhịp`;
+        roundsEl.textContent = `${rounds} nhịp thở`;
       }
       enter();
     }, 1000);
@@ -160,7 +189,10 @@
     countEl.textContent = '';
     circle.style.transitionDuration = '1.2s';
     circle.classList.remove('expanded');
-    circle.dataset.phase = '';
+    orb.dataset.phase = '';
+    ring.style.transition = 'stroke-dashoffset 0.6s ease';
+    ring.style.strokeDashoffset = '100';
+    hintEl.hidden = !!rounds;
   }
   toggleBtn.addEventListener('click', () => (breathTimer ? stopBreath() : startBreath()));
   setPattern('box');
@@ -168,14 +200,21 @@
   // ---- Bubble wrap ----
   const bubbleSheet = document.getElementById('bubbleSheet');
   const bubbleMeta = document.getElementById('bubbleMeta');
-  const COLS = 8, ROWS = 5;
+  const COLS = 10, ROWS = 5;
   let popped = 0, sheets = 0, pressing = false;
 
   function newSheet() {
-    bubbleSheet.classList.remove('sheet-out');
+    bubbleSheet.classList.remove('sheet-out', 'sheet-in');
     bubbleSheet.innerHTML = Array.from({ length: COLS * ROWS }, (_, i) =>
       `<button type="button" class="bubble" aria-label="Bong bóng ${i + 1}"></button>`).join('');
+    void bubbleSheet.offsetWidth;
+    bubbleSheet.classList.add('sheet-in');
   }
+  function swapSheet() {
+    bubbleSheet.classList.add('sheet-out');
+    setTimeout(newSheet, 380);
+  }
+  document.getElementById('bubbleNew').addEventListener('click', swapSheet);
 
   function popBubble(b) {
     if (!b || !b.classList.contains('bubble') || b.classList.contains('popped')) return;
@@ -185,8 +224,7 @@
     popped += 1;
     if (!bubbleSheet.querySelector('.bubble:not(.popped)')) {
       sheets += 1;
-      bubbleSheet.classList.add('sheet-out');
-      setTimeout(newSheet, 450);
+      setTimeout(swapSheet, 250);
     }
     bubbleMeta.textContent = `Đã bóp ${popped} bong bóng${sheets ? ` · ${sheets} tấm` : ''}`;
   }
@@ -370,13 +408,34 @@
       });
     }
     document.querySelectorAll('#gardenTools [data-tool]').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
-    document.getElementById('gardenSmooth').addEventListener('click', () => { init(); smooth(); });
+    // Làm phẳng: a board sweeps the tray left to right
+    function sweep() {
+      init();
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { smooth(); return; }
+      tctx.clearRect(0, 0, w, h);
+      const t0 = performance.now(), dur = 650;
+      let x0 = 0;
+      const step = now => {
+        const k = Math.min(1, (now - t0) / dur);
+        const x = w * (1 - Math.pow(1 - k, 2));
+        sctx.fillStyle = pattern;
+        sctx.fillRect(x0, 0, x - x0 + 1, h);
+        x0 = x;
+        if (k < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+      sound('pop');
+    }
+    document.getElementById('gardenSmooth').addEventListener('click', sweep);
     setTool('rake');
 
     return { init, stop: endStroke };
   })();
 
   // ---- Thả đèn hoa đăng: write a worry, set it on the river, watch it drift away ----
+  // The river is the Đêm trăng wallpaper (wallpapers/moon.svg) with stars and moonlight
+  // that move. A lantern waits on the water and shows what you type; released, it drifts
+  // to the far shore and stays there as a small light for the rest of the break.
   // Nothing written here is stored or sent anywhere; it only exists on the canvas.
   const lanterns = (() => {
     const stage = document.getElementById('lanternStage');
@@ -385,148 +444,155 @@
     const form = document.getElementById('lanternForm');
     const input = document.getElementById('lanternText');
     const countEl = document.getElementById('lanternCount');
-    const DRIFT_MS = 16000;
-    let w = 0, h = 0, raf = null, released = 0;
-    const floating = [];
-    // Fixed starfield so it doesn't reshuffle every frame
-    const stars = Array.from({ length: 60 }, () => ({ x: Math.random(), y: Math.random() * 0.36, r: Math.random() * 1.2 + 0.3, p: Math.random() * 6 }));
+    const DRIFT_MS = 14000, FAR_MAX = 14, NEXT_MS = 1400, WAIT_SCALE = 1.25;
+    const VB = { w: 1600, h: 1000, horizon: 660, moonX: 1220, moonY: 230 }; // moon.svg geometry
+    let w = 0, h = 0, dpr = 1, raf = null, released = 0;
+    let scene = null, map = null, waiting = null;
+    const drifting = [], far = [];
+    const bg = new Image();
+    bg.src = 'wallpapers/moon.svg';
+    bg.onload = () => { scene = null; };
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    // twinkles placed in the sky once
+    const twinkles = Array.from({ length: 26 }, () => ({ x: Math.random(), y: Math.random() * 0.5, r: Math.random() * 0.9 + 0.5, p: Math.random() * 6 }));
 
     function size() {
       const cw = stage.offsetWidth, ch = stage.offsetHeight;
       if (!cw || (cw === w && ch === h)) return;
-      const dpr = window.devicePixelRatio || 1;
+      dpr = window.devicePixelRatio || 1;
       w = cw; h = ch;
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // background-size: cover, centred — the same crop the wallpaper uses
+      const k = Math.max(w / VB.w, h / VB.h);
+      map = { k, ox: (w - VB.w * k) / 2, oy: (h - VB.h * k) / 2 };
+      map.horizon = map.oy + VB.horizon * k;
+      map.moonX = map.ox + VB.moonX * k;
+      map.moonY = map.oy + VB.moonY * k;
+      scene = null;
+      waiting = waiting || newWaiting(performance.now());
+    }
+
+    // The still scene, rendered once per size into an offscreen canvas
+    function renderScene() {
+      const off = document.createElement('canvas');
+      off.width = canvas.width; off.height = canvas.height;
+      const o = off.getContext('2d');
+      o.setTransform(dpr, 0, 0, dpr, 0, 0);
+      o.fillStyle = '#0b1730';
+      o.fillRect(0, 0, w, h);
+      if (bg.complete && bg.naturalWidth) o.drawImage(bg, map.ox, map.oy, VB.w * map.k, VB.h * map.k);
+      scene = off;
     }
 
     function drawScene(t) {
-      const horizon = h * 0.42;
-      // Sky
-      const sky = ctx.createLinearGradient(0, 0, 0, horizon);
-      sky.addColorStop(0, '#0b1026');
-      sky.addColorStop(1, '#23264a');
-      ctx.fillStyle = sky;
-      ctx.fillRect(0, 0, w, horizon);
-      stars.forEach(st => {
-        ctx.globalAlpha = 0.45 + 0.4 * Math.sin(t / 900 + st.p);
+      if (!scene) renderScene();
+      ctx.drawImage(scene, 0, 0, w, h);
+      if (reduceMotion.matches) return;
+      // stars breathe
+      twinkles.forEach(st => {
+        const y = st.y * map.horizon;
+        ctx.globalAlpha = Math.max(0, 0.15 + 0.55 * Math.sin(t / 1100 + st.p));
         ctx.fillStyle = '#fff';
-        ctx.beginPath(); ctx.arc(st.x * w, st.y * h, st.r, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(st.x * w, y, st.r, 0, Math.PI * 2); ctx.fill();
       });
+      // moonlight glints that come and go on the water under the moon
+      for (let i = 0; i < 18; i++) {
+        const depth = (i + 0.5) / 18;
+        const y = map.horizon + 8 + depth * (h - map.horizon - 10);
+        const spread = 10 + depth * 60 * map.k * 1.6;
+        const x = map.moonX + Math.sin(i * 12.9898 + Math.floor(t / 900 + i) * 3.1) * spread;
+        const a = Math.max(0, Math.sin(t / 420 + i * 1.7)) * (0.55 - depth * 0.35);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = '#fff4d8';
+        ctx.beginPath(); ctx.ellipse(x, y, 6 + depth * 10, 1 + depth * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+      }
       ctx.globalAlpha = 1;
-      // Moon with a soft halo
-      const mx = w * 0.78, my = h * 0.16;
-      const halo = ctx.createRadialGradient(mx, my, 6, mx, my, 70);
-      halo.addColorStop(0, 'rgba(255,240,200,0.35)');
-      halo.addColorStop(1, 'rgba(255,240,200,0)');
-      ctx.fillStyle = halo;
-      ctx.fillRect(mx - 70, my - 70, 140, 140);
-      ctx.fillStyle = '#fbf3da';
-      ctx.beginPath(); ctx.arc(mx, my, 16, 0, Math.PI * 2); ctx.fill();
-      // Far bank
-      ctx.fillStyle = '#141833';
-      ctx.beginPath();
-      ctx.moveTo(0, horizon);
-      for (let x = 0; x <= w; x += 20) ctx.lineTo(x, horizon - 6 - 8 * Math.abs(Math.sin(x / 90)) - 10 * Math.max(0, Math.sin(x / 260)));
-      ctx.lineTo(w, horizon); ctx.closePath(); ctx.fill();
-      // Water
-      const water = ctx.createLinearGradient(0, horizon, 0, h);
-      water.addColorStop(0, '#1b2244');
-      water.addColorStop(1, '#0a0f24');
-      ctx.fillStyle = water;
-      ctx.fillRect(0, horizon, w, h - horizon);
-      // Moonlight on the water: broken, shimmering strokes
-      for (let i = 0; i < 26; i++) {
-        const y = horizon + 6 + i * ((h - horizon) / 26);
-        const spread = 6 + i * 2.2;
-        const a = 0.12 + 0.12 * Math.sin(t / 500 + i * 1.7);
-        ctx.strokeStyle = `rgba(255,236,190,${a})`;
-        ctx.lineWidth = 1.2;
-        const off = Math.sin(t / 700 + i) * 4;
-        ctx.beginPath(); ctx.moveTo(mx - spread + off, y); ctx.lineTo(mx + spread + off, y); ctx.stroke();
-      }
-      // Gentle ripples across the river
-      ctx.strokeStyle = 'rgba(160,180,255,0.07)';
-      for (let i = 0; i < 9; i++) {
-        const y = horizon + 14 + i * ((h - horizon) / 9) + Math.sin(t / 1300 + i) * 2;
-        ctx.beginPath(); ctx.moveTo(0, y);
-        for (let x = 0; x <= w; x += 24) ctx.lineTo(x, y + Math.sin(x / 60 + t / 900 + i) * 1.5);
-        ctx.stroke();
-      }
     }
 
-    function drawLantern(l, t) {
-      const k = Math.min(1, (t - l.born) / DRIFT_MS);
-      const ease = 1 - Math.pow(1 - k, 2);
-      const horizon = h * 0.42;
-      const y = h * 0.86 + (horizon + 10 - h * 0.86) * ease;
-      const s = 1 - 0.78 * ease;
-      const x = l.x0 + (l.x1 - l.x0) * ease + Math.sin(t / 900 + l.seed) * 6 * s;
-      const fade = k > 0.85 ? 1 - (k - 0.85) / 0.15 : Math.min(1, (t - l.born) / 500);
-      const flicker = 0.85 + 0.15 * Math.sin(t / 90 + l.seed * 3) * Math.sin(t / 37 + l.seed);
+    // One lotus lantern at (x, y), scale s, opacity a
+    function lantern(x, y, s, a, flicker) {
       ctx.save();
-      ctx.globalAlpha = Math.max(0, fade);
-      // Reflection
-      const refl = ctx.createRadialGradient(x, y + 10 * s, 0, x, y + 10 * s, 46 * s);
-      refl.addColorStop(0, `rgba(255,190,110,${0.35 * flicker})`);
+      ctx.globalAlpha = a;
+      const refl = ctx.createRadialGradient(x, y + 12 * s, 0, x, y + 12 * s, 46 * s);
+      refl.addColorStop(0, `rgba(255,190,110,${0.38 * flicker})`);
       refl.addColorStop(1, 'rgba(255,190,110,0)');
       ctx.fillStyle = refl;
-      ctx.save(); ctx.translate(x, y + 12 * s); ctx.scale(1, 0.35); ctx.translate(-x, -(y + 12 * s));
+      ctx.save(); ctx.translate(x, y + 12 * s); ctx.scale(1, 0.32); ctx.translate(-x, -(y + 12 * s));
       ctx.beginPath(); ctx.arc(x, y + 12 * s, 46 * s, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-      // Glow
-      const glow = ctx.createRadialGradient(x, y - 6 * s, 0, x, y - 6 * s, 42 * s);
+      const glow = ctx.createRadialGradient(x, y - 6 * s, 0, x, y - 6 * s, 46 * s);
       glow.addColorStop(0, `rgba(255,214,140,${0.55 * flicker})`);
       glow.addColorStop(1, 'rgba(255,214,140,0)');
       ctx.fillStyle = glow;
-      ctx.beginPath(); ctx.arc(x, y - 6 * s, 42 * s, 0, Math.PI * 2); ctx.fill();
-      // Leaf base
+      ctx.beginPath(); ctx.arc(x, y - 6 * s, 46 * s, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#2f6b4f';
-      ctx.beginPath(); ctx.ellipse(x, y + 4 * s, 22 * s, 6 * s, 0, 0, Math.PI * 2); ctx.fill();
-      // Lotus petals: an outer and an inner ring
-      [[8, 17, 9, '#f2a6c4'], [6, 12, 7, '#f9c9dc']].forEach(([n, len, wid, color], ring) => {
+      ctx.beginPath(); ctx.ellipse(x, y + 4 * s, 23 * s, 6 * s, 0, 0, Math.PI * 2); ctx.fill();
+      [[8, 17, 9, '#f2a6c4'], [6, 12, 7, '#fbd3e3']].forEach(([n, len, wid, color], ring) => {
         ctx.fillStyle = color;
         for (let i = 0; i < n; i++) {
-          const a = Math.PI + (i / (n - 1)) * Math.PI; // upper half fan
+          const ang = Math.PI + (i / (n - 1)) * Math.PI;
           ctx.save();
           ctx.translate(x, y - ring * 2 * s);
-          ctx.rotate(a + Math.PI / 2);
+          ctx.rotate(ang + Math.PI / 2);
           ctx.beginPath(); ctx.ellipse(0, -len * s * 0.55, wid * s * 0.5, len * s * 0.6, 0, 0, Math.PI * 2); ctx.fill();
           ctx.restore();
         }
       });
-      // Candle flame
-      ctx.fillStyle = `rgba(255,230,150,${flicker})`;
+      ctx.fillStyle = `rgba(255,232,160,${flicker})`;
       ctx.beginPath(); ctx.ellipse(x, y - 9 * s, 2.6 * s, 5.5 * s * flicker, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
-      l.pos = { x, y, s, k, fade };
-      return k < 1;
     }
+    const flick = (t, seed) => 0.82 + 0.18 * Math.sin(t / 90 + seed * 3) * Math.sin(t / 37 + seed);
 
-    // The worry, fading as the lantern leaves
-    function drawWords(l) {
-      const { x, y, s, k, fade } = l.pos;
-      const textAlpha = Math.max(0, 1 - k / 0.45);
+    function text(str, x, y, size, alpha) {
+      if (!str || alpha <= 0) return;
       ctx.save();
-      if (textAlpha > 0 && l.text) {
-        ctx.globalAlpha = textAlpha * Math.max(0, fade);
-        ctx.font = `italic ${Math.round(15 * Math.max(0.7, s))}px "New York", ui-serif, Georgia, serif`;
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#fff2dc';
-        ctx.shadowColor = 'rgba(0,0,0,0.6)';
-        ctx.shadowBlur = 6;
-        ctx.fillText(l.text, x, y - 34 * s - k * 30);
-      }
+      ctx.globalAlpha = alpha;
+      ctx.font = `italic ${Math.round(size)}px "New York", ui-serif, Georgia, serif`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff2dc';
+      ctx.shadowColor = 'rgba(0,0,0,0.7)';
+      ctx.shadowBlur = 8;
+      ctx.fillText(str, x, y);
       ctx.restore();
     }
+
+    function newWaiting(t) { return { born: t, seed: Math.random() * 10, x: w * 0.5 }; }
+    const restY = () => h * 0.86;
 
     function frame(t) {
       size();
       drawScene(t);
-      for (let i = floating.length - 1; i >= 0; i--) {
-        if (!drawLantern(floating[i], t)) floating.splice(i, 1);
+      // far shore: lights that stay, drifting slowly along the horizon
+      far.forEach(l => {
+        const x = l.x + Math.sin(t / 4000 + l.seed) * 14;
+        lantern(x, map.horizon + 6 + l.dy, 0.2, l.a, flick(t, l.seed));
+      });
+      // released lanterns crossing the river
+      for (let i = drifting.length - 1; i >= 0; i--) {
+        const l = drifting[i];
+        const k = Math.min(1, (t - l.born) / DRIFT_MS);
+        const e = 1 - Math.pow(1 - k, 2.2);
+        const y = l.y0 + (map.horizon + 6 + l.dy - l.y0) * e;
+        const s = WAIT_SCALE * (1 - 0.84 * e);
+        const x = l.x0 + (l.x1 - l.x0) * e + Math.sin(t / 900 + l.seed) * 6 * s;
+        lantern(x, y, s, 1, flick(t, l.seed));
+        text(l.text, x, y - 36 * s - e * 30, 15 * Math.max(0.7, s), Math.max(0, 1 - k / 0.4));
+        if (k >= 1) {
+          drifting.splice(i, 1);
+          far.push({ x, dy: l.dy, seed: l.seed, a: 1 });
+          if (far.length > FAR_MAX) far.shift();
+        }
       }
-      floating.forEach(drawWords);
+      // the waiting lantern bobs and shows what's being typed
+      if (waiting) {
+        const appear = Math.min(1, (t - waiting.born) / 700);
+        const bob = reduceMotion.matches ? 0 : Math.sin(t / 1100 + waiting.seed) * 2.5;
+        const y = restY() + bob + (1 - appear) * 12;
+        lantern(waiting.x, y, WAIT_SCALE, appear, flick(t, waiting.seed));
+        text(input.value.trim(), waiting.x, y - 48, 16, appear * 0.95);
+      }
       raf = requestAnimationFrame(frame);
     }
 
@@ -542,12 +608,15 @@
 
     form.addEventListener('submit', e => {
       e.preventDefault();
-      const text = input.value.trim();
-      if (!text) { input.focus(); return; }
+      const str = input.value.trim();
+      if (!str) { input.focus(); return; }
       size();
-      const lane = [0.5, 0.3, 0.7][released % 3];
-      const x0 = w * lane + (Math.random() - 0.5) * 40;
-      floating.push({ text, born: performance.now(), x0, x1: x0 + (Math.random() - 0.5) * w * 0.2, seed: Math.random() * 10 });
+      const now = performance.now();
+      const lane = [0, -0.18, 0.18, -0.08, 0.1][released % 5];
+      const x0 = waiting ? waiting.x : w * 0.5;
+      drifting.push({ text: str, born: now, x0, y0: restY(), x1: map.moonX * 0.35 + w * (0.32 + lane), dy: Math.random() * 14, seed: waiting ? waiting.seed : Math.random() * 10 });
+      waiting = null;
+      setTimeout(() => { waiting = newWaiting(performance.now()); }, NEXT_MS);
       input.value = '';
       released += 1;
       countEl.textContent = `Đã thả ${released} đèn · `;
@@ -568,14 +637,14 @@
     if (modal.style.display === 'none') return;
     stopBreath();
     clearInterval(tickTimer);
-    breakLeft.textContent = '';
+    breakLeft.textContent = 'Giờ nghỉ đã hết';
     const label = document.getElementById('focusIntentionDisplay');
     const task = label && !label.hidden && label.textContent.trim();
     document.getElementById('relaxEndSub').innerHTML = task
       ? `Quay lại với <b></b>?` : 'Sẵn sàng cho phiên tiếp theo?';
     if (task) document.querySelector('#relaxEndSub b').textContent = task;
     Object.values(panes).forEach(el => { el.hidden = true; });
-    document.getElementById('relaxTabs').hidden = true;
+    document.getElementById('relaxTabs').style.visibility = 'hidden'; // keeps its room, so the card doesn't shrink
     endPanel.hidden = false;
   }
 
