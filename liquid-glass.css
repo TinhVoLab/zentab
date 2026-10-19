@@ -1529,42 +1529,83 @@ html[data-wallpaper]:not([data-wallpaper="lotus"]):not([data-custom-bg]) #partic
   overflow-y: auto;
 }
 
-/* Intention */
-.focus-intention { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 680px; text-align: center; }
-.focus-intention-label { font-size: 13px; font-weight: 600; color: var(--text-dim); }
+/* Intention: one handwritten-looking line, no box. Typing and the set label share a face,
+   so choosing a focus feels like writing it down. */
+.focus-intention { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 680px; text-align: center; }
+/* A soft shade behind the centre keeps the line readable on any wallpaper */
+.focus-intention::before {
+  content: "";
+  position: absolute;
+  inset: -28px -80px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.32), transparent);
+}
+.focus-intention-display,
+.focus-intention-input {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: clamp(20px, 2.4vw, 26px);
+  line-height: 1.3;
+  color: var(--text);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 18px rgba(0, 0, 0, 0.45);
+}
 .focus-intention-display {
   border: none;
   background: none;
   padding: 2px 8px;
   border-radius: 10px;
   cursor: text;
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: clamp(20px, 2.4vw, 26px);
-  line-height: 1.3;
-  color: var(--text);
   text-wrap: balance;
-  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.3);
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, opacity 0.6s ease;
 }
 .focus-intention-display:hover { background: var(--wash-1); }
 .focus-intention-input {
-  width: min(460px, 80vw);
-  height: 44px;
-  padding: 0 20px;
+  width: min(520px, 80vw);
+  padding: 2px 4px 6px;
   border: none;
-  border-radius: 999px;
-  background: var(--field-bg);
-  backdrop-filter: var(--lg-blur);
-  -webkit-backdrop-filter: var(--lg-blur);
-  box-shadow: var(--lg-edge);
-  color: var(--text);
-  font-size: 17px;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: none;
   text-align: center;
   outline: none;
+  caret-color: var(--accent);
+  transition: border-color 0.3s ease, opacity 0.6s ease;
 }
-.focus-intention-input::placeholder { color: var(--text-muted); }
-.focus-intention-input:focus { background: var(--field-bg-focus); }
+.focus-intention-input:focus, .focus-intention-input:focus-visible { outline: none; box-shadow: none; }
+.focus-intention-input::placeholder { color: color-mix(in srgb, var(--text) 78%, transparent); }
+.focus-intention-input:focus { border-bottom-color: color-mix(in srgb, var(--text) 40%, transparent); }
+.focus-intention-input:focus::placeholder { color: color-mix(in srgb, var(--text) 50%, transparent); }
+/* Light wallpapers already carry dark text: no shade, no glow */
+html[data-wp-tone="light"] .focus-intention::before { display: none; }
+html[data-wp-tone="light"] :is(.focus-intention-display, .focus-intention-input) { text-shadow: none; }
+
+/* Suggestions: this morning's intention and open tasks, one tap away */
+.focus-suggest { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 620px; }
+.focus-suggest[hidden] { display: none; }
+.focus-suggest button {
+  max-width: 260px;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+  backdrop-filter: var(--lg-blur);
+  -webkit-backdrop-filter: var(--lg-blur);
+  color: var(--text);
+  font: 500 13px var(--font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  animation: focus-suggest-in 0.35s var(--ease-spring) both;
+  transition: background 0.2s ease;
+}
+.focus-suggest button:nth-child(2) { animation-delay: 40ms; }
+.focus-suggest button:nth-child(3) { animation-delay: 80ms; }
+.focus-suggest button:nth-child(4) { animation-delay: 120ms; }
+.focus-suggest button:hover, .focus-suggest button:focus-visible { background: color-mix(in srgb, var(--text) 26%, transparent); outline: none; }
+@keyframes focus-suggest-in { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .focus-suggest button { animation: none; } }
 
 /* Ring */
 .large-timer {
@@ -1740,9 +1781,12 @@ html[data-wp-tone="light"] .focus-round-btn.secondary { --btn-bg: rgba(118, 118,
 }
 
 /* While a session runs: chrome recedes, timer stays */
-#view-focus :is(.focus-topbar, .focus-footer, .focus-sessions, .focus-intention-label) { transition: opacity 0.6s ease; }
-html.timer-is-running #view-focus :is(.focus-topbar, .focus-footer, .focus-intention-label) { opacity: 0.28; }
+#view-focus :is(.focus-topbar, .focus-footer, .focus-sessions) { transition: opacity 0.6s ease; }
+html.timer-is-running #view-focus :is(.focus-topbar, .focus-footer) { opacity: 0.28; }
 html.timer-is-running #view-focus .focus-intention-input:not(:focus) { opacity: 0.35; }
+/* the focus line steps back a little while the timer runs, and comes forward on hover */
+html.timer-is-running #view-focus .focus-intention-display { opacity: 0.7; }
+html.timer-is-running #view-focus .focus-intention-display:hover { opacity: 1; }
 html.timer-is-running #view-focus :is(.focus-topbar, .focus-footer):hover { opacity: 1; }
 .app-layout:has(#view-focus.active) .sidebar-left { transition: opacity 0.6s ease, transform 0.5s var(--ease-spring), margin 0.5s var(--ease-spring), width 0.5s var(--ease-spring); }
 html.timer-is-running[data-timer-mode="pomodoro"] .app-layout:has(#view-focus.active) .sidebar-left { opacity: 0.25; }

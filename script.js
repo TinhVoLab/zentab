@@ -5023,8 +5023,35 @@ function renderFocusIntention() {
       input.hidden = false;
       input.value = '';
     }
+    renderFocusSuggestions(label, entry && entry.entry);
    });
   });
+}
+
+// While the line is open: this morning's intention and up to three open tasks, one tap away
+function renderFocusSuggestions(current, intention) {
+  const box = document.getElementById('focusSuggest');
+  const input = document.getElementById('focusIntentionInput');
+  if (!box || !input) return;
+  const seen = new Set([current]);
+  const items = [];
+  if (intention && !seen.has(intention)) { items.push({ text: intention, intention: true }); seen.add(intention); }
+  (typeof tasks !== 'undefined' ? tasks : []).filter(t => !t.done && t.text && !seen.has(t.text)).slice(0, 3)
+    .forEach(t => { items.push({ text: t.text }); seen.add(t.text); });
+  box.replaceChildren(...items.map(item => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = item.intention ? `☀ ${item.text}` : item.text;
+    b.title = item.intention ? 'Ý định sáng nay' : 'Việc chưa xong';
+    b.addEventListener('pointerdown', e => e.preventDefault()); // keep the input's focus
+    b.addEventListener('click', () => {
+      // The intention is today's journal entry; a task labels the session without replacing it
+      if (item.intention) chrome.storage.local.remove('focusTask', renderFocusIntention);
+      else chrome.storage.local.set({ focusTask: { text: item.text, date: getDateStr(new Date()) } }, renderFocusIntention);
+    });
+    return b;
+  }));
+  box.hidden = input.hidden || !items.length;
 }
 
 (function initFocusIntention() {
@@ -5032,11 +5059,16 @@ function renderFocusIntention() {
   const input = document.getElementById('focusIntentionInput');
   if (!display || !input) return;
   display.addEventListener('click', () => {
-    input.value = display.textContent;
+    const current = display.textContent;
+    input.value = current;
     display.hidden = true;
     input.hidden = false;
     input.focus();
     input.select();
+    chrome.storage.sync.get('journal', ({ journal }) => {
+      const entry = (journal || []).find(e => e.date === getDateStr(new Date()));
+      renderFocusSuggestions(current, entry && entry.entry);
+    });
   });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && input.value.trim()) {
@@ -5047,7 +5079,10 @@ function renderFocusIntention() {
       renderFocusIntention();
     }
   });
-  input.addEventListener('blur', () => setTimeout(renderFocusIntention, 150));
+  input.addEventListener('blur', () => setTimeout(() => {
+    // tabbing onto a suggestion keeps the line open
+    if (!document.getElementById('focusSuggest')?.contains(document.activeElement)) renderFocusIntention();
+  }, 150));
 })();
 
 // ---- Ambient sound pills: drive the existing dock player so both stay in sync ----
