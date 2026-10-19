@@ -75,7 +75,7 @@ if (typeof chrome === 'undefined' || !chrome.storage) {
     if (data.customOfflineBg) {
       document.body.style.backgroundImage = `url(${data.customOfflineBg})`;
     }
-    if (window.ZenAppearance) ZenAppearance.setCustomActive(!!data.customOfflineBg);
+    if (window.ZenAppearance) ZenAppearance.setCustomActive(!!data.customOfflineBg, data.customOfflineBg);
     const blurVal = (data.customBgBlur !== undefined) ? data.customBgBlur : 2;
     const overlay = document.querySelector('.overlay');
     if (overlay) {
@@ -4484,7 +4484,7 @@ window.addEventListener('keydown', (e) => {
           
           chrome.storage.local.set({ customOfflineBg: compressedDataUrl }, () => {
             document.body.style.backgroundImage = `url(${compressedDataUrl})`;
-            if (window.ZenAppearance) ZenAppearance.setCustomActive(true);
+            if (window.ZenAppearance) ZenAppearance.setCustomActive(true, compressedDataUrl);
             syncAppearanceUI();
             bgFileName.textContent = file.name;
             bgFileResetBtn.style.display = 'block';
