@@ -1890,6 +1890,7 @@ html[data-wp-tone="light"] .focus-round-btn.secondary { --btn-bg: rgba(118, 118,
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease, transform 0.35s var(--ease-bounce);
 }
+.focus-sounds button[hidden] { display: none; }
 .focus-sounds button:hover { background: var(--lg-fill-hover); }
 .focus-sounds button:active { transform: scale(0.95); }
 .focus-sounds button.active { background: var(--prominent-bg); color: var(--prominent-fg); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2); }

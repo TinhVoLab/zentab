@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 version=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' manifest.json)
 out="dist/zentab-$version.zip"
 
-files="manifest.json index.html style.css liquid-glass.css theme.js ambient.js script.js relax.js journal.js quotes.js donate.js greet.js qrcode.js iztro.min.js background.jpg wallpapers/moon.svg wallpapers/mist.svg icons/icon16.png icons/icon48.png icons/icon128.png"
+files="manifest.json index.html style.css liquid-glass.css theme.js ambient.js script.js relax.js journal.js quotes.js donate.js greet.js qrcode.js iztro.min.js background.jpg wallpapers/moon.svg wallpapers/mist.svg sounds/zentab-music.m4a icons/icon16.png icons/icon48.png icons/icon128.png"
 
 # Every local file index.html / manifest.json references must be in the list
 for f in $files; do [ -f "$f" ] || { echo "Missing: $f" >&2; exit 1; }; done

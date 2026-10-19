@@ -222,6 +222,7 @@
               <option value="ocean">🌊 Sóng biển</option>
               <option value="brown">🎧 Tiếng ồn nâu</option>
               <option value="zen">🧘 Thiền định</option>
+              <option value="music" id="musicOpt" hidden disabled>🎵 Nhạc nền ZenTab</option>
               <option value="custom" id="customAudioOpt" style="display:none">🎵 Nhạc cá nhân</option>
             </select>
           </div>
@@ -465,6 +466,7 @@
                 <button type="button" data-sound="ocean" role="radio">🌊 Sóng biển</button>
                 <button type="button" data-sound="brown" role="radio">🎧 Ồn nâu</button>
                 <button type="button" data-sound="zen" role="radio">🧘 Thiền</button>
+                <button type="button" data-sound="music" role="radio" hidden>🎵 Nhạc nền</button>
               </div>
             </div>
             <div class="footer-pop">
@@ -935,6 +937,13 @@
 
       <section class="settings-group">
         <h4 class="settings-group-title">Âm thanh</h4>
+        <label class="switch-row" for="musicEnabled">
+          <span class="switch-text">
+            <span class="switch-title">Nhạc nền ZenTab</span>
+            <span class="field-hint">Một bản nhạc nhẹ để nghe khi làm việc. Bật để nghe ngay; nhạc có trong trình phát và trang Tập trung, không tự phát khi mở tab.</span>
+          </span>
+          <input type="checkbox" id="musicEnabled" class="switch" role="switch">
+        </label>
         <div class="modal-field">
           <label for="customAudioUrl">Nhạc nền riêng</label>
           <input type="text" id="customAudioUrl" placeholder="Dán link .mp3 hoặc link bài hát Suno..." autocomplete="off">

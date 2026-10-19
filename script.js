@@ -2062,15 +2062,33 @@ let currentQuoteId = null;
 const relaxingAudio = document.getElementById('relaxingAudio');
 const playBtn = document.getElementById('playBtn');
 
-// Built-in sounds are synthesized by ambient.js; 'custom' streams the user's URL
+// Built-in sounds are synthesized by ambient.js. Two kinds play a file through the <audio>
+// element instead: 'custom' (the user's own URL) and 'music' (ZenTab's bundled track).
+const MUSIC_SRC = 'sounds/zentab-music.m4a';
+const MUSIC_VOLUME = 0.6;
+const isStream = kind => kind === 'custom' || kind === 'music';
 const ambientPlayer = {
   kind: 'forest',
   isPlaying() {
-    return this.kind === 'custom' ? !!relaxingAudio && !relaxingAudio.paused : !!window.ZenAmbient && ZenAmbient.isPlaying();
+    return isStream(this.kind) ? !!relaxingAudio && !relaxingAudio.paused : !!window.ZenAmbient && ZenAmbient.isPlaying();
   },
   play() {
-    if (this.kind === 'custom') return relaxingAudio ? relaxingAudio.play() : Promise.reject(new Error('No audio element'));
-    return window.ZenAmbient ? ZenAmbient.play(this.kind) : Promise.reject(new Error('Audio unavailable'));
+    if (!isStream(this.kind)) return window.ZenAmbient ? ZenAmbient.play(this.kind) : Promise.reject(new Error('Audio unavailable'));
+    if (!relaxingAudio) return Promise.reject(new Error('No audio element'));
+    if (this.kind === 'music') {
+      if (!relaxingAudio.src.endsWith(MUSIC_SRC)) relaxingAudio.src = MUSIC_SRC;
+      // ease in rather than start at full volume
+      relaxingAudio.volume = 0;
+      const t0 = performance.now();
+      const ramp = () => {
+        const k = Math.min(1, (performance.now() - t0) / 1500);
+        relaxingAudio.volume = MUSIC_VOLUME * k;
+        if (k < 1 && !relaxingAudio.paused) requestAnimationFrame(ramp);
+      };
+      return relaxingAudio.play().then(() => requestAnimationFrame(ramp));
+    }
+    relaxingAudio.volume = 1;
+    return relaxingAudio.play();
   },
   pause() {
     if (relaxingAudio) relaxingAudio.pause();
@@ -2078,7 +2096,7 @@ const ambientPlayer = {
   },
   setKind(kind) {
     const wasPlaying = this.isPlaying();
-    if (wasPlaying && (kind === 'custom' || this.kind === 'custom')) this.pause();
+    if (wasPlaying && (isStream(kind) || isStream(this.kind))) this.pause();
     this.kind = kind;
     if (wasPlaying) this.play().catch(e => console.warn(e));
   }
@@ -3267,7 +3285,9 @@ function initAmbientSoundSelector() {
   selectEl.addEventListener('change', () => {
     const val = selectEl.value;
 
-    if (val === 'custom') {
+    if (val === 'music') {
+      ambientPlayer.setKind('music');
+    } else if (val === 'custom') {
       chrome.storage.sync.get('customAudioUrl', (data) => {
         const customUrl = data.customAudioUrl;
         if (customUrl && customUrl.trim() !== '') {
@@ -3285,6 +3305,34 @@ function initAmbientSoundSelector() {
 }
 
 initAmbientSoundSelector();
+
+// ---- Settings → Âm thanh → "Nhạc nền ZenTab" ----
+// On: the track joins the dock player and the Focus sound picker, and starts now (the
+// switch is the user's gesture). Off: it stops and leaves both. It never autoplays on a
+// new tab — tabs open all day.
+(function initBundledMusic() {
+  const sw = document.getElementById('musicEnabled');
+  const selectEl = document.getElementById('ambientSoundSelect');
+  const opt = document.getElementById('musicOpt');
+  const pill = document.querySelector('#focusSounds [data-sound="music"]');
+  if (!sw || !selectEl || !opt) return;
+  const show = on => { opt.hidden = !on; opt.disabled = !on; if (pill) pill.hidden = !on; };
+  chrome.storage.sync.get('musicEnabled', ({ musicEnabled }) => { sw.checked = !!musicEnabled; show(!!musicEnabled); });
+  sw.addEventListener('change', () => {
+    const on = sw.checked;
+    chrome.storage.sync.set({ musicEnabled: on });
+    show(on);
+    if (on) {
+      selectEl.value = 'music';
+      selectEl.dispatchEvent(new Event('change'));
+      if (!ambientPlayer.isPlaying()) playBtn.click();
+    } else if (ambientPlayer.kind === 'music') {
+      if (ambientPlayer.isPlaying()) playBtn.click();
+      selectEl.value = 'forest';
+      selectEl.dispatchEvent(new Event('change'));
+    }
+  });
+})();
 
 // ---------------- VIEW 3 ADD-ON: MINDMAP CANVAS CONTROLLER ----------------
 
