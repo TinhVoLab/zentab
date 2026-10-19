@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZenTab Privacy Policy</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Be+Vietnam+Pro:wght@400;500;600&display=swap">
+<style>
+/* Layout: single readable column, bilingual sections, quiet sage palette from ZenTab's lotus/mist theme */
+:root{
+  --bg:#f5f7f4; --surface:#ffffff; --fg:#1f2a26; --muted:#5d6b65; --line:#d9e1dc; --accent:#3f7a64;
+  --display:"Fraunces",Georgia,serif; --body:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121816;--surface:#1a2320;--fg:#e4ebe7;--muted:#9aaaa3;--line:#2c3934;--accent:#7cc0a5;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121816;--surface:#1a2320;--fg:#e4ebe7;--muted:#9aaaa3;--line:#2c3934;--accent:#7cc0a5;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.7;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:48px 64px}
+main{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:36px}
+header{display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--line);padding-bottom:24px}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:600}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(30px,6vw,42px);line-height:1.15;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-weight:500;font-size:22px;margin:0 0 8px;text-wrap:balance}
+.meta{color:var(--muted);font-size:14px}
+nav.lang{display:flex;gap:12px;font-size:14px}
+nav.lang a{color:var(--accent)}
+section{display:flex;flex-direction:column;gap:4px}
+p,ul{margin:0} ul{padding-left:20px} li+li{margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tw{overflow-x:auto}
+th,td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--line)}
+th{font-weight:600;color:var(--muted);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+tr:last-child td{border-bottom:0}
+code{font-size:13px;background:var(--surface);border:1px solid var(--line);padding:1px 5px;border-radius:4px}
+.divider{border:0;border-top:1px solid var(--line);margin:8px 0}
+a{color:var(--accent)} a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<main>
+<header>
+  <span class="eyebrow">Chrome Extension · v1.2.0</span>
+  <h1>ZenTab: Minimalist Focus Privacy Policy</h1>
+  <p class="meta">Effective date: October 19, 2026 · Publisher: X-dmaic Digital</p>
+  <nav class="lang"><a href="#en">English</a><a href="#vi">Tiếng Việt</a></nav>
+</header>
+
+<section id="en">
+  <h2>Summary</h2>
+  <p>ZenTab replaces your new tab page with a focus workspace. Everything you create in ZenTab is stored in your own browser. The developer runs no servers, uses no analytics or advertising, and never sells or receives your data. A few features call third-party services directly from your browser, listed below.</p>
+</section>
+
+<section>
+  <h2>Data stored on your device</h2>
+  <p>Using Chrome's <code>storage</code> permission and browser local storage, ZenTab keeps the following on your device only:</p>
+  <ul>
+    <li>Settings: display name, city, theme, wallpaper, avatar, sounds.</li>
+    <li>Your content: tasks, notes, habits, ideas, journal entries, mood, focus session history, saved quotes.</li>
+    <li>Optional birth date, hour and gender for the Tử Vi (astrology) feature.</li>
+    <li>Optional Gemini API key for the AI Mentor feature.</li>
+    <li>Images or music files you choose to add.</li>
+  </ul>
+  <p>This data never leaves your device unless a feature below needs it. Uninstalling the extension or clearing browser data deletes it. You can export a backup file from the Journal at any time.</p>
+</section>
+
+<section>
+  <h2>Third-party services</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Service</th><th>When</th><th>Data sent</th></tr></thead>
+    <tbody>
+      <tr><td>ipapi.co</td><td>Weather, only when you have not set a city</td><td>Your IP address (by the request itself), to estimate your approximate city</td></tr>
+      <tr><td>Open-Meteo</td><td>Weather</td><td>Approximate coordinates or the city name you typed</td></tr>
+      <tr><td>Suno or a music link you provide</td><td>Only when you paste your own music link</td><td>A standard request to that link to play the audio</td></tr>
+      <tr><td>Google Gemini API</td><td>Only after you add your own API key and use AI Mentor or chart readings</td><td>Your chat messages, up to 5 open task titles, and astrology chart data (star and palace names, gender, lunar birth year). Your exact birth date and hour are not sent.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Each service handles requests under its own privacy policy. Gemini requests use your own key and fall under Google's terms for the Gemini API.</p>
+</section>
+
+<section>
+  <h2>What ZenTab does not do</h2>
+  <ul>
+    <li>No accounts, no tracking, no analytics, no ads.</li>
+    <li>No reading of your browsing history or the pages you visit.</li>
+    <li>No selling, renting or transferring of user data to third parties, and no use of data for credit or lending decisions.</li>
+    <li>The donation section only shows a bank QR code. ZenTab does not process payments.</li>
+  </ul>
+  <p>ZenTab's use of information complies with the Chrome Web Store User Data Policy, including the Limited Use requirements.</p>
+</section>
+
+<section>
+  <h2>Changes and contact</h2>
+  <p>If this policy changes, the new version will be posted on this page with a new effective date. Questions: <strong>tinhvo@x-dmaic.com</strong></p>
+</section>
+
+<hr class="divider">
+
+<section id="vi">
+  <h2>Tóm tắt</h2>
+  <p>ZenTab thay trang tab mới bằng một không gian tập trung. Mọi thứ bạn tạo trong ZenTab được lưu ngay trong trình duyệt của bạn. Nhà phát triển không vận hành máy chủ, không dùng công cụ phân tích hay quảng cáo, không bán và không nhận dữ liệu của bạn.</p>
+</section>
+
+<section>
+  <h2>Dữ liệu lưu trên máy bạn</h2>
+  <ul>
+    <li>Cài đặt: tên hiển thị, thành phố, giao diện, hình nền, avatar, âm thanh.</li>
+    <li>Nội dung: nhiệm vụ, ghi chú, thói quen, ý tưởng, nhật ký, tâm trạng, lịch sử phiên tập trung, câu trích dẫn đã lưu.</li>
+    <li>Ngày giờ sinh và giới tính (tuỳ chọn) cho tính năng Tử Vi.</li>
+    <li>Gemini API key (tuỳ chọn) cho AI Mentor.</li>
+    <li>Ảnh hoặc nhạc bạn tự thêm.</li>
+  </ul>
+  <p>Gỡ extension hoặc xoá dữ liệu trình duyệt sẽ xoá toàn bộ. Bạn có thể xuất file sao lưu trong mục Nhật ký.</p>
+</section>
+
+<section>
+  <h2>Dịch vụ bên thứ ba</h2>
+  <ul>
+    <li><strong>ipapi.co</strong>: chỉ khi bạn chưa nhập thành phố, dùng địa chỉ IP để ước tính vị trí gần đúng cho phần thời tiết.</li>
+    <li><strong>Open-Meteo</strong>: nhận toạ độ gần đúng hoặc tên thành phố để trả về thời tiết.</li>
+    <li><strong>Suno hoặc link nhạc bạn dán vào</strong>: chỉ khi bạn tự dán link, trình duyệt gửi yêu cầu bình thường đến link đó để phát nhạc.</li>
+    <li><strong>Google Gemini API</strong>: chỉ khi bạn tự nhập API key. Gửi tin nhắn bạn hỏi, tối đa 5 nhiệm vụ đang mở và dữ kiện lá số (tên sao, cung, giới tính, năm âm lịch). Không gửi ngày giờ sinh chính xác.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>ZenTab không làm gì</h2>
+  <ul>
+    <li>Không tài khoản, không theo dõi, không phân tích, không quảng cáo.</li>
+    <li>Không đọc lịch sử duyệt web hay nội dung trang bạn truy cập.</li>
+    <li>Không bán hay chuyển giao dữ liệu người dùng cho bên thứ ba.</li>
+    <li>Mục ủng hộ chỉ hiển thị mã QR ngân hàng, ZenTab không xử lý thanh toán.</li>
+  </ul>
+  <p>Liên hệ: <strong>tinhvo@x-dmaic.com</strong></p>
+</section>
+</main>
+</body>
+</html>
