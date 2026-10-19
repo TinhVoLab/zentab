@@ -1702,7 +1702,7 @@ ADVICE:`;
 }
 
 function handleGeminiFail(birth) {
-  showRandomQuote();
+  showChosenQuote();
   if (birth) renderToday(birth, { error: true });
 }
 
@@ -1714,21 +1714,42 @@ function displayDailyInsight(insight) {
   if (txtEl) {
     txtEl.textContent = `"${clean}"`;
     txtEl.classList.remove('expanded');
+    txtEl.dataset.source = 'insight';
+    txtEl.removeAttribute('title');
   }
   if (authEl) authEl.textContent = '☯ Tử Vi · Bát Tự · Chiêm Tinh';
-  const expandBtn = document.getElementById('expandQuoteBtn');
-  if (expandBtn) expandBtn.textContent = 'Xem đầy đủ';
+  updateQuoteExpand();
   // Update astro panel via renderToday
   chrome.storage.sync.get('birth', (d) => {
     if (d.birth) renderToday(d.birth, { text: clean });
   });
 }
 
-// Start from a random quote; ‹ › then step from that one
-function showRandomQuote() {
-  currentQuoteIdx = Math.floor(Math.random() * quotes.length);
-  displayQuoteAt(currentQuoteIdx);
+// The quote for this moment of the day (quotes.js); ‹ › then step from that one.
+// The daily AI insight, when there is one, keeps the dock.
+function showChosenQuote(opts) {
+  if (!window.ZenQuotes) return;
+  ZenQuotes.choose(opts).then(({ index, hint }) => {
+    if (document.getElementById('quoteText')?.dataset.source === 'insight') return;
+    currentQuoteIdx = index;
+    displayQuoteAt(index, hint);
+  }).catch(e => console.warn('ZenTab: quote,', e.message));
 }
+
+// "Xem đầy đủ" only when the two-line clamp actually cuts the text. Re-checked on resize,
+// since the dock may be hidden (Zen mode) when the quote is set.
+function checkQuoteClamp() {
+  const textEl = document.getElementById('quoteText');
+  const expandBtn = document.getElementById('expandQuoteBtn');
+  if (!textEl || !expandBtn || textEl.classList.contains('expanded') || !textEl.clientHeight) return;
+  expandBtn.hidden = textEl.scrollHeight <= textEl.clientHeight + 1;
+}
+function updateQuoteExpand() {
+  const expandBtn = document.getElementById('expandQuoteBtn');
+  if (expandBtn) expandBtn.textContent = 'Xem đầy đủ';
+  requestAnimationFrame(checkQuoteClamp);
+}
+if (document.getElementById('quoteText')) new ResizeObserver(checkQuoteClamp).observe(document.getElementById('quoteText'));
 
 // Task List
 let tasks = [];
@@ -2032,14 +2053,6 @@ document.getElementById('drawerFocusBtn')?.addEventListener('click', () => {
 });
 
 // ---- Quotes Carousel & Audio Player ----
-const quotes = [
-  { text: 'Việc của bạn là khám phá thế giới của mình, rồi dốc hết lòng mà sống cho nó.', author: 'Đức Phật' },
-  { text: 'Tâm hồn luôn biết cách tự chữa lành. Thử thách là làm cho tâm trí lặng yên.', author: 'Caroline Myss' },
-  { text: 'Giữa khó khăn luôn ẩn chứa cơ hội.', author: 'Albert Einstein' },
-  { text: 'Tĩnh lặng là nguồn của sức mạnh lớn lao.', author: 'Lão Tử' },
-  { text: 'Con người càng an tĩnh, thành công càng lớn.', author: 'James Allen' }
-];
-
 let currentQuoteIdx = 0;
 const relaxingAudio = document.getElementById('relaxingAudio');
 const playBtn = document.getElementById('playBtn');
@@ -2066,32 +2079,34 @@ const ambientPlayer = {
   }
 };
 
-function displayQuoteAt(index) {
-  if (!quotes || quotes.length === 0) return;
-  const q = quotes[index];
+function displayQuoteAt(index, hint) {
+  const list = window.ZenQuotes ? ZenQuotes.list : [];
+  if (!list.length) return;
+  const q = list[index];
   const textEl = document.getElementById('quoteText');
   const authEl = document.getElementById('quoteAuthor');
   if (textEl) {
     textEl.textContent = `"${q.text}"`;
     textEl.classList.remove('expanded');
+    textEl.dataset.source = 'quote';
+    if (hint) textEl.title = hint; else textEl.removeAttribute('title');
   }
   if (authEl) authEl.textContent = `— ${q.author}`;
-  const expandBtn = document.getElementById('expandQuoteBtn');
-  if (expandBtn) expandBtn.textContent = 'Xem đầy đủ';
+  updateQuoteExpand();
 }
 
 document.getElementById('prevQuoteBtn').addEventListener('click', () => {
-  currentQuoteIdx = (currentQuoteIdx - 1 + quotes.length) % quotes.length;
+  const n = ZenQuotes.list.length;
+  currentQuoteIdx = (currentQuoteIdx - 1 + n) % n;
   displayQuoteAt(currentQuoteIdx);
 });
 
 document.getElementById('nextQuoteBtn').addEventListener('click', () => {
-  currentQuoteIdx = (currentQuoteIdx + 1) % quotes.length;
+  currentQuoteIdx = (currentQuoteIdx + 1) % ZenQuotes.list.length;
   displayQuoteAt(currentQuoteIdx);
 });
 
-// The daily AI insight, when there is one, replaces this once it loads
-showRandomQuote();
+showChosenQuote();
 
 if (playBtn) {
   playBtn.addEventListener('click', () => {
@@ -4966,6 +4981,7 @@ function onTimerComplete(finishedMode) {
     chrome.storage.local.set({ focusStats: stats }, renderFocusSessions);
     recordFocusHistory(stats.date, stats);
     setTimerMode(stats.sessions % FOCUS_CYCLE === 0 ? 'long' : 'short');
+    showChosenQuote({ justFocused: true });
   });
 }
 
