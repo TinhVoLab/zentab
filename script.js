@@ -803,6 +803,8 @@ settingsBtn.addEventListener('click', () => {
       [birthDay, birthMonth, birthYear].forEach(el => el.removeAttribute('aria-invalid'));
       populateCanhGio(birthHour, b.hour);
       birthGender.value = b.gender || 'male';
+      syncClearBirthBtn();
+      populateDurationSelects();
       document.getElementById('geminiKey').value = syncData.geminiKey || '';
       document.getElementById('customAudioUrl').value = syncData.customAudioUrl || '';
       document.getElementById('settingsUserName').value = syncData.userName || '';
@@ -815,9 +817,73 @@ settingsBtn.addEventListener('click', () => {
       updateAvatarSelectionUI(avType, localData.customAvatar);
       
       settingsModal.style.display = '';
+      buildSettingsNav();
     });
   });
 });
+
+// ---- Settings: one section at a time, chosen from the list on the left ----
+const settingsNav = document.getElementById('settingsNav');
+const settingsPanes = document.getElementById('settingsPanes');
+function settingsGroups() {
+  return [...settingsPanes.querySelectorAll(':scope > .settings-group')].filter(g => !g.hidden);
+}
+function showSettingsPane(group) {
+  if (!group) return;
+  settingsPanes.querySelectorAll(':scope > .settings-group').forEach(g => g.classList.toggle('is-active', g === group));
+  settingsNav.querySelectorAll('button').forEach(b => {
+    const on = b.dataset.pane === group.dataset.nav;
+    b.classList.toggle('active', on);
+    if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+  });
+  settingsPanes.scrollTop = 0;
+}
+// Rebuilt on every open: a section can appear later (the donation one) and the last one viewed stays selected
+function buildSettingsNav() {
+  const groups = settingsGroups();
+  settingsNav.replaceChildren(...groups.map(g => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.pane = g.dataset.nav;
+    b.textContent = g.dataset.nav;
+    b.addEventListener('click', () => showSettingsPane(g));
+    return b;
+  }));
+  showSettingsPane(groups.find(g => g.classList.contains('is-active')) || groups[0]);
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && settingsModal.style.display !== 'none') document.getElementById('saveBirthBtn').click();
+});
+
+// A short message at the bottom of the screen, with one optional action (e.g. undo)
+let zenToastTimer = null;
+function zenToast(message, { actionLabel, onAction, duration = 5000 } = {}) {
+  let el = document.getElementById('zenToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'zenToast';
+    el.className = 'zen-toast';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    document.body.appendChild(el);
+  }
+  const hide = () => { clearTimeout(zenToastTimer); el.classList.remove('visible'); };
+  const text = document.createElement('span');
+  text.textContent = message;
+  el.replaceChildren(text);
+  if (actionLabel && onAction) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'zen-toast-action';
+    btn.textContent = actionLabel;
+    btn.addEventListener('click', () => { hide(); onAction(); });
+    el.appendChild(btn);
+  }
+  void el.offsetWidth; // restart the entrance when one toast replaces another
+  el.classList.add('visible');
+  clearTimeout(zenToastTimer);
+  zenToastTimer = setTimeout(hide, duration);
+}
 
 // Open Settings and put the cursor on a specific field
 function openSettingsAt(fieldId) {
@@ -825,7 +891,7 @@ function openSettingsAt(fieldId) {
   const waitForModal = () => {
     if (settingsModal.style.display === 'none') return requestAnimationFrame(waitForModal);
     const field = document.getElementById(fieldId);
-    if (field) { field.scrollIntoView({ block: 'center' }); field.focus(); }
+    if (field) { showSettingsPane(field.closest('.settings-group')); field.scrollIntoView({ block: 'center' }); field.focus(); }
   };
   requestAnimationFrame(waitForModal);
 }
@@ -910,6 +976,10 @@ function saveSettingsGroup(group) {
       }
       flashSettingsSaved();
     });
+  } else if (group === 'durations') {
+    const next = {};
+    Object.entries(DURATION_FIELDS).forEach(([mode, { id }]) => { next[mode] = parseInt(document.getElementById(id).value, 10); });
+    chrome.storage.sync.set({ timerDurations: next }, () => { applyTimerDurations(next); flashSettingsSaved(); });
   } else if (group === 'labs') {
     chrome.storage.sync.set({ labsMindmap: document.getElementById('labsMindmap').checked }, () => {
       if (currentActiveTool === 'ideas') loadToolContent('ideas');
@@ -926,24 +996,47 @@ function saveSettingsGroup(group) {
   }
 }
 
-[['settingsUserName', 'name'], ['settingsWeatherLocation', 'weather'], ['customAudioUrl', 'audio'], ['geminiKey', 'key'],
+// Session lengths: a short list of sensible choices per mode (a saved odd value is kept as its own option)
+const DURATION_FIELDS = {
+  pomodoro: { id: 'durFocus', options: [15, 20, 25, 30, 45, 50, 60, 90] },
+  short: { id: 'durShort', options: [3, 5, 10, 15] },
+  long: { id: 'durLong', options: [10, 15, 20, 30] }
+};
+function populateDurationSelects() {
+  Object.entries(DURATION_FIELDS).forEach(([mode, { id, options }]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const current = timerDurations[mode];
+    const list = options.includes(current) ? options : [...options, current].sort((a, b) => a - b);
+    el.replaceChildren(...list.map(m => new Option(`${m} phút`, m, false, m === current)));
+  });
+}
+
+[['durFocus', 'durations'], ['durShort', 'durations'], ['durLong', 'durations'], ['settingsUserName', 'name'], ['settingsWeatherLocation', 'weather'], ['customAudioUrl', 'audio'], ['geminiKey', 'key'],
  ['birthDay', 'birth'], ['birthMonth', 'birth'], ['birthYear', 'birth'], ['birthHour', 'birth'], ['birthGender', 'birth'], ['labsMindmap', 'labs']]
   .forEach(([id, group]) => document.getElementById(id)?.addEventListener('change', () => saveSettingsGroup(group)));
 
-// "Xong": everything is already saved; only an unfinished birth date holds the dialog open
+// Closing: everything is already saved; only an unfinished birth date holds the dialog open
 document.getElementById('saveBirthBtn').addEventListener('click', () => {
   const { state } = readBirthFields();
   if (state === 'partial') {
     birthDateFields.forEach(el => el.toggleAttribute('aria-invalid', el.value === ''));
+    showSettingsPane(birthDay.closest('.settings-group'));
     birthDateFields.find(el => el.value === '').focus();
     return;
   }
   closeSettings();
 });
 
+// "Xoá ngày sinh" only when there is something to clear
+function syncClearBirthBtn() {
+  document.getElementById('clearBirthBtn').hidden = ![...birthDateFields, birthHour].some(el => el.value !== '');
+}
+[...birthDateFields, birthHour].forEach(el => el.addEventListener('change', syncClearBirthBtn));
 document.getElementById('clearBirthBtn').addEventListener('click', () => {
   [...birthDateFields, birthHour].forEach(el => { el.value = ''; el.removeAttribute('aria-invalid'); });
   saveSettingsGroup('birth');
+  syncClearBirthBtn();
 });
 
 // ---- Gemini model selection ----
@@ -1829,10 +1922,24 @@ function renderTasks() {
 
   taskList.querySelectorAll('.task-del').forEach(btn => {
     btn.onclick = () => {
-      tasks.splice(parseInt(btn.dataset.idx), 1);
-      saveTasks();
-      renderTasks();
+      deleteTaskWithUndo(parseInt(btn.dataset.idx));
     };
+  });
+}
+
+// Deleting is immediate, with a few seconds to take it back
+function deleteTaskWithUndo(idx) {
+  const [removed] = tasks.splice(idx, 1);
+  if (!removed) return;
+  const refresh = () => {
+    saveTasks();
+    renderTasks();
+    if (typeof renderKanban === 'function') renderKanban();
+  };
+  refresh();
+  zenToast('Đã xoá việc', {
+    actionLabel: 'Hoàn tác',
+    onAction: () => { tasks.splice(Math.min(idx, tasks.length), 0, removed); refresh(); }
   });
 }
 
@@ -1900,10 +2007,27 @@ const timerProgressRing = document.getElementById('timerProgressRing');
   }
 })();
 
+// Session lengths in minutes; chosen in Settings, synced as `timerDurations`
+const DEFAULT_TIMER_DURATIONS = { pomodoro: 25, short: 5, long: 15 };
+let timerDurations = { ...DEFAULT_TIMER_DURATIONS };
+
 function getModeDuration(mode) {
-  if (mode === 'short') return 5 * 60;
-  if (mode === 'long') return 15 * 60;
-  return 25 * 60;
+  return (timerDurations[mode] || timerDurations.pomodoro) * 60;
+}
+
+// A new length takes effect at once on a resting clock; a session under way keeps the length it started with
+function applyTimerDurations(next) {
+  const atRest = !isTimerRunning && Math.round(timeLeft) >= getModeDuration(timerMode);
+  Object.keys(DEFAULT_TIMER_DURATIONS).forEach(mode => {
+    const m = parseInt(next && next[mode], 10);
+    timerDurations[mode] = m >= 1 && m <= 180 ? m : DEFAULT_TIMER_DURATIONS[mode];
+  });
+  // A paused session longer than the new length has nothing left to keep: it becomes a fresh one
+  if (atRest || (!isTimerRunning && timeLeft > getModeDuration(timerMode))) resetTimer();
+  updateTimerDisplay();
+  const startLabel = document.querySelector('#startFocusFromIntention span');
+  if (startLabel) startLabel.textContent = `Bắt đầu ${timerDurations.pomodoro} phút tập trung`;
+  if (typeof initQuickActionChips === 'function' && document.getElementById('chatQuickChips')?.children.length) initQuickActionChips();
 }
 
 function updateTimerDisplay() {
@@ -1916,6 +2040,9 @@ function updateTimerDisplay() {
   // Remaining time in the tab strip while running
   if (isTimerRunning) document.title = `${timeStr} · ${timerMode === 'pomodoro' ? 'Tập trung' : 'Nghỉ ngơi'}`;
   updateFocusMeta();
+  // Nothing to reset until the clock has moved
+  const resetBtn = document.getElementById('focusTimerReset');
+  if (resetBtn) resetBtn.disabled = !isTimerRunning && Math.round(timeLeft) >= getModeDuration(timerMode);
 }
 
 function updateProgressRing() {
@@ -1997,6 +2124,7 @@ function toggleTimer() {
     isTimerRunning = true;
     targetTime = Date.now() + (timeLeft * 1000);
     updateUIPlay();
+    updateTimerDisplay();
     
     timerInterval = setInterval(() => {
       const now = Date.now();
@@ -2049,6 +2177,8 @@ document.getElementById('timerStart')?.addEventListener('click', toggleTimer);
 document.getElementById('focusTimerStart')?.addEventListener('click', toggleTimer);
 document.getElementById('timerReset')?.addEventListener('click', resetTimer);
 document.getElementById('focusTimerReset')?.addEventListener('click', resetTimer);
+updateTimerDisplay(); // first paint: the reset button starts out disabled
+chrome.storage.sync.get('timerDurations', ({ timerDurations: saved }) => { if (saved) applyTimerDurations(saved); });
 
 // Drawer launcher: start a session (or return to the running one) in the Focus view
 document.getElementById('drawerFocusBtn')?.addEventListener('click', () => {
@@ -2359,12 +2489,6 @@ if (closeQuickToolBtn && quickToolPanel) {
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
   btn.addEventListener('click', () => {
     const tool = btn.dataset.tool;
-    // Stats has its own view; the tile is just a shortcut there
-    if (tool === 'stats') {
-      document.getElementById('closeRightDrawerBtn')?.click();
-      switchTab('stats');
-      return;
-    }
     if (quickToolPanel.style.display !== 'none' && currentActiveTool === tool) {
       quickToolPanel.style.display = 'none';
       currentActiveTool = null;
@@ -2625,12 +2749,11 @@ function renderKanban() {
     card.innerHTML = `
       <span class="kanban-card-text">${escapeHtml(t.text)}</span>
       <div class="kanban-card-footer">
-        <span class="kanban-card-time">${t.time || '09:00'}</span>
         <div class="kanban-card-actions">
           ${status !== 'completed' ? `<button class="kanban-focus-btn" data-idx="${i}" title="Tập trung vào việc này"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>Tập trung</button>` : ''}
-          ${showLeft ? `<button class="kanban-action-btn move-left" data-idx="${i}">◀</button>` : ''}
-          ${showRight ? `<button class="kanban-action-btn move-right" data-idx="${i}">▶</button>` : ''}
-          <button class="kanban-action-btn del" data-idx="${i}">✕</button>
+          ${showLeft ? `<button class="kanban-action-btn move-left" data-idx="${i}" title="${status === 'completed' ? 'Chuyển về Đang làm' : 'Chuyển về Cần làm'}" aria-label="${status === 'completed' ? 'Chuyển về Đang làm' : 'Chuyển về Cần làm'}">←</button>` : ''}
+          ${showRight ? `<button class="kanban-action-btn move-right" data-idx="${i}" title="${status === 'todo' ? 'Chuyển sang Đang làm' : 'Chuyển sang Đã xong'}" aria-label="${status === 'todo' ? 'Chuyển sang Đang làm' : 'Chuyển sang Đã xong'}">→</button>` : ''}
+          <button class="kanban-action-btn del" data-idx="${i}" title="Xoá việc này" aria-label="Xoá việc này">✕</button>
         </div>
       </div>
     `;
@@ -2677,11 +2800,7 @@ function renderKanban() {
 
   document.querySelectorAll('.kanban-action-btn.del').forEach(btn => {
     btn.onclick = () => {
-      const idx = parseInt(btn.dataset.idx);
-      tasks.splice(idx, 1);
-      saveTasks();
-      renderTasks();
-      renderKanban();
+      deleteTaskWithUndo(parseInt(btn.dataset.idx));
     };
   });
   
@@ -2806,7 +2925,7 @@ function initAiView() {
     
     if (zodiacSource && zodiacSource.innerHTML.trim() !== '') {
       html += `<div class="context-section">
-        <div class="context-section-title">Bản Mệnh Chiêm Tinh</div>
+        <div class="context-section-title">Bản mệnh chiêm tinh</div>
         <div class="context-astro-content" style="font-size:11px;display:flex;flex-direction:column;gap:6px;color:var(--text-dim)">
           ${zodiacSource.innerHTML}
         </div>
@@ -2815,7 +2934,7 @@ function initAiView() {
 
     if (tuviInfo && tuviInfo.innerHTML.trim() !== '') {
       html += `<div class="context-section">
-        <div class="context-section-title">Cung Mệnh & Lá Số</div>
+        <div class="context-section-title">Cung mệnh & lá số</div>
         <div class="context-astro-content" style="font-size:11px;display:flex;flex-direction:column;gap:6px;color:var(--text-dim)">
           ${tuviInfo.innerHTML}
         </div>
@@ -2831,12 +2950,12 @@ function initAiView() {
         ${todoTasks.length === 0 ? '<div style="font-style:italic;color:var(--text-muted)">Không có việc chưa hoàn thành.</div>' : 
           todoTasks.map((t, idx) => `
             <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.02);padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)">
-              <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;" title="${escapeHtml(t.text)}">${escapeHtml(t.text)}</span>
+              <span style="flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;" title="${escapeHtml(t.text)}">${escapeHtml(t.text)}</span>
               <button class="task-astro-btn" data-task="${escapeHtml(t.text)}" title="Tư vấn Giờ Hoàng Đạo">☯</button>
             </div>
           `).join('')
         }
-        <div style="margin-top:4px;color:var(--text-muted)">Đã xong: <strong style="color:#34d399">${completedTasks.length}</strong></div>
+        <div style="margin-top:4px;color:var(--text-muted)">Đã xong: <strong style="color:var(--text)">${completedTasks.length}</strong></div>
       </div>
     </div>`;
     
@@ -2905,8 +3024,8 @@ function initQuickActionChips() {
   chrome.storage.sync.get('birth', ({ birth }) => {
   // Work first; the astrology prompt only appears once there is a chart to read
   const chipsData = [
-    { text: 'Dựa trên danh sách nhiệm vụ của tôi, hãy sắp xếp thứ tự ưu tiên cho hôm nay và chia thành các phiên Pomodoro 25 phút.', label: '🗂 Lên kế hoạch hôm nay' },
-    { text: 'Việc nào trong danh sách của tôi đang lớn hoặc khó bắt đầu nhất? Hãy chia nó thành các bước nhỏ, mỗi bước làm được trong một phiên 25 phút.', label: '✂️ Chia nhỏ việc khó' },
+    { text: 'Dựa trên danh sách nhiệm vụ của tôi, hãy sắp xếp thứ tự ưu tiên cho hôm nay và chia thành các phiên Pomodoro ' + timerDurations.pomodoro + ' phút.', label: '🗂 Lên kế hoạch hôm nay' },
+    { text: 'Việc nào trong danh sách của tôi đang lớn hoặc khó bắt đầu nhất? Hãy chia nó thành các bước nhỏ, mỗi bước làm được trong một phiên ' + timerDurations.pomodoro + ' phút.', label: '✂️ Chia nhỏ việc khó' },
     { text: 'Nếu hôm nay tôi chỉ làm được một việc, đó nên là việc gì và vì sao?', label: '🎯 Việc quan trọng nhất' },
     birth
       ? { text: 'Theo lá số của tôi, hôm nay cát hung thế nào và giờ nào hợp để làm việc cần tập trung cao?', label: '🔮 Cát hung hôm nay' }
@@ -2921,8 +3040,9 @@ function initQuickActionChips() {
   
   chipsContainer.querySelectorAll('.quick-chip').forEach(chipEl => {
     chipEl.onclick = () => {
-      const prompt = chipEl.dataset.prompt;
-      sendUserMessage(prompt);
+      // Without a key there is nobody to answer: go straight to where the key goes
+      if (document.querySelector('.ai-chat-board')?.classList.contains('needs-key')) return openSettingsAt('geminiKey');
+      sendUserMessage(chipEl.dataset.prompt);
     };
   });
   });
@@ -2936,6 +3056,9 @@ function refreshAiStatus() {
     const ready = !!data.geminiKey;
     statusEl.textContent = ready ? 'Sẵn sàng' : 'Chưa kết nối';
     statusEl.classList.toggle('offline', !ready);
+    document.querySelector('.ai-chat-board')?.classList.toggle('needs-key', !ready);
+    const field = document.getElementById('chatInputField');
+    if (field) field.placeholder = ready ? 'Hỏi AI Mentor về công việc hôm nay...' : 'Thêm API key để bắt đầu trò chuyện…';
   });
 }
 
@@ -3118,7 +3241,7 @@ Chỉ đưa góc nhìn Tử Vi khi người dùng hỏi hoặc khi nó thực s�
   }
 
   return `Bạn là AI Mentor trong ZenTab, một người cố vấn năng suất điềm tĩnh và thực tế.
-Việc của bạn: giúp người dùng chọn việc quan trọng, chia nhỏ việc khó, lập kế hoạch theo phiên Pomodoro 25 phút, vượt trì hoãn và giữ tâm bình an.
+Việc của bạn: giúp người dùng chọn việc quan trọng, chia nhỏ việc khó, lập kế hoạch theo phiên Pomodoro ${timerDurations.pomodoro} phút, vượt trì hoãn và giữ tâm bình an.
 
 Ý định hôm nay của người dùng: ${intention || 'chưa đặt'}
 Danh sách công việc:
@@ -3230,9 +3353,15 @@ function renderWeekChart(days) {
   const max = Math.max(25, ...days.map(d => d.minutes));
   chart.setAttribute('aria-label', 'Phút tập trung 7 ngày qua: ' +
     days.map(d => `${weekday[d.date.getDay()]} ${d.minutes} phút`).join(', '));
-  chart.innerHTML = days.map(d => {
+  // Nothing yet: faint placeholder bars behind an invitation, rather than a blank card
+  const empty = days.every(d => !d.minutes);
+  const ghost = [16, 28, 20, 36, 24, 32, 18];
+  chart.classList.toggle('is-empty', empty);
+  const emptyEl = document.getElementById('statsWeekEmpty');
+  if (emptyEl) emptyEl.hidden = !empty;
+  chart.innerHTML = days.map((d, i) => {
     const label = `${weekday[d.date.getDay()]} ${d.date.getDate()}/${d.date.getMonth() + 1}`;
-    const h = d.minutes ? Math.max(4, d.minutes / max * 100) : 0;
+    const h = empty ? ghost[i] : d.minutes ? Math.max(4, d.minutes / max * 100) : 0;
     return `<div class="week-col ${d.isToday ? 'today' : ''}" tabindex="0" data-tip="${label}: ${d.minutes} phút">
       <div class="week-bar-wrap">
         ${d.isToday && d.minutes ? `<span class="week-value">${d.minutes}</span>` : ''}
@@ -3242,6 +3371,8 @@ function renderWeekChart(days) {
     </div>`;
   }).join('');
 }
+
+document.getElementById('statsWeekStart')?.addEventListener('click', () => switchTab('focus'));
 
 function getRecentChatHistory() {
   return new Promise((resolve) => {
@@ -3294,7 +3425,7 @@ function initAmbientSoundSelector() {
           if (relaxingAudio.src !== customUrl) relaxingAudio.src = customUrl;
           ambientPlayer.setKind('custom');
         } else {
-          alert('Vui lòng cấu hình URL nhạc nền cá nhân trong phần Cài đặt trước.');
+          zenToast('Chưa có link nhạc cá nhân', { actionLabel: 'Mở Cài đặt', onAction: () => openSettingsAt('customAudioUrl') });
           selectEl.value = ambientPlayer.kind === 'custom' ? 'forest' : ambientPlayer.kind;
         }
       });
@@ -4277,13 +4408,15 @@ window.addEventListener('keydown', (e) => {
     const hint = document.getElementById('zenHint');
     if (!hint) return;
     hint.hidden = false;
+    toggleZenBtn.classList.add('is-hinted');
     requestAnimationFrame(() => hint.classList.add('visible'));
     const dismiss = () => {
       hint.classList.remove('visible');
+      toggleZenBtn.classList.remove('is-hinted');
       setTimeout(() => { hint.hidden = true; }, 400);
       chrome.storage.local.set({ zenHintSeen: true });
     };
-    setTimeout(dismiss, 5000);
+    setTimeout(dismiss, 9000);
     toggleZenBtn.addEventListener('click', dismiss, { once: true });
   }
 
@@ -4293,8 +4426,9 @@ window.addEventListener('keydown', (e) => {
       appLayout.classList.add('zen-active');
       toggleZenBtn.classList.add('active');
       toggleZenBtn.setAttribute('aria-pressed', 'true');
-      markZenIdle();
-      if (!data.zenHintSeen) showZenHint();
+      // First visit: the tools stay on screen with the hint, then fade like any other day
+      if (!data.zenHintSeen) { showZenHint(); zenIdleTimer = setTimeout(markZenIdle, 9000); }
+      else markZenIdle();
     } else {
       const roomForTwo = window.innerWidth >= 1440;
       if (data.leftDrawerActive && (roomForTwo || !(data.rightDrawerActive || data.tasksDrawerActive))) {
@@ -4475,10 +4609,10 @@ window.addEventListener('keydown', (e) => {
       chrome.storage.local.get(['customOfflineBg', 'customBgBlur'], (data) => {
         if (data.customOfflineBg) {
           bgFileResetBtn.style.display = 'block';
-          bgFileName.textContent = 'Đang dùng ảnh nền cá nhân';
+          bgFileName.textContent = '';
         } else {
           bgFileResetBtn.style.display = 'none';
-          bgFileName.textContent = 'Chưa chọn ảnh';
+          bgFileName.textContent = '';
         }
         
         const blurVal = (data.customBgBlur !== undefined) ? data.customBgBlur : 2;
@@ -4506,7 +4640,7 @@ window.addEventListener('keydown', (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    bgFileName.textContent = 'Đang xử lý ảnh...';
+    bgFileName.textContent = 'Đang xử lý ảnh…';
 
     const reader = new FileReader();
     reader.onload = function(event) {
@@ -4542,25 +4676,25 @@ window.addEventListener('keydown', (e) => {
             document.body.style.backgroundImage = `url(${compressedDataUrl})`;
             if (window.ZenAppearance) ZenAppearance.setCustomActive(true, compressedDataUrl);
             syncAppearanceUI();
-            bgFileName.textContent = file.name;
+            bgFileName.textContent = '';
             bgFileResetBtn.style.display = 'block';
             bgFileInput.value = ''; // Reset file input
           });
         } catch (err) {
           console.error('Lỗi khi nén ảnh nền:', err);
-          bgFileName.textContent = 'Lỗi nén ảnh';
+          bgFileName.textContent = 'Không dùng được ảnh này, hãy thử ảnh khác.';
         }
       };
       
       img.onerror = function() {
-        bgFileName.textContent = 'Lỗi đọc tệp ảnh';
+        bgFileName.textContent = 'Không đọc được ảnh này, hãy thử ảnh khác.';
       };
       
       img.src = event.target.result;
     };
     
     reader.onerror = function() {
-      bgFileName.textContent = 'Lỗi đọc tệp';
+      bgFileName.textContent = 'Không đọc được tệp, hãy thử lại.';
     };
     
     reader.readAsDataURL(file);
@@ -4574,7 +4708,7 @@ window.addEventListener('keydown', (e) => {
       document.body.style.backgroundImage = '';
       if (window.ZenAppearance) ZenAppearance.setCustomActive(false);
       syncAppearanceUI();
-      bgFileName.textContent = 'Chưa chọn ảnh';
+      bgFileName.textContent = '';
       bgFileResetBtn.style.display = 'none';
       bgFileInput.value = '';
     });
@@ -4911,10 +5045,21 @@ function syncAppearanceUI() {
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-checked', on);
   });
-  document.querySelectorAll('.wallpaper-tile').forEach(tile => {
+  document.querySelectorAll('.wallpaper-tile[data-wallpaper]').forEach(tile => {
     const on = tile.dataset.wallpaper === wallpaper;
     tile.classList.toggle('active', on);
     tile.setAttribute('aria-checked', on);
+  });
+  // The last tile is the user's own photo: a "+" until there is one, then its thumbnail
+  const customTile = document.getElementById('bgFileSelectBtn');
+  const swatch = document.getElementById('wallpaperCustomSwatch');
+  if (!customTile || !swatch) return;
+  customTile.classList.toggle('active', customActive);
+  customTile.setAttribute('aria-checked', customActive);
+  customTile.classList.toggle('has-photo', customActive);
+  if (!customActive) { swatch.style.backgroundImage = ''; return; }
+  chrome.storage.local.get('customOfflineBg', ({ customOfflineBg }) => {
+    if (customOfflineBg && document.documentElement.hasAttribute('data-custom-bg')) swatch.style.backgroundImage = `url(${customOfflineBg})`;
   });
 }
 
@@ -4928,7 +5073,7 @@ function syncAppearanceUI() {
     });
   });
 
-  document.querySelectorAll('.wallpaper-tile').forEach(tile => {
+  document.querySelectorAll('.wallpaper-tile[data-wallpaper]').forEach(tile => {
     tile.addEventListener('click', () => {
       ZenAppearance.setWallpaper(tile.dataset.wallpaper);
       // Picking a preset replaces an uploaded photo
@@ -4938,7 +5083,7 @@ function syncAppearanceUI() {
           const resetBtn = document.getElementById('bgFileResetBtn');
           const fileName = document.getElementById('bgFileName');
           if (resetBtn) resetBtn.style.display = 'none';
-          if (fileName) fileName.textContent = 'Chưa chọn ảnh';
+          if (fileName) fileName.textContent = '';
         }
       });
       document.body.style.backgroundImage = '';
