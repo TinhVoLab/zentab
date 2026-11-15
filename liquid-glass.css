@@ -3343,3 +3343,16 @@ html.timer-is-running .quick-links:not(:hover):not(:focus-within):not(.is-editin
 .quick-links { position: relative; }
 .quick-links:not(.is-empty) .quick-link-add { position: absolute; left: calc(100% + 10px); top: 0; }
 .quick-link-mark { font-size: 14px; }
+
+/* ---------- Hồ sen: vector lotus-pond scenes (wallpapers/generate.py), candidates for the default ---------- */
+:root {
+  --wp-sensom: url('wallpapers/sen-som.svg') center / cover no-repeat, #2b3a45;
+  --wp-senchieu: url('wallpapers/sen-chieu.svg') center / cover no-repeat, #2c2038;
+  --wp-senngoc: url('wallpapers/sen-ngoc.svg') center / cover no-repeat, #1a302c;
+}
+html[data-wallpaper="sensom"] body { background: var(--wp-sensom); }
+html[data-wallpaper="senchieu"] body { background: var(--wp-senchieu); }
+html[data-wallpaper="senngoc"] body { background: var(--wp-senngoc); }
+.wp-sensom { background: var(--wp-sensom); }
+.wp-senchieu { background: var(--wp-senchieu); }
+.wp-senngoc { background: var(--wp-senngoc); }

@@ -14,7 +14,10 @@
     lavender: { name: 'Oải hương',  tone: 'light' },
     sand:     { name: 'Cát trắng',  tone: 'light' },
     mist:     { name: 'Sương mai',  tone: 'light' },
-    moon:     { name: 'Đêm trăng',  tone: 'dark' }
+    moon:     { name: 'Đêm trăng',  tone: 'dark' },
+    sensom:   { name: 'Sen sớm',    tone: 'dark' },
+    senchieu: { name: 'Sen chiều',  tone: 'dark' },
+    senngoc:  { name: 'Sen ngọc',   tone: 'dark' }
   };
 
   function read(key, fallback) {
