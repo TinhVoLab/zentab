@@ -180,6 +180,9 @@
                 </button>
               </div>
             </div>
+
+            <!-- Lối tắt: a few everyday sites; filled by shortcuts.js -->
+            <nav class="quick-links" id="quickLinks" aria-label="Lối tắt" hidden></nav>
           </div>
         </div>
 
@@ -1276,5 +1279,25 @@ Chợ online thực phẩm
   <script src="journal.js" defer></script>
   <script src="donate.js" defer></script>
   <script src="greet.js" defer></script>
+
+  <!-- Add / edit one shortcut; placed next to its tile by shortcuts.js -->
+  <form class="quick-link-editor" id="quickLinkEditor" hidden novalidate>
+    <div class="modal-field">
+      <label for="quickLinkUrl">Địa chỉ</label>
+      <input type="text" id="quickLinkUrl" placeholder="mail.google.com" autocomplete="off" spellcheck="false" inputmode="url">
+    </div>
+    <div class="modal-field">
+      <label for="quickLinkName">Tên</label>
+      <input type="text" id="quickLinkName" placeholder="Để trống sẽ lấy tên trang" maxlength="24" autocomplete="off">
+    </div>
+    <span class="quick-link-error" id="quickLinkError" role="alert"></span>
+    <div class="quick-link-editor-actions">
+      <button type="button" class="link-btn link-btn-destructive" id="quickLinkRemove" hidden>Xoá</button>
+      <span class="quick-link-editor-spacer"></span>
+      <button type="button" class="modal-btn modal-btn-secondary btn-sm" id="quickLinkCancel">Huỷ</button>
+      <button type="submit" class="modal-btn btn-sm">Lưu</button>
+    </div>
+  </form>
+  <script src="shortcuts.js" defer></script>
 </body>
 </html>
