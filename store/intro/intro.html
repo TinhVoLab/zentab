@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #070b18; }
+  body { font-family: -apple-system, "SF Pro Display", system-ui, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+  .layer { position: absolute; inset: 0; will-change: opacity, transform, filter; }
+  .bg { background:
+      radial-gradient(ellipse 50% 45% at 72% 22%, rgba(150,175,225,0.10), transparent 70%),
+      radial-gradient(ellipse 70% 60% at 50% 110%, rgba(40,80,90,0.35), transparent 70%),
+      linear-gradient(180deg, #060a17 0%, #0b1428 60%, #0c1a26 100%); }
+  .star { position: absolute; border-radius: 50%; background: #fff; }
+  .serif { font-family: "New York", "Iowan Old Style", Georgia, serif; }
+  .title { position: absolute; left: 0; right: 0; text-align: center; font-weight: 600; letter-spacing: -0.02em; }
+  .w { display: inline-block; white-space: pre; }
+  .accent { color: #d9b3ff; }
+  .underline { position: absolute; height: 4px; border-radius: 2px; background: linear-gradient(90deg, #c98af0, #e9c8ff); transform-origin: left center; }
+  .window { position: absolute; border-radius: 22px; overflow: hidden; box-shadow: 0 40px 120px -30px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.08); background: #000; }
+  .window img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .bloom { background: radial-gradient(circle at 50% 55%, rgba(201,138,240,0.9) 0%, rgba(150,90,220,0.55) 30%, rgba(40,30,80,0) 70%); mix-blend-mode: screen; }
+  .card { position: absolute; border-radius: 20px; overflow: hidden; box-shadow: 0 30px 80px -20px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.08); background: #111; }
+  .card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .counter { position: absolute; padding: 18px 34px 22px; border-radius: 20px; border: 2px solid rgba(217,179,255,0.7); background: rgba(12,14,34,0.72); backdrop-filter: blur(10px); }
+  .counter b { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 120px; font-weight: 600; color: #e6c9ff; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .counter span { display: block; margin-top: 8px; font-size: 22px; color: rgba(255,255,255,0.65); }
+  .pill { position: absolute; display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-radius: 999px; background: rgba(255,255,255,0.94); color: #1a1530; font-size: 22px; font-weight: 600; white-space: nowrap; box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
+  .pill i { width: 10px; height: 10px; border-radius: 50%; background: #b46ee6; }
+  svg.lines { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+  svg.lines line { stroke: rgba(255,255,255,0.85); stroke-width: 2; }
+  svg.lines circle { fill: #fff; }
+  .endlogo { position: absolute; left: 0; right: 0; top: 410px; display: flex; align-items: center; justify-content: center; gap: 30px; }
+  .endlogo img { width: 120px; height: 120px; border-radius: 28px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+  .endlogo h1 { font-family: "New York", Georgia, serif; font-size: 140px; font-weight: 600; letter-spacing: -0.03em; }
+  .tagline { position: absolute; left: 0; right: 0; top: 610px; text-align: center; font-size: 40px; font-weight: 500; color: rgba(255,255,255,0.92); }
+  .foot { position: absolute; left: 0; right: 0; top: 690px; text-align: center; font-size: 22px; color: rgba(255,255,255,0.5); letter-spacing: 0.02em; }
+  .vignette { background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,0.55) 100%); pointer-events: none; }
+</style></head>
+<body>
+<div class="layer bg" id="bg"></div>
+<div class="layer" id="stars"></div>
+
+<!-- A: title -->
+<div class="layer" id="A">
+  <div class="title serif" id="A1" style="top:380px;font-size:128px"></div>
+  <div class="title serif accent" id="A2" style="top:530px;font-size:128px"></div>
+  <div class="underline" id="Aline"></div>
+</div>
+
+<!-- B: home + intention -->
+<div class="layer" id="B">
+  <div class="title" id="B1" style="top:70px;font-size:64px"></div>
+  <div class="window" id="Bwin"><img src="assets/home-moon.jpg"></div>
+</div>
+
+<!-- C: focus -->
+<div class="layer" id="C">
+  <div class="window" id="Cwin" style="border-radius:0"><img src="assets/focus-moon.jpg"></div>
+  <div class="layer" style="background:linear-gradient(90deg, rgba(6,10,23,0.85) 0%, rgba(6,10,23,0.4) 38%, transparent 60%)"></div>
+  <div id="C1" class="serif" style="position:absolute;left:120px;top:330px;font-size:96px;font-weight:600;line-height:1.08;letter-spacing:-0.02em"></div>
+  <div class="counter" id="Cnum" style="left:120px;top:600px"><b id="CnumV">0</b><span>phút tập trung, rồi 5 phút nghỉ ngơi</span></div>
+</div>
+
+<!-- D: cards -->
+<div class="layer" id="D">
+  <div class="title serif" id="D1" style="top:110px;font-size:96px"></div>
+  <div class="card" id="Dc1" style="width:560px;height:350px"><img src="assets/journal.jpg" style="object-position:58% 30%"></div>
+  <div class="card" id="Dc2" style="width:560px;height:350px"><img src="assets/breath-stage.jpg"></div>
+  <div class="card" id="Dc3" style="width:560px;height:350px"><img src="assets/lantern-stage.jpg" style="object-position:40% 60%"></div>
+</div>
+
+<!-- E: callouts -->
+<div class="layer" id="E">
+  <div class="window" id="Ewin"><img src="assets/home-lotus.jpg"></div>
+  <svg class="lines" id="Elines"></svg>
+  <div id="Epills"></div>
+</div>
+
+<div class="layer bloom" id="bloom"></div>
+
+<!-- F: end card -->
+<div class="layer" id="F">
+  <div class="endlogo" id="Flogo"><img src="assets/icon.jpg"><h1>ZenTab</h1></div>
+  <div class="tagline" id="Ftag">Tập trung <span class="accent">nhẹ nhàng</span>, ngay trong tab mới.</div>
+  <div class="foot" id="Ffoot">Tiện ích Chrome · Miễn phí · Dữ liệu ở lại trên máy bạn</div>
+</div>
+<div class="layer vignette"></div>
+<div class="layer" id="fade" style="background:#000"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eo = x => 1 - Math.pow(1 - x, 3);           // ease out cubic
+const eio = x => 0.5 - 0.5 * Math.cos(Math.PI * x);  // ease in-out sine
+const lerp = (a, b, k) => a + (b - a) * k;
+
+// stars, fixed
+(() => { let s = 1; const r = () => (s = (s * 16807) % 2147483647) / 2147483647; const box = $('stars');
+  for (let i = 0; i < 120; i++) { const d = document.createElement('i'); d.className = 'star'; const z = r() * 2.2 + 0.6;
+    Object.assign(d.style, { left: r() * 1920 + 'px', top: Math.pow(r(), 1.4) * 760 + 'px', width: z + 'px', height: z + 'px' }); d.dataset.p = r() * 6; d.dataset.o = 0.3 + r() * 0.6; box.appendChild(d); } })();
+
+// words that drift in out of a soft blur, one after another
+function words(el, text) { el.innerHTML = text.split(/(\s+)/).map(w => `<span class="w">${w}</span>`).join(''); return [...el.querySelectorAll('.w')]; }
+function reveal(spans, t, start, stagger = 0.12, dur = 0.7) {
+  spans.forEach((s, i) => { const k = eo(prog(t, start + i * stagger, start + i * stagger + dur));
+    s.style.opacity = k; s.style.filter = `blur(${(1 - k) * 14}px)`; s.style.transform = `translateY(${(1 - k) * 18}px)`; });
+}
+const A1 = words($('A1'), 'Mỗi tab mới.'), A2 = words($('A2'), 'Một khoảng lặng.');
+const B1 = words($('B1'), 'Một ý định cho cả ngày.');
+$('C1').innerHTML = '<div id="C1a"></div><div id="C1b" class="accent"></div>';
+const C1a = words($('C1a'), 'Tập trung,'), C1b = words($('C1b'), 'không vội.');
+const D1 = words($('D1'), 'Viết. Thở. Thả trôi.');
+D1.forEach(s => { if (/Thả|trôi/.test(s.textContent)) s.classList.add('accent'); });
+
+// E callouts: pill position, and the point on the screenshot it points to (window coords 0..1)
+const CALLOUTS = [
+  { text: 'Ý định mỗi sáng', at: [0.5, 0.56], pill: [1340, 300], t: 11.55 },
+  { text: 'Lời nhắn đúng lúc', at: [0.17, 0.84], pill: [180, 820], t: 11.8 },
+  { text: 'Âm thanh thư giãn', at: [0.86, 0.85], pill: [1420, 860], t: 12.05 },
+  { text: 'Riêng tư · không máy chủ', at: [0.1, 0.045], pill: [170, 150], t: 12.3 },
+];
+CALLOUTS.forEach((c, i) => { const p = document.createElement('div'); p.className = 'pill'; p.id = 'pill' + i; p.innerHTML = `<i></i>${c.text}`; $('Epills').appendChild(p); });
+
+function setLayer(id, o, extra = '') { const el = $(id); el.style.opacity = o; el.style.visibility = o > 0.001 ? 'visible' : 'hidden'; if (extra) el.style.transform = extra; }
+
+window.render = function (t) {
+  // background stars breathe slowly
+  document.querySelectorAll('.star').forEach(s => { s.style.opacity = s.dataset.o * (0.6 + 0.4 * Math.sin(t * 1.3 + +s.dataset.p)); });
+  $('stars').style.opacity = 1 - prog(t, 2.6, 3.2) * 0.6 + prog(t, 12.8, 13.4) * 0.6;
+
+  // A — title
+  reveal(A1, t, 0.35, 0.16, 0.9);
+  reveal(A2, t, 1.05, 0.16, 0.9);
+  const lineK = eio(prog(t, 1.7, 2.4));
+  if (!window._ul) { const r = document.createRange(); r.selectNodeContents($('A2')); const b = r.getBoundingClientRect(); window._ul = { l: b.left + 6, w: b.width - 12, top: b.bottom - 6 }; }
+  Object.assign($('Aline').style, { left: window._ul.l + 'px', top: window._ul.top + 'px', width: window._ul.w + 'px', transform: `scaleX(${lineK})`, opacity: 1 });
+  const aOut = prog(t, 2.35, 2.85);
+  setLayer('A', 1 - aOut);
+  $('A').style.filter = `blur(${aOut * 10}px)`;
+
+  // bloom: soft lavender light that opens the scene change (A→B) and again before the end (E→F)
+  const b1 = Math.sin(Math.PI * prog(t, 2.4, 3.3)), b2 = Math.sin(Math.PI * prog(t, 12.7, 13.6));
+  setLayer('bloom', Math.max(b1 * 0.85, b2 * 0.85), `scale(${0.8 + Math.max(prog(t, 2.4, 3.3), prog(t, 12.7, 13.6)) * 0.7})`);
+
+  // B — the home screen, then into the intention
+  const bIn = eo(prog(t, 2.75, 3.6)), bOut = prog(t, 5.35, 5.8);
+  setLayer('B', bIn * (1 - bOut));
+  reveal(B1, t, 3.0, 0.1, 0.7);
+  const zoom = eio(prog(t, 4.5, 5.8));
+  const ww = lerp(1440, 1440 * 2.1, zoom), wh = ww / 1.6;
+  const fx = 0.5, fy = 0.575;                        // the intention line on the screenshot
+  const cxB = lerp(960, 960, zoom), cyB = lerp(620, 540, zoom);
+  Object.assign($('Bwin').style, { width: ww + 'px', height: wh + 'px', left: (cxB - ww * fx) + 'px', top: (cyB - wh * lerp(0.5, fy, zoom)) + 'px', transform: `scale(${lerp(0.94, 1, bIn)})`, borderRadius: lerp(22, 0, zoom) + 'px' });
+  $('B1').style.opacity = 1 - prog(t, 4.4, 4.8);
+
+  // C — focus
+  const cIn = eo(prog(t, 5.55, 6.2)), cOut = prog(t, 8.2, 8.6);
+  setLayer('C', cIn * (1 - cOut));
+  const ck = prog(t, 5.55, 8.6);
+  Object.assign($('Cwin').style, { left: '0', top: '0', width: '1920px', height: '1080px', transform: `scale(${lerp(1.08, 1.16, ck)}) translateX(${lerp(40, 10, ck)}px)` });
+  reveal(C1a, t, 5.9, 0.14, 0.8);
+  reveal(C1b, t, 6.35, 0.14, 0.8);
+  const nk = eo(prog(t, 6.7, 7.2));
+  $('Cnum').style.opacity = nk; $('Cnum').style.transform = `translateY(${(1 - nk) * 20}px)`;
+  $('CnumV').textContent = Math.round(eo(prog(t, 6.8, 7.9)) * 25);
+
+  // D — three moments drifting in
+  const dIn = eo(prog(t, 8.35, 9.0)), dOut = prog(t, 10.95, 11.35);
+  setLayer('D', dIn * (1 - dOut));
+  reveal(D1, t, 8.6, 0.18, 0.8);
+  [[1, -7, 230, 520, 8.55], [2, 0, 680, 470, 8.75], [3, 7, 1130, 520, 8.95]].forEach(([n, rot, x, y, st]) => {
+    const k = eo(prog(t, st, st + 0.9)); const drift = Math.sin((t - st) * 0.8 + n) * 6;
+    Object.assign($('Dc' + n).style, { left: x + 'px', top: (y + (1 - k) * 80 + drift) + 'px', opacity: k, transform: `rotate(${rot * (0.6 + 0.4 * k)}deg) scale(${lerp(0.92, 1, k)})` });
+  });
+
+  // E — the whole home screen with callouts
+  const eIn = eo(prog(t, 11.15, 11.7)), eOut = prog(t, 12.85, 13.25);
+  setLayer('E', eIn * (1 - eOut));
+  const W = 1200, H = 750, L = 360, T = 190;
+  Object.assign($('Ewin').style, { left: L + 'px', top: T + 'px', width: W + 'px', height: H + 'px', transform: `scale(${lerp(0.95, 1, eIn) * lerp(1, 1.03, prog(t, 11.2, 13.2))})` });
+  let svg = '';
+  CALLOUTS.forEach((c, i) => {
+    const k = eo(prog(t, c.t, c.t + 0.45)); const p = $('pill' + i);
+    const px = c.pill[0], py = c.pill[1]; p.style.left = px + 'px'; p.style.top = py + 'px'; p.style.opacity = k; p.style.transform = `translateY(${(1 - k) * 10}px)`;
+    const ax = L + W * c.at[0], ay = T + H * c.at[1];
+    const r = p.getBoundingClientRect(); const sx = px + (px > ax ? 0 : r.width), sy = py + r.height / 2;
+    const lx = sx + (ax - sx) * k, ly = sy + (ay - sy) * k;
+    svg += `<line x1="${sx}" y1="${sy}" x2="${lx}" y2="${ly}" opacity="${k}"/><circle cx="${ax}" cy="${ay}" r="${5 * k}" opacity="${k}"/>`;
+  });
+  $('Elines').innerHTML = svg;
+
+  // F — end card
+  const fIn = eo(prog(t, 13.15, 13.9));
+  setLayer('F', fIn);
+  $('Flogo').style.transform = `translateY(${(1 - fIn) * 24}px)`; $('Flogo').style.filter = `blur(${(1 - fIn) * 12}px)`;
+  const tk = eo(prog(t, 13.6, 14.3)); $('Ftag').style.opacity = tk; $('Ftag').style.transform = `translateY(${(1 - tk) * 14}px)`;
+  $('Ffoot').style.opacity = eo(prog(t, 14.0, 14.6)) * 0.9;
+
+  // fade in from black, out to black
+  $('fade').style.opacity = 1 - prog(t, 0, 0.35) + prog(t, 15.0, 15.5);
+};
+window.render(0);
+</script>
+</body></html>

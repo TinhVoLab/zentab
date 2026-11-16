@@ -264,6 +264,193 @@
       stopScene(scene, 0.8);
     },
 
+    // Bubble-wrap pop: a pitch-dropping blip plus a filtered noise snap, slightly varied each time
+    pop() {
+      ensureContext();
+      const t = ctx.currentTime;
+      const out = ctx.createGain();
+      out.gain.value = 0.45;
+      out.connect(ctx.destination);
+
+      const f = 480 + Math.random() * 360;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, t);
+      osc.frequency.exponentialRampToValueAtTime(f * 0.4, t + 0.06);
+      const body = ctx.createGain();
+      body.gain.setValueAtTime(0.0001, t);
+      body.gain.exponentialRampToValueAtTime(0.6, t + 0.003);
+      body.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+      osc.connect(body).connect(out);
+      osc.start(t);
+      osc.stop(t + 0.1);
+
+      const snap = ctx.createBufferSource();
+      snap.buffer = noiseBuffer('white');
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1800 + Math.random() * 1200;
+      bp.Q.value = 1.2;
+      const sg = ctx.createGain();
+      sg.gain.setValueAtTime(0.5, t);
+      sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+      snap.connect(bp).connect(sg).connect(out);
+      snap.start(t, Math.random() * 5);
+      snap.stop(t + 0.05);
+
+      setTimeout(() => out.disconnect(), 300);
+    },
+
+    // Raking sand: filtered noise whose loudness follows the stroke speed.
+    // Returns { move(speed), end() } for one pointer stroke.
+    sandStroke() {
+      ensureContext();
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer('pink');
+      src.loop = true;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1400;
+      bp.Q.value = 0.7;
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      src.connect(bp).connect(g).connect(ctx.destination);
+      src.start(0, Math.random() * 5);
+      return {
+        move(speed) {
+          const t = ctx.currentTime;
+          g.gain.setTargetAtTime(Math.min(0.18, speed * 0.004), t, 0.04);
+          bp.frequency.setTargetAtTime(1100 + Math.min(900, speed * 12), t, 0.08);
+        },
+        end() {
+          const t = ctx.currentTime;
+          g.gain.setTargetAtTime(0, t, 0.06);
+          src.stop(t + 0.4);
+        }
+      };
+    },
+
+    // Turning a paper page: a short, airy swish with a crisp edge
+    pageTurn() {
+      ensureContext();
+      const t = ctx.currentTime;
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer('white');
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 0.7;
+      bp.frequency.setValueAtTime(1800, t);
+      bp.frequency.exponentialRampToValueAtTime(4200, t + 0.28);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16, t + 0.06);
+      g.gain.exponentialRampToValueAtTime(0.05, t + 0.22);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+      src.connect(bp).connect(g).connect(ctx.destination);
+      src.start(t, Math.random() * 5);
+      src.stop(t + 0.5);
+    },
+
+    // Setting a lantern on the water: a soft drop followed by a distant bell
+    lanternRelease() {
+      ensureContext();
+      const t = ctx.currentTime;
+      const out = ctx.createGain();
+      out.gain.value = 0.35;
+      out.connect(ctx.destination);
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(900, t);
+      osc.frequency.exponentialRampToValueAtTime(260, t + 0.18);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.5, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+      osc.connect(g).connect(out);
+      osc.start(t);
+      osc.stop(t + 0.3);
+      setTimeout(() => bowl(523, 0.18, 5, out), 350);
+      setTimeout(() => out.disconnect(), 6000);
+    },
+
+    // Stone set on stone: a dull knock — low thump plus a short, dark click. `weight` 0..1
+    stoneClack(weight = 0.5) {
+      ensureContext();
+      const t = ctx.currentTime;
+      const out = ctx.createGain();
+      out.gain.value = 0.35 + weight * 0.25;
+      out.connect(ctx.destination);
+      const f = 150 + (1 - weight) * 120 + Math.random() * 30;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, t);
+      osc.frequency.exponentialRampToValueAtTime(f * 0.6, t + 0.09);
+      const body = ctx.createGain();
+      body.gain.setValueAtTime(0.0001, t);
+      body.gain.exponentialRampToValueAtTime(0.7, t + 0.004);
+      body.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+      osc.connect(body).connect(out);
+      osc.start(t);
+      osc.stop(t + 0.16);
+      const click = ctx.createBufferSource();
+      click.buffer = noiseBuffer('white');
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 900 + Math.random() * 500;
+      bp.Q.value = 2.5;
+      const cg = ctx.createGain();
+      cg.gain.setValueAtTime(0.4, t);
+      cg.gain.exponentialRampToValueAtTime(0.0001, t + 0.035);
+      click.connect(bp).connect(cg).connect(out);
+      click.start(t, Math.random() * 5);
+      click.stop(t + 0.05);
+      setTimeout(() => out.disconnect(), 300);
+    },
+
+    // A stone into the water: a falling-pitch plop and a short wash of spray
+    splash() {
+      ensureContext();
+      const t = ctx.currentTime;
+      const out = ctx.createGain();
+      out.gain.value = 0.32;
+      out.connect(ctx.destination);
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(700 + Math.random() * 200, t);
+      osc.frequency.exponentialRampToValueAtTime(180, t + 0.12);
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0.0001, t);
+      og.gain.exponentialRampToValueAtTime(0.5, t + 0.008);
+      og.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+      osc.connect(og).connect(out);
+      osc.start(t);
+      osc.stop(t + 0.2);
+      const wash = ctx.createBufferSource();
+      wash.buffer = noiseBuffer('pink');
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(3200, t);
+      lp.frequency.exponentialRampToValueAtTime(500, t + 0.5);
+      const wg = ctx.createGain();
+      wg.gain.setValueAtTime(0.0001, t);
+      wg.gain.exponentialRampToValueAtTime(0.45, t + 0.03);
+      wg.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+      wash.connect(lp).connect(wg).connect(out);
+      wash.start(t, Math.random() * 5);
+      wash.stop(t + 0.65);
+      setTimeout(() => out.disconnect(), 900);
+    },
+
+    // Quiet bowl tap marking a breathing phase change (higher when breathing in)
+    breathCue(rising) {
+      ensureContext();
+      const out = ctx.createGain();
+      out.gain.value = 0.22;
+      out.connect(ctx.destination);
+      bowl(rising ? 392 : 294, 0.35, 3.5, out);
+      setTimeout(() => out.disconnect(), 4500);
+    },
+
     // Two singing-bowl strikes for the end of a Pomodoro
     chime() {
       ensureContext();

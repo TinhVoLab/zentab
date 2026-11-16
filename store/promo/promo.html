@@ -1,0 +1,53 @@
+<!doctype html>
+<!-- Source for the Chrome Web Store promo images. Render with store/promo/render.js -->
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { overflow: hidden; font-family: -apple-system, "SF Pro Display", system-ui, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+  .art { position: relative; overflow: hidden; background: #0d1a14 url(../../background.jpg) no-repeat; }
+  .art::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8, 14, 12, 0.9) 0%, rgba(8, 14, 12, 0.66) 42%, rgba(8, 14, 12, 0) 72%); }
+  .copy { position: absolute; display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; }
+  .brand img { border-radius: 22%; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45); }
+  .name { font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+  .tagline { font-family: "New York", Georgia, serif; font-style: italic; line-height: 1.2; color: rgba(255, 255, 255, 0.95); }
+  .chips { display: flex; flex-wrap: wrap; }
+  .chips span { background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 999px; font-weight: 500; backdrop-filter: blur(8px); }
+
+  /* 440×280 small tile: must stay legible at half size, so few words */
+  .tile { width: 440px; height: 280px; background-size: 760px auto; background-position: 46% 38%; }
+  .tile .copy { left: 28px; top: 0; bottom: 0; justify-content: center; gap: 16px; }
+  .tile .brand { gap: 12px; }
+  .tile .brand img { width: 52px; height: 52px; }
+  .tile .name { font-size: 40px; }
+  .tile .tagline { font-size: 22px; max-width: 230px; }
+  .tile .chips { gap: 6px; max-width: 230px; }
+  .tile .chips span { font-size: 12px; padding: 4px 10px; }
+
+  /* 1400×560 marquee: the copy plus the real product */
+  .marquee { width: 1400px; height: 560px; background-size: 1500px auto; background-position: 50% 42%; }
+  .marquee .copy { left: 80px; top: 0; bottom: 0; justify-content: center; gap: 26px; }
+  .marquee .brand { gap: 20px; }
+  .marquee .brand img { width: 88px; height: 88px; }
+  .marquee .name { font-size: 76px; }
+  .marquee .tagline { font-size: 40px; max-width: 470px; }
+  .marquee .chips { gap: 10px; max-width: 520px; }
+  .marquee .chips span { font-size: 18px; padding: 7px 16px; }
+  .shot { position: absolute; right: 70px; top: 50%; width: 700px; transform: translateY(-50%) perspective(1600px) rotateY(-9deg); border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.35); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55); }
+  .tile .shot, .tile .long { display: none; }
+</style>
+</head>
+<body>
+<div class="art" id="art">
+  <div class="copy">
+    <div class="brand"><img src="../../icons/master_icon.png" alt=""><span class="name">ZenTab</span></div>
+    <p class="tagline">Mỗi tab mới, một khoảng lặng<span class="long"> để tập trung</span>.</p>
+    <div class="chips"><span>Pomodoro</span><span>Nhật ký</span><span>Nhiệm vụ</span><span>Tử Vi</span></div>
+  </div>
+  <img class="shot" src="../screenshots/4-nhat-ky.png" alt="">
+</div>
+<script>document.getElementById('art').classList.add(new URLSearchParams(location.search).get('size') || 'tile');</script>
+</body>
+</html>

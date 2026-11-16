@@ -1,3 +1,9 @@
 .DS_Store
 *.zip
 node_modules/
+dist/
+store/intro30/assets/*.mp4
+store/intro30/frames/
+store/intro/frames/
+store/intro30/frames-v/
+Plan/

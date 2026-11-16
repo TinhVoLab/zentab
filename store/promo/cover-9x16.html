@@ -1,0 +1,42 @@
+<!doctype html>
+<!-- Vertical cover (1080×1920) for the 9:16 intro on YouTube Shorts. Render with store/promo/render.js -->
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { width: 1080px; height: 1920px; overflow: hidden; background: #070b18; font-family: -apple-system, "SF Pro Display", system-ui, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+  .art { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+  /* the focus screen, scaled so the timer ring sits in the middle of the frame */
+  .shot { position: absolute; width: 3360px; left: -1203px; top: 209px; }
+  .glow { position: absolute; left: 540px; top: 1040px; width: 1100px; height: 1100px; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, rgba(201, 138, 240, 0.22) 0%, rgba(201, 138, 240, 0.08) 38%, transparent 62%); }
+  /* keep only the task line and the ring: the mode tabs and the buttons fade out */
+  .shotwrap { position: absolute; inset: 0; -webkit-mask-image: linear-gradient(180deg, transparent 0, transparent 400px, #000 540px, #000 1365px, transparent 1425px); }
+  .star { position: absolute; border-radius: 50%; background: #fff; }
+  .headline { position: absolute; left: 0; right: 0; top: 190px; text-align: center; font-family: "New York", "Iowan Old Style", Georgia, serif; font-size: 112px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.16; }
+  .headline em { font-style: normal; color: #d9b3ff; position: relative; }
+  .headline em::after { content: ""; position: absolute; left: 6px; right: 6px; bottom: -4px; height: 5px; border-radius: 3px; background: linear-gradient(90deg, #c98af0, #e9c8ff); }
+  .brand { position: absolute; left: 0; right: 0; top: 1470px; display: flex; align-items: center; justify-content: center; gap: 28px; }
+  .brand img { width: 120px; height: 120px; border-radius: 28px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6); }
+  .brand span { font-family: "New York", Georgia, serif; font-size: 112px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; }
+  .sub { position: absolute; left: 0; right: 0; top: 1650px; text-align: center; font-size: 36px; font-weight: 500; color: rgba(255, 255, 255, 0.72); letter-spacing: 0.01em; }
+  .sub b { display: inline-block; width: 8px; height: 8px; margin: 0 18px; border-radius: 50%; background: #c98af0; vertical-align: middle; transform: translateY(-3px); }
+</style>
+</head>
+<body>
+<div class="art">
+  <div class="glow"></div>
+  <div class="shotwrap"><img class="shot" src="focus-25.jpg" alt=""></div>
+  <div id="stars"></div>
+  <h1 class="headline">Mỗi tab mới.<br><em>Một khoảng lặng.</em></h1>
+  <div class="brand"><img src="../../icons/master_icon.png" alt=""><span>ZenTab</span></div>
+  <p class="sub">Tiện ích Chrome<b></b>Miễn phí<b></b>Riêng tư</p>
+</div>
+<script>
+  // a few stars over the dark top and bottom bands, same seed as the intro film
+  let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647; const box = document.getElementById('stars');
+  for (let i = 0; i < 70; i++) { const d = document.createElement('i'); d.className = 'star'; const z = r() * 2.2 + 0.6, y = r();
+    Object.assign(d.style, { left: r() * 1080 + 'px', top: (y < 0.5 ? y * 2 * 560 : 1500 + (y - 0.5) * 2 * 420) + 'px', width: z + 'px', height: z + 'px', opacity: 0.25 + r() * 0.5 }); box.appendChild(d); }
+</script>
+</body>
+</html>

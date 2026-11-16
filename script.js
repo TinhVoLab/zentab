@@ -75,7 +75,7 @@ if (typeof chrome === 'undefined' || !chrome.storage) {
     if (data.customOfflineBg) {
       document.body.style.backgroundImage = `url(${data.customOfflineBg})`;
     }
-    if (window.ZenAppearance) ZenAppearance.setCustomActive(!!data.customOfflineBg);
+    if (window.ZenAppearance) ZenAppearance.setCustomActive(!!data.customOfflineBg, data.customOfflineBg);
     const blurVal = (data.customBgBlur !== undefined) ? data.customBgBlur : 2;
     const overlay = document.querySelector('.overlay');
     if (overlay) {
@@ -96,7 +96,9 @@ styleSheet.textContent = `
 document.head.appendChild(styleSheet);
 
 // Clock, Date, Greeting
-let currentUserName = 'Tinh';
+// Shown until the user sets a name: "Chào buổi sáng, bạn"
+const DEFAULT_USER_NAME = 'bạn';
+let currentUserName = DEFAULT_USER_NAME;
 let selectedAvatarType = 'lotus';
 let tempCustomAvatarData = null;
 
@@ -158,7 +160,17 @@ function updateGreeting() {
   if (hour >= 12 && hour < 18) g = 'Chào buổi chiều';
   if (hour >= 18) g = 'Chào buổi tối';
 
-  greetingEl.innerHTML = `${g}, <span id="userName" class="name-editable">${currentUserName}</span> 💜`;
+  // Runs every second from updateTime: rebuild only when the text changes, so a click on
+  // the name never lands on a span that's being replaced
+  const key = `${g}|${currentUserName}`;
+  if (greetingEl.dataset.rendered === key && document.getElementById('userName')) return;
+  greetingEl.dataset.rendered = key;
+
+  const nameEl = document.createElement('span');
+  nameEl.id = 'userName';
+  nameEl.className = 'name-editable';
+  nameEl.textContent = currentUserName;
+  greetingEl.replaceChildren(`${g}, `, nameEl);
   attachNameEdit();
 }
 
@@ -200,9 +212,10 @@ function attachNameEdit() {
     input.select();
 
     const save = () => {
-      const name = input.value.trim() || 'Tinh';
+      const name = input.value.trim() || DEFAULT_USER_NAME;
       currentUserName = name;
-      chrome.storage.sync.set({ userName: name });
+      if (name === DEFAULT_USER_NAME) chrome.storage.sync.remove('userName');
+      else chrome.storage.sync.set({ userName: name });
       const span = document.createElement('span');
       span.id = 'userName';
       span.className = 'name-editable';
@@ -223,6 +236,7 @@ const journalReflection = document.getElementById('journalReflection');
 const journalTodayEntry = document.getElementById('journalTodayEntry');
 const intentionLabel = document.getElementById('intentionLabel');
 const reflectionEntry = document.getElementById('reflectionEntry');
+const startFocusFromIntention = document.getElementById('startFocusFromIntention');
 
 function getDateStr(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -263,10 +277,14 @@ function loadJournal() {
         journalTodayEntry.textContent = `\u201C${todayEntry.entry}\u201D`;
       }
       if (intentionLabel) intentionLabel.textContent = 'Ý định hôm nay:';
+      if (journalIntention) journalIntention.classList.remove('is-asking');
+      if (startFocusFromIntention) startFocusFromIntention.hidden = false;
     } else {
       if (jInputRow) jInputRow.style.display = '';
       if (journalTodayEntry) journalTodayEntry.style.display = 'none';
+      if (startFocusFromIntention) startFocusFromIntention.hidden = true;
       if (intentionLabel) intentionLabel.textContent = 'Điều gì quan trọng nhất hôm nay?';
+      if (journalIntention) journalIntention.classList.add('is-asking');
       if ((!yesterdayEntry || yesterdayEntry.honored !== null) && journalInput) journalInput.focus();
     }
 
@@ -297,6 +315,12 @@ function saveJournalEntry(text) {
         journalTodayEntry.textContent = `\u201C${text.trim()}\u201D`;
       }
       if (intentionLabel) intentionLabel.textContent = 'Ý định hôm nay:';
+      if (journalIntention) journalIntention.classList.remove('is-asking');
+      if (startFocusFromIntention) {
+        startFocusFromIntention.hidden = false;
+        // Pressing Enter again starts the session
+        if (document.activeElement === journalInput) startFocusFromIntention.focus();
+      }
       renderSparkline(trimmed);
     });
   });
@@ -311,29 +335,50 @@ if (journalInput) {
   });
 }
 
+// Jump to the Focus view and start a pomodoro (no-op if one is already running)
+function startFocusSession() {
+  switchTab('focus');
+  if (document.documentElement.classList.contains('timer-is-running')) return;
+  setTimerMode('pomodoro');
+  toggleTimer();
+}
+
+// Focus on a specific task: it becomes the session's label without touching today's journal intention
+function startFocusOnTask(text) {
+  chrome.storage.local.set({ focusTask: { text, date: getDateStr(new Date()) } }, startFocusSession);
+}
+
+if (startFocusFromIntention) {
+  startFocusFromIntention.addEventListener('click', () => {
+    chrome.storage.local.remove('focusTask', startFocusSession);
+  });
+}
+
+// Seven dots under the date: the last week's intentions (kept · set · none), today ringed.
+// Hidden until there is at least one intention to show, so a new tab doesn't open on blanks.
 function renderSparkline(entries) {
   const container = document.getElementById('sparkline');
   if (!container) return;
+  const today = getDateStr(new Date());
   const days = [];
-  const now = new Date();
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(now); d.setDate(d.getDate() - i);
+    const d = new Date(); d.setDate(d.getDate() - i);
     days.push(getDateStr(d));
   }
-
-  container.innerHTML = days.map(d => {
-    const entry = entries.find(e => e.date === d);
-    const isToday = d === getDateStr(new Date());
-    let level = 0;
-    if (entry) {
-      if (entry.honored === true) level = 2;
-      else if (entry.honored === false) level = 1;
-      else if (entry.honored === null && entry.entry) level = 1;
-    }
-    const height = level === 0 ? 2 : level === 1 ? 8 : 14;
-    const cls = isToday ? 'sparkline-bar today' : (level > 0 ? 'sparkline-bar filled' : 'sparkline-bar empty');
-    return `<div class="${cls}" style="height:${height}px" title="${d}"></div>`;
-  }).join('');
+  const byDay = days.map(d => entries.find(e => e.date === d && e.entry));
+  const kept = byDay.filter(e => e && e.honored === true).length;
+  const set = byDay.filter(Boolean).length;
+  container.hidden = set === 0;
+  if (!set) { container.replaceChildren(); return; }
+  container.replaceChildren(...days.map((d, i) => {
+    const e = byDay[i];
+    const dot = document.createElement('span');
+    dot.className = 'week-dot' + (e ? (e.honored === true ? ' kept' : ' set') : '') + (d === today ? ' today' : '');
+    return dot;
+  }));
+  const label = `Ý định 7 ngày qua: đặt ${set}, giữ được ${kept}`;
+  container.title = label;
+  container.setAttribute('aria-label', label);
 }
 
 loadJournal();
@@ -433,60 +478,107 @@ const dailyChiAdvice = [
   { chi: 'Hợi', emoji: '🐖', advice: 'Ngày của tận hưởng. Thư giãn và biết ơn những điều nhỏ bé.' }
 ];
 
-// ---- TỬ VI Vietnamese mappings ----
-const palaceNameVi = {
-  '命宫': 'Mệnh', '兄弟': 'Huynh Đệ', '夫妻': 'Phu Thê', '子女': 'Tử Nữ',
-  '财帛': 'Tài Bạch', '疾厄': 'Tật Ách', '迁移': 'Thiên Di', '仆役': 'Giao Hữu',
-  '官禄': 'Quan Lộc', '田宅': 'Điền Trạch', '福德': 'Phúc Đức', '父母': 'Phụ Mẫu'
-};
-
-const majorStarNameVi = {
-  '紫微': 'Tử Vi', '天机': 'Thiên Cơ', '太阳': 'Thái Dương', '武曲': 'Vũ Khúc',
-  '天同': 'Thiên Đồng', '廉贞': 'Liêm Trinh', '天府': 'Thiên Phủ', '太阴': 'Thái Âm',
-  '贪狼': 'Tham Lang', '巨门': 'Cự Môn', '天相': 'Thiên Tướng', '天梁': 'Thiên Lương',
-  '七杀': 'Thất Sát', '破军': 'Phá Quân'
-};
-
-const minorStarNameVi = {
-  '左辅': 'Tả Phụ', '右弼': 'Hữu Bật', '文昌': 'Văn Xương', '文曲': 'Văn Khúc',
-  '天魁': 'Thiên Khôi', '天钺': 'Thiên Việt', '禄存': 'Lộc Tồn', '擎羊': 'Kình Dương',
-  '陀罗': 'Đà La', '火星': 'Hỏa Tinh', '铃星': 'Linh Tinh', '地空': 'Địa Không',
-  '地劫': 'Địa Kiếp', '天马': 'Thiên Mã'
-};
-
-const chineseDiaChi = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
-const chineseDiaChiLookup = {};
-chineseDiaChi.forEach((c, i) => chineseDiaChiLookup[c] = diaChi[i]);
-
-const songNameVi = {
-  '魂': 'Hồn', '魄': 'Phách', '命主': 'Mệnh Chủ', '身主': 'Thân Chủ'
-};
-
-const brightnessVi = {
-  '庙': 'miếu', '旺': 'vượng', '得': 'đắc', '利': 'lợi', '平': 'bình', '不': 'bất', '陷': 'hãm'
-};
-
-const changePalaceName = {
-  '兄弟': 'huynh đệ', '夫妻': 'phu thê', '子女': 'tử nữ', '财帛': 'tài bạch',
-  '疾厄': 'tật ách', '迁移': 'thiên di', '仆役': 'giao hữu', '官禄': 'quan lộc',
-  '田宅': 'điền trạch', '福德': 'phúc đức', '父母': 'phụ mẫu', '命宫': 'mệnh'
-};
-
-function msgStar(s) { return majorStarNameVi[s.name] || minorStarNameVi[s.name] || s.name; }
-
-function hourToTimeIndex(hour) {
-  if (hour == null) return 2;
-  if (hour === 23) return 12;
-  return Math.floor((hour + 1) / 2);
+// ---- Bát Tự / Tử Vi (iztro, vi-VN locale) ----
+// Nạp âm of the sexagenary cycle: each pair of years from Giáp Tý shares one
+const napAm = [
+  'Hải Trung Kim', 'Lư Trung Hỏa', 'Đại Lâm Mộc', 'Lộ Bàng Thổ', 'Kiếm Phong Kim', 'Sơn Đầu Hỏa',
+  'Giản Hạ Thủy', 'Thành Đầu Thổ', 'Bạch Lạp Kim', 'Dương Liễu Mộc', 'Tuyền Trung Thủy', 'Ốc Thượng Thổ',
+  'Tích Lịch Hỏa', 'Tùng Bách Mộc', 'Trường Lưu Thủy', 'Sa Trung Kim', 'Sơn Hạ Hỏa', 'Bình Địa Mộc',
+  'Bích Thượng Thổ', 'Kim Bạch Kim', 'Phú Đăng Hỏa', 'Thiên Hà Thủy', 'Đại Trạch Thổ', 'Thoa Xuyến Kim',
+  'Tang Đố Mộc', 'Đại Khê Thủy', 'Sa Trung Thổ', 'Thiên Thượng Hỏa', 'Thạch Lựu Mộc', 'Đại Hải Thủy'
+];
+function napAmOfLunarYear(lunarYear) {
+  const name = napAm[Math.floor(((lunarYear - 4) % 60 + 60) % 60 / 2)];
+  return { name, element: nguHanh.indexOf(name.split(' ').pop()) };
 }
 
-function getZiWei(birth) {
+// Canh giờ for iztro: 0 Tý sớm (00–01h), 1 Sửu … 11 Hợi, 12 Tý muộn (23–24h)
+const CANH_GIO = ['Tý sớm', 'Sửu', 'Dần', 'Mão', 'Thìn', 'Tỵ', 'Ngọ', 'Mùi', 'Thân', 'Dậu', 'Tuất', 'Hợi', 'Tý muộn'];
+function hourToTimeIndex(hour) {
+  return hour === 23 ? 12 : Math.floor((hour + 1) / 2);
+}
+// The hour we store for a canh giờ (round-trips through hourToTimeIndex)
+function timeIndexToHour(idx) {
+  return idx === 12 ? 23 : idx * 2;
+}
+function canhGioRange(idx) {
+  if (idx === 0) return '00:00–00:59';
+  if (idx === 12) return '23:00–23:59';
+  const pad = h => String(h).padStart(2, '0');
+  return `${pad(idx * 2 - 1)}:00–${pad(idx * 2)}:59`;
+}
+
+// Giờ hoàng đạo: the 12 day-gods start (Thanh Long) on a branch set by the day's branch —
+// Tý Ngọ khởi Thân, Sửu Mùi khởi Tuất, Dần Thân khởi Tý, Mão Dậu khởi Dần, Thìn Tuất khởi Thìn, Tỵ Hợi khởi Ngọ
+const HD_START = [8, 10, 0, 2, 4, 6, 8, 10, 0, 2, 4, 6];
+const HD_GODS = [[0, 'Thanh Long'], [1, 'Minh Đường'], [4, 'Kim Quỹ'], [5, 'Bảo Quang'], [7, 'Ngọc Đường'], [10, 'Tư Mệnh']];
+const branchOfHour = h => Math.floor(((h + 1) % 24) / 2);
+// Branch i (Tý = 0) covers (2i−1):00 to (2i):59, Tý wrapping over midnight
+const branchRange = i => {
+  const pad = h => String(h).padStart(2, '0');
+  return `${pad((2 * i + 23) % 24)}:00–${pad(2 * i)}:59`;
+};
+function hoangDaoHours(date) {
+  // The traditional day turns at the start of giờ Tý (23:00)
+  const d = new Date(date);
+  if (d.getHours() >= 23) d.setDate(d.getDate() + 1);
+  const start = HD_START[getDayCanChi(d).chi];
+  return HD_GODS.map(([offset, god]) => {
+    const branch = (start + offset) % 12;
+    return { branch, god, name: diaChi[branch], range: branchRange(branch) };
+  }).sort((a, b) => a.branch - b.branch);
+}
+// "Now in X" or "next is Y" for the Focus view
+function hoangDaoNow(date) {
+  const hours = hoangDaoHours(date);
+  const cur = branchOfHour(date.getHours());
+  const now = hours.find(h => h.branch === cur);
+  if (now) return { now, hours };
+  // Past the last slot today: the next one belongs to the day that starts at 23:00
+  const next = hours.find(h => h.branch > cur) ||
+    hoangDaoHours(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23))[0];
+  return { next, hours };
+}
+
+// iztro (~480 KB, over half the extension's code) is only needed for Tử Vi:
+// load it on demand instead of on every new tab
+let iztroPromise = null;
+function loadIztro() {
+  if (typeof iztro !== 'undefined') return Promise.resolve();
+  if (!iztroPromise) {
+    iztroPromise = new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = 'iztro.min.js';
+      el.onload = resolve;
+      el.onerror = () => { iztroPromise = null; reject(new Error('iztro failed to load')); };
+      document.head.appendChild(el);
+    });
+  }
+  return iztroPromise;
+}
+
+// Everything derived from the birth data. Without a birth hour only the date-based facts are
+// trustworthy: the year/month/day pillars. The 12 palaces depend on the hour, so they're withheld.
+function getBirthChart(birth) {
   if (!birth || !birth.year || !birth.month || !birth.day) return null;
+  if (typeof iztro === 'undefined') return null; // callers load it first via loadIztro()
+  const hourKnown = birth.hour != null;
   try {
-    const dateStr = `${birth.year}-${birth.month}-${birth.day}`;
-    const idx = hourToTimeIndex(birth.hour);
-    const gender = birth.gender || 'male';
-    return iztro.astro.astrolabeBySolarDate(dateStr, idx, gender, true, 'zh-CN');
+    const chart = iztro.astro.astrolabeBySolarDate(
+      `${birth.year}-${birth.month}-${birth.day}`,
+      hourKnown ? hourToTimeIndex(birth.hour) : 0,
+      birth.gender || 'male', true, 'vi-VN'
+    );
+    const lunarYear = chart.rawDates.lunarDate.lunarYear;
+    return {
+      hourKnown,
+      lunarYear,
+      yearCanChi: `${thienCan[canOfYear(lunarYear)]} ${diaChi[chiOfYear(lunarYear)]}`,
+      zodiacIdx: chiOfYear(lunarYear),
+      napAm: napAmOfLunarYear(lunarYear),
+      pillars: chart.chineseDate.split(' - ').slice(0, hourKnown ? 4 : 3),
+      ziwei: hourKnown ? chart : null
+    };
   } catch (e) {
     console.warn('iztro error:', e.message);
     return null;
@@ -592,7 +684,6 @@ const birthDay = document.getElementById('birthDay');
 const birthMonth = document.getElementById('birthMonth');
 const birthYear = document.getElementById('birthYear');
 const birthHour = document.getElementById('birthHour');
-const birthMin = document.getElementById('birthMin');
 const birthGender = document.getElementById('birthGender');
 const zodiacInfo = document.getElementById('zodiacInfo');
 const tuviInfo = document.getElementById('tuviInfo');
@@ -615,6 +706,14 @@ function populateSelect(el, start, end, selected, opts) {
     if (i === selected) opt.selected = true;
     el.appendChild(opt);
   }
+}
+
+// Birth hour is picked as a canh giờ (2-hour block); that's all the chart needs
+function populateCanhGio(el, storedHour) {
+  const selectedIdx = storedHour != null ? hourToTimeIndex(storedHour) : null;
+  el.innerHTML = '<option value="">Không rõ</option>' + CANH_GIO.map((name, idx) =>
+    `<option value="${timeIndexToHour(idx)}"${idx === selectedIdx ? ' selected' : ''}>${name} (${canhGioRange(idx)})</option>`
+  ).join('');
 }
 
 function updateAvatarSelectionUI(type, customAvatarData) {
@@ -647,6 +746,7 @@ function updateAvatarSelectionUI(type, customAvatarData) {
       selectedAvatarType = preset.dataset.preset;
       document.querySelectorAll('.avatar-preset').forEach(el => el.classList.remove('active'));
       preset.classList.add('active');
+      if (preset.dataset.preset !== 'custom' || tempCustomAvatarData) saveSettingsGroup('avatar');
     });
     preset.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); preset.click(); }
@@ -681,6 +781,7 @@ function updateAvatarSelectionUI(type, customAvatarData) {
             tempCustomAvatarData = compressedDataUrl;
             selectedAvatarType = 'custom';
             updateAvatarSelectionUI('custom', compressedDataUrl);
+            saveSettingsGroup('avatar');
           } catch (err) {
             console.error('Error compressing avatar:', err);
           }
@@ -693,19 +794,22 @@ function updateAvatarSelectionUI(type, customAvatarData) {
 })();
 
 settingsBtn.addEventListener('click', () => {
-  chrome.storage.sync.get(['birth', 'geminiKey', 'customAudioUrl', 'userName', 'avatarType', 'weatherLocation'], (syncData) => {
+  chrome.storage.sync.get(['birth', 'geminiKey', 'customAudioUrl', 'userName', 'avatarType', 'weatherLocation', 'labsMindmap'], (syncData) => {
     chrome.storage.local.get(['customAvatar'], (localData) => {
       const b = syncData.birth || {};
-      populateSelect(birthDay, 1, 31, b.day || 1);
-      populateSelect(birthMonth, 1, 12, b.month || 1);
-      populateSelect(birthYear, 1900, 2030, b.year || 2000);
-      populateSelect(birthHour, 0, 23, b.hour != null ? b.hour : '', { placeholder: '--' });
-      populateSelect(birthMin, 0, 59, b.min != null ? b.min : 0);
+      populateSelect(birthDay, 1, 31, b.day ?? '', { placeholder: '--' });
+      populateSelect(birthMonth, 1, 12, b.month ?? '', { placeholder: '--' });
+      populateSelect(birthYear, 1900, 2030, b.year ?? '', { placeholder: '--' });
+      [birthDay, birthMonth, birthYear].forEach(el => el.removeAttribute('aria-invalid'));
+      populateCanhGio(birthHour, b.hour);
       birthGender.value = b.gender || 'male';
+      syncClearBirthBtn();
+      populateDurationSelects();
       document.getElementById('geminiKey').value = syncData.geminiKey || '';
       document.getElementById('customAudioUrl').value = syncData.customAudioUrl || '';
-      document.getElementById('settingsUserName').value = syncData.userName || currentUserName;
+      document.getElementById('settingsUserName').value = syncData.userName || '';
       document.getElementById('settingsWeatherLocation').value = syncData.weatherLocation || '';
+      document.getElementById('labsMindmap').checked = !!syncData.labsMindmap;
       
       const avType = syncData.avatarType || 'lotus';
       selectedAvatarType = avType;
@@ -713,9 +817,84 @@ settingsBtn.addEventListener('click', () => {
       updateAvatarSelectionUI(avType, localData.customAvatar);
       
       settingsModal.style.display = '';
+      buildSettingsNav();
     });
   });
 });
+
+// ---- Settings: one section at a time, chosen from the list on the left ----
+const settingsNav = document.getElementById('settingsNav');
+const settingsPanes = document.getElementById('settingsPanes');
+function settingsGroups() {
+  return [...settingsPanes.querySelectorAll(':scope > .settings-group')].filter(g => !g.hidden);
+}
+function showSettingsPane(group) {
+  if (!group) return;
+  settingsPanes.querySelectorAll(':scope > .settings-group').forEach(g => g.classList.toggle('is-active', g === group));
+  settingsNav.querySelectorAll('button').forEach(b => {
+    const on = b.dataset.pane === group.dataset.nav;
+    b.classList.toggle('active', on);
+    if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+  });
+  settingsPanes.scrollTop = 0;
+}
+// Rebuilt on every open: a section can appear later (the donation one) and the last one viewed stays selected
+function buildSettingsNav() {
+  const groups = settingsGroups();
+  settingsNav.replaceChildren(...groups.map(g => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.pane = g.dataset.nav;
+    b.textContent = g.dataset.nav;
+    b.addEventListener('click', () => showSettingsPane(g));
+    return b;
+  }));
+  showSettingsPane(groups.find(g => g.classList.contains('is-active')) || groups[0]);
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && settingsModal.style.display !== 'none') document.getElementById('saveBirthBtn').click();
+});
+
+// A short message at the bottom of the screen, with one optional action (e.g. undo)
+let zenToastTimer = null;
+function zenToast(message, { actionLabel, onAction, duration = 5000 } = {}) {
+  let el = document.getElementById('zenToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'zenToast';
+    el.className = 'zen-toast';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    document.body.appendChild(el);
+  }
+  const hide = () => { clearTimeout(zenToastTimer); el.classList.remove('visible'); };
+  const text = document.createElement('span');
+  text.textContent = message;
+  el.replaceChildren(text);
+  if (actionLabel && onAction) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'zen-toast-action';
+    btn.textContent = actionLabel;
+    btn.addEventListener('click', () => { hide(); onAction(); });
+    el.appendChild(btn);
+  }
+  void el.offsetWidth; // restart the entrance when one toast replaces another
+  el.classList.add('visible');
+  clearTimeout(zenToastTimer);
+  zenToastTimer = setTimeout(hide, duration);
+}
+
+// Open Settings and put the cursor on a specific field
+function openSettingsAt(fieldId) {
+  settingsBtn.click();
+  const waitForModal = () => {
+    if (settingsModal.style.display === 'none') return requestAnimationFrame(waitForModal);
+    const field = document.getElementById(fieldId);
+    if (field) { showSettingsPane(field.closest('.settings-group')); field.scrollIntoView({ block: 'center' }); field.focus(); }
+  };
+  requestAnimationFrame(waitForModal);
+}
 
 function closeSettings() {
   settingsModal.style.display = 'none';
@@ -725,62 +904,190 @@ settingsModal.addEventListener('click', (e) => {
   if (e.target === settingsModal) closeSettings();
 });
 
-document.getElementById('saveBirthBtn').addEventListener('click', () => {
+// ---- Settings auto-save: each field saves on change and refreshes only what depends on it ----
+const birthDateFields = [birthDay, birthMonth, birthYear];
+
+function readBirthFields() {
+  const filled = birthDateFields.filter(el => el.value !== '').length;
+  if (filled === 0) return { state: 'empty' };
+  if (filled < 3) return { state: 'partial' };
   const hourVal = birthHour.value;
-  const birth = {
+  return { state: 'complete', birth: {
     day: parseInt(birthDay.value),
     month: parseInt(birthMonth.value),
     year: parseInt(birthYear.value),
     hour: hourVal !== '' ? parseInt(hourVal) : null,
-    min: birthMin.value ? parseInt(birthMin.value) : null,
+    min: null,
     gender: birthGender.value
-  };
-  const geminiKey = document.getElementById('geminiKey').value.trim();
-  let customAudioUrl = document.getElementById('customAudioUrl').value.trim();
-  const userNameVal = document.getElementById('settingsUserName').value.trim() || 'Tinh';
-  const avatarTypeVal = selectedAvatarType;
-  const weatherLocVal = document.getElementById('settingsWeatherLocation').value.trim();
-  
-  // Auto-convert Suno share links to direct CDN links
-  if (customAudioUrl.includes('suno.com/song/')) {
-    const parts = customAudioUrl.split('/song/');
-    if (parts[1]) {
-      const uuid = parts[1].split('?')[0].split('/')[0].trim();
-      if (uuid) {
-        customAudioUrl = `https://cdn1.suno.ai/${uuid}.mp3`;
+  } };
+}
+
+let settingsSavedTimer;
+function flashSettingsSaved() {
+  const el = document.getElementById('settingsSaved');
+  if (!el) return;
+  el.textContent = 'Đã lưu ✓';
+  el.classList.add('visible');
+  clearTimeout(settingsSavedTimer);
+  settingsSavedTimer = setTimeout(() => el.classList.remove('visible'), 1600);
+}
+
+function saveSettingsGroup(group) {
+  if (group === 'name') {
+    const userNameVal = document.getElementById('settingsUserName').value.trim();
+    const done = () => {
+      currentUserName = userNameVal || DEFAULT_USER_NAME;
+      updateGreeting();
+      flashSettingsSaved();
+    };
+    if (userNameVal) chrome.storage.sync.set({ userName: userNameVal }, done);
+    else chrome.storage.sync.remove('userName', done);
+  } else if (group === 'weather') {
+    chrome.storage.sync.set({ weatherLocation: document.getElementById('settingsWeatherLocation').value.trim() }, () => {
+      if (typeof initWeather === 'function') initWeather(true);
+      flashSettingsSaved();
+    });
+  } else if (group === 'audio') {
+    let customAudioUrl = document.getElementById('customAudioUrl').value.trim();
+    // Auto-convert Suno share links to direct CDN links
+    if (customAudioUrl.includes('suno.com/song/')) {
+      const uuid = (customAudioUrl.split('/song/')[1] || '').split('?')[0].split('/')[0].trim();
+      if (uuid) customAudioUrl = `https://cdn1.suno.ai/${uuid}.mp3`;
+    }
+    chrome.storage.sync.set({ customAudioUrl }, () => {
+      updateCustomAudioOption(customAudioUrl);
+      flashSettingsSaved();
+    });
+  } else if (group === 'key') {
+    forgetGeminiModels();
+    chrome.storage.sync.set({ geminiKey: document.getElementById('geminiKey').value.trim() }, () => {
+      renderAll(true);
+      refreshAiStatus();
+      loadAiChatHistory();
+      flashSettingsSaved();
+    });
+  } else if (group === 'avatar') {
+    const avatarTypeVal = selectedAvatarType;
+    chrome.storage.sync.set({ avatarType: avatarTypeVal }, () => {
+      if (avatarTypeVal === 'custom' && tempCustomAvatarData) {
+        chrome.storage.local.set({ customAvatar: tempCustomAvatarData }, () => syncAvatarDisplay(avatarTypeVal, tempCustomAvatarData));
+      } else {
+        chrome.storage.local.get(['customAvatar'], (localData) => syncAvatarDisplay(avatarTypeVal, localData.customAvatar));
       }
-    }
+      flashSettingsSaved();
+    });
+  } else if (group === 'durations') {
+    const next = {};
+    Object.entries(DURATION_FIELDS).forEach(([mode, { id }]) => { next[mode] = parseInt(document.getElementById(id).value, 10); });
+    chrome.storage.sync.set({ timerDurations: next }, () => { applyTimerDurations(next); flashSettingsSaved(); });
+  } else if (group === 'labs') {
+    chrome.storage.sync.set({ labsMindmap: document.getElementById('labsMindmap').checked }, () => {
+      if (currentActiveTool === 'ideas') loadToolContent('ideas');
+      flashSettingsSaved();
+    });
+  } else if (group === 'birth') {
+    // Mid-edit (only some of day/month/year picked): keep the stored date until it's complete
+    const { state, birth } = readBirthFields();
+    birthDateFields.forEach(el => el.removeAttribute('aria-invalid'));
+    if (state === 'partial') return;
+    const done = () => { renderAll(true); loadAiChatHistory(); initQuickActionChips(); flashSettingsSaved(); };
+    if (state === 'complete') chrome.storage.sync.set({ birth }, done);
+    else chrome.storage.sync.remove(['birth', 'dailyInsightCache'], () => chrome.storage.local.remove('dailyInsightCache', done));
   }
-  
-  chrome.storage.sync.set({ birth, geminiKey, customAudioUrl, userName: userNameVal, avatarType: avatarTypeVal, weatherLocation: weatherLocVal }, () => {
-    currentUserName = userNameVal;
-    updateGreeting();
-    updateCustomAudioOption(customAudioUrl);
-    
-    if (avatarTypeVal === 'custom' && tempCustomAvatarData) {
-      chrome.storage.local.set({ customAvatar: tempCustomAvatarData }, () => {
-        syncAvatarDisplay(avatarTypeVal, tempCustomAvatarData);
-      });
-    } else {
-      chrome.storage.local.get(['customAvatar'], (localData) => {
-        syncAvatarDisplay(avatarTypeVal, localData.customAvatar);
-      });
-    }
-    
-    renderAll(true);
-    if (typeof initWeather === 'function') {
-      initWeather(true);
-    }
-    closeSettings();
+}
+
+// Session lengths: a short list of sensible choices per mode (a saved odd value is kept as its own option)
+const DURATION_FIELDS = {
+  pomodoro: { id: 'durFocus', options: [15, 20, 25, 30, 45, 50, 60, 90] },
+  short: { id: 'durShort', options: [3, 5, 10, 15] },
+  long: { id: 'durLong', options: [10, 15, 20, 30] }
+};
+function populateDurationSelects() {
+  Object.entries(DURATION_FIELDS).forEach(([mode, { id, options }]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const current = timerDurations[mode];
+    const list = options.includes(current) ? options : [...options, current].sort((a, b) => a - b);
+    el.replaceChildren(...list.map(m => new Option(`${m} phút`, m, false, m === current)));
   });
+}
+
+[['durFocus', 'durations'], ['durShort', 'durations'], ['durLong', 'durations'], ['settingsUserName', 'name'], ['settingsWeatherLocation', 'weather'], ['customAudioUrl', 'audio'], ['geminiKey', 'key'],
+ ['birthDay', 'birth'], ['birthMonth', 'birth'], ['birthYear', 'birth'], ['birthHour', 'birth'], ['birthGender', 'birth'], ['labsMindmap', 'labs']]
+  .forEach(([id, group]) => document.getElementById(id)?.addEventListener('change', () => saveSettingsGroup(group)));
+
+// Closing: everything is already saved; only an unfinished birth date holds the dialog open
+document.getElementById('saveBirthBtn').addEventListener('click', () => {
+  const { state } = readBirthFields();
+  if (state === 'partial') {
+    birthDateFields.forEach(el => el.toggleAttribute('aria-invalid', el.value === ''));
+    showSettingsPane(birthDay.closest('.settings-group'));
+    birthDateFields.find(el => el.value === '').focus();
+    return;
+  }
+  closeSettings();
 });
 
+// "Xoá ngày sinh" only when there is something to clear
+function syncClearBirthBtn() {
+  document.getElementById('clearBirthBtn').hidden = ![...birthDateFields, birthHour].some(el => el.value !== '');
+}
+[...birthDateFields, birthHour].forEach(el => el.addEventListener('change', syncClearBirthBtn));
 document.getElementById('clearBirthBtn').addEventListener('click', () => {
-  chrome.storage.sync.remove(['birth', 'dailyInsightCache'], () => {
-    renderAll(true);
-    closeSettings();
-  });
+  [...birthDateFields, birthHour].forEach(el => { el.value = ''; el.removeAttribute('aria-invalid'); });
+  saveSettingsGroup('birth');
+  syncClearBirthBtn();
 });
+
+// ---- Gemini model selection ----
+// No hard-coded model: the newest stable Flash model this key can use is discovered via
+// models.list (cached 3 days), with Google's moving "latest" alias as the next choice.
+const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
+const GEMINI_ALIAS = 'gemini-flash-latest';
+const GEMINI_MODEL_TTL = 3 * 24 * 60 * 60 * 1000;
+
+// "gemini-3.10-flash" > "gemini-3.8-flash": compare dotted versions numerically
+function compareModelVersions(a, b) {
+  const va = a.match(/\d+/g).map(Number), vb = b.match(/\d+/g).map(Number);
+  for (let i = 0; i < Math.max(va.length, vb.length); i++) {
+    const d = (va[i] || 0) - (vb[i] || 0);
+    if (d) return d;
+  }
+  return 0;
+}
+
+async function listFlashModels(apiKey) {
+  const res = await fetch(`${GEMINI_API}/models?pageSize=1000`, { headers: { 'x-goog-api-key': apiKey } });
+  if (!res.ok) throw new Error(`models.list ${res.status}`);
+  const { models = [] } = await res.json();
+  return models
+    .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map(m => m.name.replace(/^models\//, ''))
+    // stable general-purpose Flash only: no lite/image/tts/live/preview variants
+    .filter(id => /^gemini-\d+(\.\d+)*-flash$/.test(id))
+    .sort((a, b) => compareModelVersions(b, a));
+}
+
+// Models to try, in order
+async function getGeminiModels(apiKey) {
+  const { geminiModels: cache } = await chrome.storage.local.get('geminiModels');
+  let found = cache && Date.now() - cache.at < GEMINI_MODEL_TTL ? cache.list : null;
+  if (!found) {
+    try {
+      found = await listFlashModels(apiKey);
+      chrome.storage.local.set({ geminiModels: { at: Date.now(), list: found } });
+    } catch (e) {
+      console.warn('ZenTab: could not list Gemini models,', e.message);
+      found = [];
+    }
+  }
+  return [...new Set([found[0], GEMINI_ALIAS, found[1]].filter(Boolean))];
+}
+
+// Re-discover on the next call (new key, or a model that no longer exists)
+function forgetGeminiModels() {
+  chrome.storage.local.remove('geminiModels');
+}
 
 // Test Gemini API Key Connectivity
 const testApiKeyBtn = document.getElementById('testApiKeyBtn');
@@ -805,21 +1112,25 @@ if (testApiKeyBtn && apiKeyTestStatus) {
     apiKeyTestStatus.textContent = 'Đang gửi yêu cầu kiểm tra...';
 
     try {
-      const model = 'gemini-2.5-flash';
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: "Respond only with OK" }] }]
-        })
-      });
+      forgetGeminiModels();
+      const models = await getGeminiModels(apiKey);
+      let okModel = null, errMessage = '';
+      for (const model of models) {
+        const res = await fetch(`${GEMINI_API}/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify({ contents: [{ parts: [{ text: 'Respond only with OK' }] }] })
+        });
+        if (res.ok) { okModel = model; break; }
+        const data = await res.json().catch(() => ({}));
+        errMessage = data?.error?.message || `HTTP ${res.status}`;
+        if ([400, 401, 403].includes(res.status)) break; // a key problem, not a model problem
+      }
 
-      if (res.ok) {
+      if (okModel) {
         apiKeyTestStatus.style.color = '#10b981';
-        apiKeyTestStatus.textContent = '✓ Kết nối thành công! API hoạt động tốt.';
+        apiKeyTestStatus.textContent = `✓ Kết nối thành công · đang dùng ${okModel}`;
       } else {
-        const data = await res.json();
-        const errMessage = data?.error?.message || `HTTP ${res.status}`;
         apiKeyTestStatus.style.color = '#ef4444';
         apiKeyTestStatus.textContent = `✗ Thất bại: ${errMessage}`;
       }
@@ -842,7 +1153,8 @@ if (testApiKeyBtn && apiKeyTestStatus) {
 }
 
 function renderZodiac(birth) {
-  if (!birth || !birth.day || !birth.month || !birth.year) {
+  const info = getBirthChart(birth);
+  if (!info) {
     zodiacInfo.innerHTML = '';
     tuviInfo.innerHTML = '';
     document.getElementById('astroDivider').style.display = 'none';
@@ -852,58 +1164,46 @@ function renderZodiac(birth) {
   document.getElementById('astroDivider').style.display = '';
 
   const western = getWesternZodiac(birth.month, birth.day);
-  const viet = vietnameseZodiac[chiOfYear(birth.year)];
-  const canIdx = canOfYear(birth.year);
-  const chiIdx = chiOfYear(birth.year);
-  const nhIdx = nguHanhOfCan(canIdx);
+  const viet = vietnameseZodiac[info.zodiacIdx];
+  const nh = info.napAm.element;
 
-  const birthDate = new Date(birth.year, birth.month - 1, birth.day);
-  const dayCC = getDayCanChi(birthDate);
+  let html = `<div class="row">${viet.emoji} Tuổi <span class="accent">${info.yearCanChi}</span> · ${western.symbol} ${western.nameVi}</div>`;
+  html += `<div class="row">Mệnh <span class="nh-pill nh-${nh}">${nguHanhEmoji[nh]} ${info.napAm.name}</span></div>`;
 
-  let html = `<div class="row">${western.symbol} <span class="accent">${western.nameVi}</span> · ${viet.emoji} Tuổi <span class="accent">${viet.animal}</span> · <span class="nh-pill nh-${nhIdx}">${nguHanhEmoji[nhIdx]} ${nguHanh[nhIdx]}</span></div>`;
+  const pillarLabels = ['Năm', 'Tháng', 'Ngày', 'Giờ'];
+  html += `<div class="label">BÁT TỰ</div>`;
+  html += `<div class="row">${info.pillars.map((p, i) => `${pillarLabels[i]}: <span class="hl">${p}</span>`).join(' <span class="row-sep">│</span> ')}</div>`;
 
-  // TỨ TRỤ from iztro if available
-  const ziwei = getZiWei(birth);
-  if (ziwei && ziwei.chineseDate) {
-    const pillars = ziwei.chineseDate.split(' ');
-    const pillarLabels = ['Niên', 'Nguyệt', 'Nhật', 'Giờ'];
-    html += `<div class="label">BÁT TỰ</div>`;
-    let truLine = '';
-    pillars.forEach((p, i) => {
-      if (i > 0) truLine += ` <span class="row-sep">│</span>`;
-      truLine += `${pillarLabels[i]}: <span class="hl">${p}</span>`;
-    });
-    html += `<div class="row">${truLine}</div>`;
-  } else {
-    // Fallback to manual calculation
-    const canChiStr = `${thienCan[canIdx]} ${diaChi[chiIdx]}`;
-    const dayTru = `${thienCan[dayCC.can]} ${diaChi[dayCC.chi]}`;
-    html += `<div class="label">TỨ TRỤ</div>`;
-    let truLine = `Niên: <span class="hl">${canChiStr}</span> <span class="row-sep">│</span> Nhật: <span class="hl">${dayTru}</span>`;
-
-    if (birth.hour != null) {
-      const hc = chiOfHour(birth.hour);
-      const hourStem = ((dayCC.can % 5) * 2 + hc.chi) % 10;
-      truLine += ` <span class="row-sep">│</span> Giờ: <span class="hl">${thienCan[hourStem]} ${diaChi[hc.chi]}</span> <span class="sml">${hc.label}</span>`;
-    }
-    html += `<div class="row">${truLine}</div>`;
-  }
-
-  // TỬ VI summary
-  if (ziwei) {
+  const z = info.ziwei;
+  if (z) {
     html += `<div class="label">TỬ VI</div>`;
-    const soulBranch = chineseDiaChiLookup[ziwei.earthlyBranchOfSoulPalace] || ziwei.earthlyBranchOfSoulPalace;
-    html += `<div class="row">${ziwei.fiveElementsClass || ''} · Mệnh: <span class="hl">${soulBranch}</span>`;
-    if (ziwei.soul) html += ` · ${songNameVi['命主']||'Mệnh'}: <span class="hl">${majorStarNameVi[ziwei.soul] || ziwei.soul}</span>`;
-    if (ziwei.body) html += ` · ${songNameVi['身主']||'Thân'}: <span class="hl">${majorStarNameVi[ziwei.body] || ziwei.body}</span>`;
-    html += `</div>`;
+    html += `<div class="row">${z.fiveElementsClass} · Mệnh tại <span class="hl">${z.earthlyBranchOfSoulPalace}</span> · Thân tại <span class="hl">${z.earthlyBranchOfBodyPalace}</span></div>`;
+    html += `<div class="row">Mệnh chủ <span class="hl">${z.soul}</span> · Thân chủ <span class="hl">${z.body}</span> · <span class="sml">Giờ ${CANH_GIO[hourToTimeIndex(birth.hour)]} (${canhGioRange(hourToTimeIndex(birth.hour))})</span></div>`;
+  } else {
+    html += `<div class="astro-hour-missing">
+      <span>Chưa có giờ sinh nên chưa an được cung Mệnh, Thân và 12 cung. Trụ giờ cũng chưa xác định.</span>
+      <button type="button" class="link-btn astro-add-hour">Thêm giờ sinh</button>
+    </div>`;
   }
 
   zodiacInfo.innerHTML = html;
-  renderTuVi(birth, ziwei);
+  zodiacInfo.querySelector('.astro-add-hour')?.addEventListener('click', () => openSettingsAt('birthHour'));
+  renderTuVi(info.ziwei);
 }
 
-function renderTuVi(birth, ziwei) {
+// Six palaces most people ask about, with brightness and birth-year Tứ Hóa
+const KEY_PALACES = ['Mệnh', 'Tài Bạch', 'Quan Lộc', 'Phu Thê', 'Thiên Di', 'Phúc Đức'];
+// iztro's vi-VN locale renders 陷 as "Hạn"; the Vietnamese term is "Hãm"
+const BRIGHTNESS_FIX = { 'Hạn': 'Hãm' };
+function describePalaceStars(p) {
+  return (p.majorStars || []).map(s => {
+    const brightness = BRIGHTNESS_FIX[s.brightness] || s.brightness;
+    const notes = [brightness, s.mutagen && `Hóa ${s.mutagen}`].filter(Boolean).join(', ');
+    return notes ? `${s.name} (${notes})` : s.name;
+  });
+}
+
+function renderTuVi(ziwei) {
   const container = document.getElementById('tuviInfo');
   const divider = document.getElementById('tvDivider');
   if (!ziwei || !ziwei.palaces) {
@@ -913,24 +1213,348 @@ function renderTuVi(birth, ziwei) {
   }
   divider.style.display = '';
   let html = `<div class="tuvi-grid">`;
-  const keyPalaces = ['命宫', '财帛', '官禄', '夫妻', '迁移', '福德'];
-  const rendered = new Set();
-  ziwei.palaces.forEach(p => {
-    const match = keyPalaces.find(k => p.name.includes(k));
-    if (!match || rendered.has(match)) return;
-    rendered.add(match);
-    const viName = palaceNameVi[p.name] || p.name;
-    const stars = [...(p.majorStars || [])].map(s => {
-      const vi = majorStarNameVi[s.name] || s.name;
-      const b = s.brightness ? brightnessVi[s.brightness] || s.brightness : '';
-      return b ? `${vi} (${b})` : vi;
-    });
-    const starsStr = stars.length ? stars.join(', ') : '—';
-    html += `<div class="tv-cell"><span class="tv-name">${viName}</span> <span class="tv-stars">${starsStr}</span></div>`;
+  KEY_PALACES.forEach(name => {
+    const p = ziwei.palaces.find(x => x.name === name);
+    if (!p) return;
+    const stars = describePalaceStars(p);
+    const label = p.isBodyPalace ? `${p.name} (Thân)` : p.name;
+    html += `<div class="tv-cell"><span class="tv-name">${label}</span> <span class="tv-stars">${stars.length ? stars.join(', ') : 'Vô chính diệu'}</span></div>`;
   });
   html += `</div>`;
   container.innerHTML = html;
 }
+
+// ---- Full chart (lá số) in the details modal ----
+// Standard board: palaces sit on the ring by earthly branch, the 2×2 centre holds the owner's info
+const BOARD_POS = {
+  'Tỵ': [1, 1], 'Ngọ': [1, 2], 'Mùi': [1, 3], 'Thân': [1, 4],
+  'Thìn': [2, 1], 'Dậu': [2, 4],
+  'Mão': [3, 1], 'Tuất': [3, 4],
+  'Dần': [4, 1], 'Sửu': [4, 2], 'Tý': [4, 3], 'Hợi': [4, 4]
+};
+const BRIGHT_SHORT = { 'Miếu': 'M', 'Vượng': 'V', 'Đắc': 'Đ', 'Lợi': 'L', 'Bình': 'B', 'Bất': 'Bt', 'Hãm': 'H' };
+const HOA_CLASS = { 'Lộc': 'loc', 'Quyền': 'quyen', 'Khoa': 'khoa', 'Kỵ': 'ky' };
+const HOA_ORDER = ['Lộc', 'Quyền', 'Khoa', 'Kỵ'];
+
+const starBrightness = s => BRIGHTNESS_FIX[s.brightness] || s.brightness || '';
+const hoaBadge = m => m ? `<b class="hoa hoa-${HOA_CLASS[m] || ''}">${m}</b>` : '';
+// Tam phương tứ chính: the palace, its opposite and its two trines (same offsets on any branch numbering)
+const trineOf = idx => [idx, (idx + 4) % 12, (idx + 8) % 12, (idx + 6) % 12];
+
+let chartState = null;
+
+function renderChartModal(birth) {
+  const info = getBirthChart(birth);
+  const layout = document.getElementById('chartLayout');
+  const summary = document.getElementById('modalZodiacInfo');
+  const footnote = document.querySelector('.chart-footnote');
+  const tabs = document.getElementById('chartTabs');
+  showChartTab('board');
+  if (!info || !info.ziwei) {
+    // No chart without a birth hour: show the date-only facts with the "add hour" prompt
+    tabs.hidden = true;
+    layout.hidden = true;
+    if (footnote) footnote.hidden = !info;
+    summary.hidden = false;
+    summary.innerHTML = info ? zodiacInfo.innerHTML
+      : '<div class="stats-empty" style="text-align:center;padding:32px 0">Nhập ngày sinh trong Cài đặt để xem lá số.</div>';
+    return;
+  }
+  summary.hidden = true;
+  layout.hidden = false;
+  tabs.hidden = false;
+  if (footnote) footnote.hidden = false;
+
+  const z = info.ziwei;
+  const luck = z.horoscope(new Date());
+  const soul = z.palaces.find(p => p.name === 'Mệnh');
+  chartState = { birth, info, z, luck, selected: soul ? soul.index : 0 };
+  drawChartBoard();
+  drawChartLuck();
+  drawChartDecades();
+  drawPalaceDetail();
+  renderReading();
+}
+
+function showChartTab(tab) {
+  document.querySelectorAll('#chartTabs [data-chart-tab]').forEach(b => {
+    const on = b.dataset.chartTab === tab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on);
+  });
+  document.getElementById('chartLayout').classList.toggle('tab-hidden', tab !== 'board');
+  document.getElementById('chartReading').hidden = tab !== 'reading';
+}
+document.querySelectorAll('#chartTabs [data-chart-tab]').forEach(b => b.addEventListener('click', () => showChartTab(b.dataset.chartTab)));
+
+function drawChartBoard() {
+  const { info, z, luck, selected } = chartState;
+  const board = document.getElementById('chartBoard');
+  const trine = trineOf(selected);
+
+  const cells = z.palaces.map(p => {
+    const [row, col] = BOARD_POS[p.earthlyBranch] || [1, 1];
+    const classes = ['palace-cell'];
+    if (p.index === selected) classes.push('is-selected');
+    else if (trine.includes(p.index)) classes.push('is-trine');
+    const flags = [];
+    if (p.index === luck.decadal.index) flags.push('<span class="pc-flag" title="Đại hạn hiện tại">ĐH</span>');
+    if (p.index === luck.yearly.index) flags.push(`<span class="pc-flag" title="Lưu niên ${new Date().getFullYear()}">LN</span>`);
+    const major = p.majorStars.map(s => {
+      const b = starBrightness(s);
+      return `<li>${s.name}${b ? ` <small title="${b}">${BRIGHT_SHORT[b] || b}</small>` : ''} ${hoaBadge(s.mutagen)}</li>`;
+    }).join('') || '<li class="pc-empty">Vô chính diệu</li>';
+    const minor = p.minorStars.map(s =>
+      `<span class="${s.type === 'tough' ? 'pc-sat' : 'pc-cat'}">${s.name}${s.mutagen ? ' ' + hoaBadge(s.mutagen) : ''}</span>`
+    ).join('');
+    return `<button type="button" class="${classes.join(' ')}" data-idx="${p.index}" style="grid-row:${row};grid-column:${col}"
+        aria-pressed="${p.index === selected}" aria-label="Cung ${p.name}, ${p.heavenlyStem} ${p.earthlyBranch}">
+      <span class="pc-top"><span>${p.heavenlyStem} ${p.earthlyBranch}</span><span>${p.decadal.range[0]}–${p.decadal.range[1]}</span></span>
+      <span class="pc-name">${p.name}${p.isBodyPalace ? ' <span class="pc-tag">Thân</span>' : ''}</span>
+      <ul class="pc-major">${major}</ul>
+      <span class="pc-minor">${minor}</span>
+      <span class="pc-bottom"><span>${p.changsheng12}</span><span>${flags.join('')}</span></span>
+    </button>`;
+  }).join('');
+
+  const g = chartState.birth.gender === 'female' ? 'Nữ' : 'Nam';
+  const yinYang = canOfYear(info.lunarYear) % 2 === 0 ? 'Dương' : 'Âm';
+  const ld = z.rawDates.lunarDate;
+  const hourIdx = hourToTimeIndex(chartState.birth.hour);
+  const centre = `<div class="chart-centre" style="grid-row:2 / 4;grid-column:2 / 4">
+      <div class="cc-title">${yinYang} ${g} · Tuổi ${info.yearCanChi}</div>
+      <div class="cc-row">Mệnh <span class="nh-pill nh-${info.napAm.element}">${info.napAm.name}</span> · ${z.fiveElementsClass}</div>
+      <div class="cc-pillars">${info.pillars.map((p, i) => `<span><small>${['Năm', 'Tháng', 'Ngày', 'Giờ'][i]}</small>${p}</span>`).join('')}</div>
+      <div class="cc-row">Âm lịch ${ld.lunarDay}/${ld.lunarMonth}${ld.isLeap ? ' (nhuận)' : ''} năm ${info.yearCanChi} · Giờ ${CANH_GIO[hourIdx]}</div>
+      <div class="cc-row">Mệnh chủ ${z.soul} · Thân chủ ${z.body}</div>
+      <div class="cc-row cc-muted">Năm nay ${luck.age.nominalAge} tuổi (âm)</div>
+    </div>`;
+
+  board.innerHTML = cells + centre;
+  board.querySelectorAll('.palace-cell').forEach(btn => {
+    btn.onclick = () => selectChartPalace(parseInt(btn.dataset.idx));
+  });
+}
+
+function selectChartPalace(idx) {
+  chartState.selected = idx;
+  drawChartBoard();
+  drawChartDecades();
+  drawPalaceDetail();
+}
+
+function hoaList(names) {
+  return `<ul class="hoa-list">${HOA_ORDER.map((h, i) => names[i] ? `<li>${hoaBadge(h)} ${names[i]}</li>` : '').join('')}</ul>`;
+}
+
+function drawChartLuck() {
+  const { z, luck } = chartState;
+  const dec = z.palaces[luck.decadal.index];
+  const yearPalace = z.palaces[luck.yearly.index];
+  const year = new Date().getFullYear();
+  document.getElementById('chartLuck').innerHTML = `
+    <h4 class="chart-panel-title">Vận hạn hiện tại</h4>
+    <div class="luck-block">
+      <div class="luck-head"><span class="pc-flag">ĐH</span> Đại hạn ${dec.decadal.range[0]}–${dec.decadal.range[1]} tuổi · cung <button type="button" class="link-btn" data-goto="${dec.index}">${dec.name}</button> <span class="cc-muted">(${luck.decadal.heavenlyStem} ${luck.decadal.earthlyBranch})</span></div>
+      ${hoaList(luck.decadal.mutagen)}
+    </div>
+    <div class="luck-block">
+      <div class="luck-head"><span class="pc-flag">LN</span> Lưu niên ${year} (${luck.yearly.heavenlyStem} ${luck.yearly.earthlyBranch}) · tại cung <button type="button" class="link-btn" data-goto="${yearPalace.index}">${yearPalace.name}</button></div>
+      ${hoaList(luck.yearly.mutagen)}
+    </div>`;
+  document.querySelectorAll('#chartLuck [data-goto]').forEach(b => b.onclick = () => selectChartPalace(parseInt(b.dataset.goto)));
+}
+
+function drawChartDecades() {
+  const { z, luck, selected } = chartState;
+  const rows = [...z.palaces].sort((a, b) => a.decadal.range[0] - b.decadal.range[0]).map(p => {
+    const now = p.index === luck.decadal.index;
+    return `<li><button type="button" class="decade-row${now ? ' is-now' : ''}${p.index === selected ? ' is-selected' : ''}" data-idx="${p.index}">
+      <span class="decade-age">${p.decadal.range[0]}–${p.decadal.range[1]}</span>
+      <span class="decade-name">${p.name}</span>
+      ${now ? '<span class="pc-flag">Hiện tại</span>' : ''}
+    </button></li>`;
+  }).join('');
+  const el = document.getElementById('chartDecades');
+  el.innerHTML = `<h4 class="chart-panel-title">Đại hạn 10 năm</h4><ol class="decade-list">${rows}</ol>`;
+  el.querySelectorAll('.decade-row').forEach(b => b.onclick = () => selectChartPalace(parseInt(b.dataset.idx)));
+}
+
+function drawPalaceDetail() {
+  const { z, selected } = chartState;
+  const p = z.palaces[selected];
+  const list = (stars, fmt) => stars.length ? stars.map(fmt).join(', ') : '—';
+  const withHoa = s => `${s.name}${s.mutagen ? ' ' + hoaBadge(s.mutagen) : ''}`;
+  const cat = p.minorStars.filter(s => s.type !== 'tough');
+  const sat = p.minorStars.filter(s => s.type === 'tough');
+  const trine = trineOf(selected).slice(1).map(i => z.palaces[i].name);
+  document.getElementById('chartPalaceDetail').innerHTML = `
+    <h4 class="chart-panel-title">Cung ${p.name}${p.isBodyPalace ? ' (Thân cư)' : ''} <span class="cc-muted">${p.heavenlyStem} ${p.earthlyBranch}</span></h4>
+    <dl class="palace-dl">
+      <dt>Chính tinh</dt><dd>${list(p.majorStars, s => `${s.name}${starBrightness(s) ? ` (${starBrightness(s)})` : ''}${s.mutagen ? ' ' + hoaBadge(s.mutagen) : ''}`) .replace(/^—$/, 'Vô chính diệu')}</dd>
+      <dt>Cát tinh</dt><dd>${list(cat, withHoa)}</dd>
+      <dt>Sát tinh</dt><dd>${list(sat, withHoa)}</dd>
+      <dt>Phụ tinh khác</dt><dd>${list(p.adjectiveStars, s => s.name)}</dd>
+      <dt>Tràng sinh</dt><dd>${p.changsheng12} · Bác sĩ: ${p.boshi12}</dd>
+      <dt>Đại hạn</dt><dd>${p.decadal.range[0]}–${p.decadal.range[1]} tuổi</dd>
+      <dt>Tam phương tứ chính</dt><dd>${trine.slice(0, 2).join(', ')} (tam hợp) · ${trine[2]} (xung chiếu)</dd>
+    </dl>`;
+}
+
+// ---- Chart reading: computed facts per topic, AI explains only those facts ----
+const READING_TOPICS = [
+  { id: 'tinh-cach', title: 'Tính cách', palaces: ['Mệnh', 'Phúc Đức'], withBody: true },
+  { id: 'su-nghiep', title: 'Sự nghiệp', palaces: ['Quan Lộc'] },
+  { id: 'tai-chinh', title: 'Tài chính', palaces: ['Tài Bạch'] },
+  { id: 'tinh-cam', title: 'Tình cảm', palaces: ['Phu Thê'] },
+  { id: 'suc-khoe', title: 'Sức khỏe', palaces: ['Tật Ách'], note: 'Chỉ là gợi ý về thói quen sinh hoạt, không thay cho tư vấn y tế.' }
+];
+const READING_VERSION = 1;
+
+const chartKeyOf = b => `${b.year}-${b.month}-${b.day}-${b.hour}-${b.gender || 'male'}`;
+const majorText = p => { const m = describePalaceStars(p); return m.length ? m.join(', ') : 'Vô chính diệu'; };
+const starWithHoa = st => `${st.name}${st.mutagen ? ` (Hóa ${st.mutagen})` : ''}`;
+
+function palaceFact(p) {
+  const cat = p.minorStars.filter(st => st.type !== 'tough').map(starWithHoa);
+  const sat = p.minorStars.filter(st => st.type === 'tough').map(starWithHoa);
+  return `${p.name}${p.isBodyPalace ? ' (Thân cư)' : ''} (${p.heavenlyStem} ${p.earthlyBranch}): ${majorText(p)}` +
+    (cat.length ? `; cát tinh: ${cat.join(', ')}` : '') + (sat.length ? `; sát tinh: ${sat.join(', ')}` : '');
+}
+
+// Facts for one topic: its palaces in full, plus the major stars of the primary palace's tam phương tứ chính
+function topicFacts(z, topic) {
+  const names = [...topic.palaces];
+  if (topic.withBody) {
+    const body = z.palaces.find(p => p.isBodyPalace);
+    if (body && !names.includes(body.name)) names.push(body.name);
+  }
+  const palaces = names.map(n => z.palaces.find(p => p.name === n)).filter(Boolean);
+  const facts = palaces.map(palaceFact);
+  const [t1, t2, opp] = trineOf(palaces[0].index).slice(1).map(i => z.palaces[i]);
+  facts.push(`Tam hợp của ${palaces[0].name}: ${t1.name}: ${majorText(t1)}; ${t2.name}: ${majorText(t2)}`);
+  facts.push(`Xung chiếu ${palaces[0].name}: ${opp.name}: ${majorText(opp)}`);
+  // Star names that a point's "basis" may cite (grounding check)
+  const stars = new Set();
+  [...palaces, t1, t2, opp].forEach(p => [...p.majorStars, ...p.minorStars].forEach(st => stars.add(st.name)));
+  if (palaces.some(p => !p.majorStars.length)) stars.add('Vô chính diệu');
+  return { facts, stars, palaceNames: palaces.map(p => p.name) };
+}
+
+function natalHoaFact(z) {
+  const lands = {};
+  z.palaces.forEach(p => [...p.majorStars, ...p.minorStars].forEach(st => { if (st.mutagen) lands[st.mutagen] = `${st.name} tại ${p.name}`; }));
+  return HOA_ORDER.filter(h => lands[h]).map(h => `Hóa ${h}: ${lands[h]}`).join('; ');
+}
+
+function buildReadingPrompt(z, info, gender) {
+  const yinYang = canOfYear(info.lunarYear) % 2 === 0 ? 'Dương' : 'Âm';
+  const topics = READING_TOPICS.map(t => {
+    const { facts } = topicFacts(z, t);
+    return `[${t.id}] ${t.title}\n${facts.map(f => '- ' + f).join('\n')}`;
+  }).join('\n\n');
+  return `Bạn là chuyên gia Tử Vi Đẩu Số, viết luận giải tham khảo cho người đọc phổ thông bằng tiếng Việt.
+
+QUY TẮC:
+- CHỈ dựa vào dữ kiện bên dưới. Không tự thêm sao, cung hay vận hạn nào khác.
+- Mỗi ý trong "points" phải có "basis" trích đúng tên sao và cung trong dữ kiện, ví dụ "Quan Lộc: Vũ Khúc (Đắc)".
+- Giọng điềm tĩnh, khách quan, nói về khuynh hướng ("thường", "có xu hướng"); không phán chắc chắn, không gây lo sợ.
+- Sức khỏe: chỉ nói về thể trạng và thói quen sinh hoạt nên chú ý; không chẩn đoán, không nêu bệnh nghiêm trọng, không đoán tai nạn hay tuổi thọ.
+- Không đưa quyết định tài chính, pháp lý, y tế cụ thể.
+- Mỗi chủ đề: "summary" 2–3 câu; "points" 2–4 ý; "action" một gợi ý thực tế làm được ngay.
+- Trả về DUY NHẤT một JSON hợp lệ, không markdown, theo mẫu:
+{"topics":[{"id":"tinh-cach","summary":"...","points":[{"text":"...","basis":"..."}],"action":"..."}]}
+
+DỮ KIỆN CHUNG:
+- ${yinYang} ${gender === 'female' ? 'Nữ' : 'Nam'}, ${z.fiveElementsClass}, Mệnh chủ ${z.soul}, Thân chủ ${z.body}
+- Tứ Hóa gốc: ${natalHoaFact(z)}
+
+CHỦ ĐỀ:
+${topics}`;
+}
+
+// Parse the model's JSON and keep only points whose basis cites a star from that topic's facts
+function parseReading(text, z) {
+  const raw = text.replace(/```json|```/g, '');
+  const json = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1));
+  const byId = Object.fromEntries((json.topics || []).map(t => [t.id, t]));
+  let dropped = 0;
+  const topics = READING_TOPICS.map(t => {
+    const r = byId[t.id];
+    if (!r) return { id: t.id, missing: true };
+    const { stars } = topicFacts(z, t);
+    const points = (r.points || []).filter(pt => {
+      const ok = pt && pt.text && pt.basis && [...stars].some(name => pt.basis.includes(name));
+      if (!ok) dropped++;
+      return ok;
+    });
+    return { id: t.id, summary: String(r.summary || ''), points, action: String(r.action || '') };
+  });
+  return { topics, dropped };
+}
+
+function renderReading(stored) {
+  if (!chartState) return;
+  const { z, birth } = chartState;
+  const key = chartKeyOf(birth);
+  const draw = (cache) => {
+    const reading = cache && cache.key === key && cache.v === READING_VERSION ? cache : null;
+    const btn = document.getElementById('readingGenerateBtn');
+    btn.textContent = reading ? 'Tạo lại' : 'Tạo luận giải';
+    const status = document.getElementById('readingStatus');
+    if (reading && !status.dataset.busy) status.textContent = `Tạo ngày ${new Date(reading.createdAt).toLocaleDateString('vi-VN')}`;
+
+    document.getElementById('readingTopics').innerHTML = READING_TOPICS.map(t => {
+      const { facts, palaceNames } = topicFacts(z, t);
+      const r = reading && reading.topics.find(x => x.id === t.id);
+      const body = !r ? '' : r.missing ? '<p class="reading-empty">AI chưa trả lời phần này. Bấm "Tạo lại" để thử lại.</p>' : `
+        <p class="reading-summary">${escapeHtml(r.summary)}</p>
+        <ul class="reading-points">${r.points.map(pt => `<li>${escapeHtml(pt.text)}<span class="reading-basis">Căn cứ: ${escapeHtml(pt.basis)}</span></li>`).join('')}</ul>
+        ${r.action ? `<p class="reading-action"><strong>Gợi ý:</strong> ${escapeHtml(r.action)}</p>` : ''}`;
+      return `<article class="reading-card">
+        <h4 class="reading-title">${t.title} <span class="cc-muted">· cung ${palaceNames.join(', ')}</span></h4>
+        ${t.note ? `<p class="reading-note">${t.note}</p>` : ''}
+        ${body}
+        <details class="reading-facts"${reading ? '' : ' open'}>
+          <summary>Dữ kiện từ lá số</summary>
+          <ul>${facts.map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
+        </details>
+      </article>`;
+    }).join('');
+  };
+  if (stored !== undefined) draw(stored);
+  else chrome.storage.local.get('chartReading', ({ chartReading }) => draw(chartReading));
+}
+
+async function generateReading() {
+  if (!chartState) return;
+  const { z, info, birth } = chartState;
+  const btn = document.getElementById('readingGenerateBtn');
+  const status = document.getElementById('readingStatus');
+  btn.disabled = true;
+  status.dataset.busy = '1';
+  status.textContent = 'Đang luận giải… (khoảng 10–30 giây)';
+  const res = await callGemini(buildReadingPrompt(z, info, birth.gender), 0.4, 8192);
+  btn.disabled = false;
+  delete status.dataset.busy;
+  if (res.error === 'no-key') {
+    status.innerHTML = 'Cần Gemini API key. <button type="button" class="link-btn" id="readingAddKey">Thêm API key</button>';
+    document.getElementById('readingAddKey').onclick = () => {
+      document.getElementById('astroDetailsModal').style.display = 'none';
+      openSettingsAt('geminiKey');
+    };
+    return;
+  }
+  if (res.error) { status.textContent = 'Không kết nối được AI. Thử lại sau ít phút.'; return; }
+  let parsed;
+  try { parsed = parseReading(res.text, z); }
+  catch (e) { status.textContent = 'AI trả về sai định dạng. Bấm "Tạo luận giải" để thử lại.'; return; }
+  const cache = { key: chartKeyOf(birth), v: READING_VERSION, createdAt: Date.now(), topics: parsed.topics };
+  chrome.storage.local.set({ chartReading: cache });
+  renderReading(cache);
+  if (parsed.dropped) status.textContent = `Đã tạo. Bỏ ${parsed.dropped} ý không có căn cứ trong lá số.`;
+}
+document.getElementById('readingGenerateBtn')?.addEventListener('click', generateReading);
 
 function renderToday(birth, opts) {
   const now = new Date();
@@ -962,10 +1586,10 @@ function renderToday(birth, opts) {
 
   const nhPill = document.getElementById('nhPill');
   if (nhPill) {
-    if (birth && birth.year) {
-      const userNh = nguHanhOfCan(canOfYear(birth.year));
-      nhPill.textContent = `Mệnh ${nguHanh[userNh]}`;
-      nhPill.className = `nh-pill nh-${userNh}`;
+    const info = getBirthChart(birth);
+    if (info) {
+      nhPill.textContent = `Mệnh ${info.napAm.name}`;
+      nhPill.className = `nh-pill nh-${info.napAm.element}`;
     } else {
       const todayNh = nguHanhOfCan(dc.can);
       nhPill.textContent = `Ngày hành ${nguHanh[todayNh]}`;
@@ -973,12 +1597,28 @@ function renderToday(birth, opts) {
     }
   }
 
+  const hdEl = document.getElementById('astroHoangDao');
+  if (hdEl) {
+    hdEl.hidden = !birth;
+    if (birth) {
+      hdEl.innerHTML = `<span class="section-label">Giờ hoàng đạo hôm nay</span>
+        <div class="hd-chips">${hoangDaoHours(now).map(h => `<span class="hd-chip" title="${h.god}"><b>${h.name}</b> ${h.range}</span>`).join('')}</div>`;
+    }
+  }
+
   function buildDisplay(aiText, status) {
     const todayInsight = document.getElementById('todayInsight');
     if (!todayInsight) return;
+    // Nothing to detail until there is a birth chart
+    const detailBtn = document.getElementById('openAstroDetailsBtn');
+    if (detailBtn) detailBtn.hidden = status === 'nobirth';
 
     if (aiText) {
       todayInsight.textContent = aiText;
+    } else if (status === 'nobirth') {
+      todayInsight.innerHTML = `<span class="astro-invite">Thêm ngày sinh để nhận lời khuyên Tử Vi cho riêng bạn mỗi ngày.</span>
+        <button type="button" class="glass-btn astro-invite-btn">Nhập ngày sinh</button>`;
+      todayInsight.querySelector('.astro-invite-btn').onclick = () => openSettingsAt('birthDay');
     } else if (status === 'nokey') {
       todayInsight.innerHTML = `<span style="font-size:11px;opacity:0.6">⚙️ Nhập Gemini API key trong Cài đặt để nhận lời khuyên Tử Vi cá nhân hóa.</span>`;
     } else if (status === 'error') {
@@ -989,7 +1629,7 @@ function renderToday(birth, opts) {
   }
 
   if (!birth) {
-    buildDisplay('');
+    buildDisplay('', 'nobirth');
     return;
   }
 
@@ -1007,7 +1647,13 @@ function renderToday(birth, opts) {
 }
 
 function renderAll(forceRefresh) {
-  chrome.storage.sync.get(['birth', 'geminiKey', 'dailyInsightCache'], (data) => {
+  chrome.storage.sync.get(['birth', 'geminiKey'], (syncData) => {
+   chrome.storage.local.get('dailyInsightCache', ({ dailyInsightCache }) => {
+    const data = { ...syncData, dailyInsightCache };
+    if (data.birth && typeof iztro === 'undefined') {
+      loadIztro().then(() => renderAll(forceRefresh)).catch(e => console.warn('ZenTab:', e.message));
+      return;
+    }
     if (data.birth) {
       renderZodiac(data.birth);
       const today = getDateStr(new Date());
@@ -1030,84 +1676,64 @@ function renderAll(forceRefresh) {
       document.getElementById('tvDivider').style.display = 'none';
       renderToday(null);
     }
+   });
   });
 }
 
 renderAll();
 
 // ---- Gemini Daily Personalized Insight ----
-function buildBirthContext(birth) {
-  const western = getWesternZodiac(birth.month, birth.day);
-  const viet = vietnameseZodiac[chiOfYear(birth.year)];
-  const nhIdx = nguHanhOfCan(canOfYear(birth.year));
-  const ziwei = getZiWei(birth);
-  const now = new Date();
-  const dc = getDayCanChi(now);
-  const todayCanChi = `${thienCan[dc.can]} ${diaChi[dc.chi]}`;
-
-  let context = `THÔNG TIN NGƯỜI DÙNG:
-- Sinh: ${birth.day}/${birth.month}/${birth.year} (${birth.gender === 'female' ? 'Nữ' : 'Nam'})
-- Con giáp: ${viet.animal} | Cung hoàng đạo: ${western.nameVi} | Ngũ hành: ${nguHanh[nhIdx]}
-- Mệnh: ${ziwei ? (chineseDiaChiLookup[ziwei.earthlyBranchOfSoulPalace] || ziwei.earthlyBranchOfSoulPalace) : '—'}
-- Thân: ${ziwei ? (chineseDiaChiLookup[ziwei.earthlyBranchOfBodyPalace] || ziwei.earthlyBranchOfBodyPalace) : '—'}
-- Cục: ${ziwei ? ziwei.fiveElementsClass : '—'}`;
-
-  if (ziwei && ziwei.chineseDate) {
-    context += `\n- Bát Tự: ${ziwei.chineseDate}`;
-  }
-
-  if (ziwei && ziwei.palaces) {
-    const keyPalaces = ['命宫', '财帛', '官禄', '夫妻', '迁移', '福德'];
-    context += `\n\nTỬ VI:`;
-    ziwei.palaces.forEach(p => {
-      if (keyPalaces.includes(p.name)) {
-        const viName = palaceNameVi[p.name] || p.name;
-        const stars = (p.majorStars || []).map(s => majorStarNameVi[s.name] || s.name).join(', ');
-        context += `\n- ${viName}: ${stars || 'không có chính tinh'}`;
-      }
-    });
-  }
-
-  context += `\n\nHÔM NAY: ${now.toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} (${todayCanChi})`;
-
-  return context;
-}
-
 function loadDailyPersonalizedInsight(birth, apiKey, forceRefresh) {
   const today = getDateStr(new Date());
-  chrome.storage.sync.get('dailyInsightCache', (data) => {
+  chrome.storage.sync.get('tasks', (syncData) => {
+   chrome.storage.local.get('dailyInsightCache', ({ dailyInsightCache }) => {
+    const data = { ...syncData, dailyInsightCache };
     const cache = data.dailyInsightCache;
-    if (cache && cache.date === today && cache.insight?.v === 4 && !forceRefresh) {
+    if (cache && cache.date === today && cache.insight?.v === 6 && !forceRefresh) {
       displayDailyInsight(cache.insight);
       return;
     }
-    chrome.storage.sync.remove('dailyInsightCache');
+    chrome.storage.local.remove('dailyInsightCache');
+    chrome.storage.sync.remove('dailyInsightCache'); // legacy location
 
-    const ziwei = getZiWei(birth);
+    const info = getBirthChart(birth);
+    const ziwei = info && info.ziwei;
     let tuviStr = '';
-    if (ziwei && ziwei.palaces) {
-      const kp = ['命宫', '财帛', '官禄', '夫妻', '迁移', '福德'];
-      tuviStr = ziwei.palaces.filter(p => kp.includes(p.name)).map(p =>
-        (palaceNameVi[p.name] || p.name) + ': ' + (p.majorStars || []).map(s => majorStarNameVi[s.name] || s.name).join(',')
-      ).join(' | ');
+    if (ziwei) {
+      tuviStr = KEY_PALACES.map(name => {
+        const p = ziwei.palaces.find(x => x.name === name);
+        const stars = p ? describePalaceStars(p) : [];
+        return `${name}: ${stars.length ? stars.join(', ') : 'Vô chính diệu'}`;
+      }).join(' | ');
     }
 
-    const dc = getDayCanChi(new Date());
-    const todayStr = `Hôm nay (${thienCan[dc.can]} ${diaChi[dc.chi]})`;
+    const now = new Date();
+    const dc = getDayCanChi(now);
+    const todayStr = `Today: day ${thienCan[dc.can]} ${diaChi[dc.chi]}; giờ hoàng đạo: ${hoangDaoHours(now).map(h => `${h.name} ${h.range}`).join(', ')}`;
+    let luckStr = '';
+    if (ziwei) {
+      const h = ziwei.horoscope(now);
+      const hoa = names => HOA_ORDER.map((x, i) => names[i] ? `Hóa ${x} ${names[i]}` : '').filter(Boolean).join(', ');
+      luckStr = `- Current luck: đại hạn at ${ziwei.palaces[h.decadal.index].name}; lưu niên at ${ziwei.palaces[h.yearly.index].name}; lưu nhật at ${ziwei.palaces[h.daily.index].name} (daily Tứ Hóa: ${hoa(h.daily.mutagen)})`;
+    }
+    // Read tasks from storage: at startup the in-memory list may not be loaded yet
+    const openTasks = (data.tasks || []).filter(t => !t.done).slice(0, 5).map(t => t.text);
 
     // English prompt works best with Gemini models, instructing Vietnamese output
     const prompt = `You are a Vietnamese Tử Vi (Zi Wei Dou Shu) and Bát Tự (Ba Zi) master. Give the user ONE actionable piece of advice for today in Vietnamese. 1-2 sentences only. No greeting, no intro, no "chào bạn".
 
 USER INFO:
-- Born: ${birth.day}/${birth.month}/${birth.year} (${birth.gender === 'female' ? 'Nữ' : 'Nam'})
-- Chinese zodiac: ${vietnameseZodiac[chiOfYear(birth.year)].animal}
+- Gender: ${birth.gender === 'female' ? 'Nữ' : 'Nam'}
+- Lunar birth year: ${info ? info.yearCanChi : '—'} (Nạp âm: ${info ? info.napAm.name : '—'})
 - Western zodiac: ${getWesternZodiac(birth.month, birth.day).nameVi}
-- Ba Zi (Four Pillers): ${ziwei ? ziwei.chineseDate : '—'}
-- Ming Palace: ${ziwei ? (chineseDiaChiLookup[ziwei.earthlyBranchOfSoulPalace] || '—') : '—'}
-${tuviStr ? '- Key palaces: ' + tuviStr : ''}
+- Ba Zi pillars: ${info ? info.pillars.join(' | ') : '—'}${info && !info.hourKnown ? ' (birth hour unknown: hour pillar and palaces NOT available, do not mention palaces)' : ''}
+${ziwei ? `- Ming palace branch: ${ziwei.earthlyBranchOfSoulPalace}, Five Elements class: ${ziwei.fiveElementsClass}` : ''}
+${tuviStr ? '- Key palaces (major stars, brightness, birth-year Tứ Hóa): ' + tuviStr : ''}
+${luckStr}
 - ${todayStr}
+- Today's open tasks: ${openTasks.length ? openTasks.map(t => `"${t}"`).join('; ') : 'none'}
 
-Focus on one area: work, money, love, or health. Be specific to this person's chart.
+If there are open tasks, tie the advice to ONE of them by name; if you suggest a time for it, pick only from the giờ hoàng đạo listed. Otherwise focus on one area: work, money, love, or health. Only reference stars, palaces and pillars listed above; never invent placements. Do not predict illness, accidents or death, and do not give financial or medical directives.
 
 EXAMPLES (do NOT copy, use as style reference):
 ❌ "Chào bạn, hôm nay là ngày tốt." (too generic)
@@ -1118,20 +1744,20 @@ EXAMPLES (do NOT copy, use as style reference):
 ADVICE:`;
 
     const delays = [5000, 15000, 30000];
-    const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
 
     (async () => {
+      const models = await getGeminiModels(apiKey);
       let result = null;
       for (const model of models) {
         for (let i = 0; i < 3; i++) {
           try {
-            console.log(`ZenTab: calling ${model} (attempt ${i+1})`);
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`, {
+            const res = await fetch(`${GEMINI_API}/models/${model}:generateContent`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
               body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
+                // newer models count their thinking against this budget
+                generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
               })
             });
             const body = await res.text();
@@ -1142,14 +1768,12 @@ ADVICE:`;
             }
             if (!res.ok) {
               console.warn(`ZenTab: ${model} ${res.status}:`, body.slice(0, 200));
+              if (res.status === 404) forgetGeminiModels();
               break;
             }
             const data = JSON.parse(body);
             result = data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
-            if (result) {
-              console.log(`ZenTab: ${model} success`);
-              break;
-            }
+            if (result) break;
           } catch (e) {
             console.warn(`ZenTab: ${model} error:`, e.message);
             if (i < 2) await new Promise(r => setTimeout(r, delays[i]));
@@ -1160,22 +1784,19 @@ ADVICE:`;
       }
       if (result) {
         const clean = result.replace(/^(advice|advice:|lời khuyên|lời khuyên hôm nay|"|')/i, '').trim();
-        const insight = { text: clean, date: today, v: 4 };
-        chrome.storage.sync.set({ dailyInsightCache: { date: today, insight } });
+        const insight = { text: clean, date: today, v: 6 };
+        chrome.storage.local.set({ dailyInsightCache: { date: today, insight } });
         displayDailyInsight(insight);
       } else {
         handleGeminiFail(birth);
       }
     })();
+   });
   });
 }
 
 function handleGeminiFail(birth) {
-  const q = quotes[Math.floor(Math.random() * quotes.length)];
-  const txtEl = document.getElementById('quoteText');
-  const authEl = document.getElementById('quoteAuthor');
-  if (txtEl) txtEl.textContent = `"${q.text}"`;
-  if (authEl) authEl.textContent = q.author;
+  showChosenQuote();
   if (birth) renderToday(birth, { error: true });
 }
 
@@ -1187,23 +1808,42 @@ function displayDailyInsight(insight) {
   if (txtEl) {
     txtEl.textContent = `"${clean}"`;
     txtEl.classList.remove('expanded');
+    txtEl.dataset.source = 'insight';
+    txtEl.removeAttribute('title');
   }
+  syncQuoteActions();
   if (authEl) authEl.textContent = '☯ Tử Vi · Bát Tự · Chiêm Tinh';
-  const expandBtn = document.getElementById('expandQuoteBtn');
-  if (expandBtn) expandBtn.textContent = 'Xem đầy đủ';
+  updateQuoteExpand();
   // Update astro panel via renderToday
   chrome.storage.sync.get('birth', (d) => {
     if (d.birth) renderToday(d.birth, { text: clean });
   });
 }
 
-function fallbackDailyInsight() {
-  const q = quotes[Math.floor(Math.random() * quotes.length)];
-  const txtEl = document.getElementById('quoteText');
-  const authEl = document.getElementById('quoteAuthor');
-  if (txtEl) txtEl.textContent = `"${q.text}"`;
-  if (authEl) authEl.textContent = q.author;
+// The quote for this moment of the day (quotes.js); ‹ › then step from that one.
+// The daily AI insight, when there is one, keeps the dock.
+function showChosenQuote(opts) {
+  if (!window.ZenQuotes) return;
+  ZenQuotes.choose(opts).then(({ quote, hint }) => {
+    if (document.getElementById('quoteText')?.dataset.source === 'insight') return;
+    displayQuote(quote, hint);
+  }).catch(e => console.warn('ZenTab: quote,', e.message));
 }
+
+// "Xem đầy đủ" only when the two-line clamp actually cuts the text. Re-checked on resize,
+// since the dock may be hidden (Zen mode) when the quote is set.
+function checkQuoteClamp() {
+  const textEl = document.getElementById('quoteText');
+  const expandBtn = document.getElementById('expandQuoteBtn');
+  if (!textEl || !expandBtn || textEl.classList.contains('expanded') || !textEl.clientHeight) return;
+  expandBtn.hidden = textEl.scrollHeight <= textEl.clientHeight + 1;
+}
+function updateQuoteExpand() {
+  const expandBtn = document.getElementById('expandQuoteBtn');
+  if (expandBtn) expandBtn.textContent = 'Xem đầy đủ';
+  requestAnimationFrame(checkQuoteClamp);
+}
+if (document.getElementById('quoteText')) new ResizeObserver(checkQuoteClamp).observe(document.getElementById('quoteText'));
 
 // Task List
 let tasks = [];
@@ -1278,10 +1918,24 @@ function renderTasks() {
 
   taskList.querySelectorAll('.task-del').forEach(btn => {
     btn.onclick = () => {
-      tasks.splice(parseInt(btn.dataset.idx), 1);
-      saveTasks();
-      renderTasks();
+      deleteTaskWithUndo(parseInt(btn.dataset.idx));
     };
+  });
+}
+
+// Deleting is immediate, with a few seconds to take it back
+function deleteTaskWithUndo(idx) {
+  const [removed] = tasks.splice(idx, 1);
+  if (!removed) return;
+  const refresh = () => {
+    saveTasks();
+    renderTasks();
+    if (typeof renderKanban === 'function') renderKanban();
+  };
+  refresh();
+  zenToast('Đã xoá việc', {
+    actionLabel: 'Hoàn tác',
+    onAction: () => { tasks.splice(Math.min(idx, tasks.length), 0, removed); refresh(); }
   });
 }
 
@@ -1332,8 +1986,6 @@ const timerChime = {
 };
 
 const timerDisplay = document.querySelector('.timer-display');
-const timerStart = document.getElementById('timerStart');
-const timerReset = document.getElementById('timerReset');
 const timerModeSelect = document.getElementById('timerModeSelect');
 const timerProgressRing = document.getElementById('timerProgressRing');
 
@@ -1351,10 +2003,27 @@ const timerProgressRing = document.getElementById('timerProgressRing');
   }
 })();
 
+// Session lengths in minutes; chosen in Settings, synced as `timerDurations`
+const DEFAULT_TIMER_DURATIONS = { pomodoro: 25, short: 5, long: 15 };
+let timerDurations = { ...DEFAULT_TIMER_DURATIONS };
+
 function getModeDuration(mode) {
-  if (mode === 'short') return 5 * 60;
-  if (mode === 'long') return 15 * 60;
-  return 25 * 60;
+  return (timerDurations[mode] || timerDurations.pomodoro) * 60;
+}
+
+// A new length takes effect at once on a resting clock; a session under way keeps the length it started with
+function applyTimerDurations(next) {
+  const atRest = !isTimerRunning && Math.round(timeLeft) >= getModeDuration(timerMode);
+  Object.keys(DEFAULT_TIMER_DURATIONS).forEach(mode => {
+    const m = parseInt(next && next[mode], 10);
+    timerDurations[mode] = m >= 1 && m <= 180 ? m : DEFAULT_TIMER_DURATIONS[mode];
+  });
+  // A paused session longer than the new length has nothing left to keep: it becomes a fresh one
+  if (atRest || (!isTimerRunning && timeLeft > getModeDuration(timerMode))) resetTimer();
+  updateTimerDisplay();
+  const startLabel = document.querySelector('#startFocusFromIntention span');
+  if (startLabel) startLabel.textContent = `Bắt đầu ${timerDurations.pomodoro} phút tập trung`;
+  if (typeof initQuickActionChips === 'function' && document.getElementById('chatQuickChips')?.children.length) initQuickActionChips();
 }
 
 function updateTimerDisplay() {
@@ -1367,6 +2036,9 @@ function updateTimerDisplay() {
   // Remaining time in the tab strip while running
   if (isTimerRunning) document.title = `${timeStr} · ${timerMode === 'pomodoro' ? 'Tập trung' : 'Nghỉ ngơi'}`;
   updateFocusMeta();
+  // Nothing to reset until the clock has moved
+  const resetBtn = document.getElementById('focusTimerReset');
+  if (resetBtn) resetBtn.disabled = !isTimerRunning && Math.round(timeLeft) >= getModeDuration(timerMode);
 }
 
 function updateProgressRing() {
@@ -1408,6 +2080,8 @@ function toggleTimerUIEffects(isPlaying) {
   
   // CSS dims the surrounding chrome while a focus session runs
   document.documentElement.classList.toggle('timer-is-running', isPlaying);
+  const drawerBtn = document.getElementById('drawerFocusBtn');
+  if (drawerBtn) drawerBtn.textContent = isPlaying ? 'Mở màn Tập trung' : '▶ Bắt đầu phiên';
   document.documentElement.dataset.timerMode = timerMode;
   if (!isPlaying) document.title = 'ZenTab';
   updateFocusMeta();
@@ -1446,6 +2120,7 @@ function toggleTimer() {
     isTimerRunning = true;
     targetTime = Date.now() + (timeLeft * 1000);
     updateUIPlay();
+    updateTimerDisplay();
     
     timerInterval = setInterval(() => {
       const now = Date.now();
@@ -1460,16 +2135,6 @@ function toggleTimer() {
         toggleTimerUIEffects(false);
         
         timerChime.play().catch(e => console.log('Audio play failed', e));
-        
-        if (typeof chrome !== 'undefined' && chrome.notifications) {
-          chrome.notifications.create({
-            type: 'basic',
-            iconUrl: 'icons/icon128.png',
-            title: timerMode === 'pomodoro' ? 'Hoàn thành!' : 'Hết giờ nghỉ!',
-            message: timerMode === 'pomodoro' ? 'Tuyệt vời! Bạn đã hoàn thành phiên tập trung. Hãy nghỉ ngơi một chút nhé.' : 'Thời gian nghỉ đã hết! Cùng quay lại làm việc nào.',
-            priority: 2
-          });
-        }
         
         timeLeft = getModeDuration(timerMode);
         updateTimerDisplay();
@@ -1508,41 +2173,48 @@ document.getElementById('timerStart')?.addEventListener('click', toggleTimer);
 document.getElementById('focusTimerStart')?.addEventListener('click', toggleTimer);
 document.getElementById('timerReset')?.addEventListener('click', resetTimer);
 document.getElementById('focusTimerReset')?.addEventListener('click', resetTimer);
+updateTimerDisplay(); // first paint: the reset button starts out disabled
+chrome.storage.sync.get('timerDurations', ({ timerDurations: saved }) => { if (saved) applyTimerDurations(saved); });
 
-const timerExpandBtn = document.querySelector('.timer-expand-btn');
-if (timerExpandBtn) {
-  timerExpandBtn.addEventListener('click', () => {
-    // Nếu Pomodoro đang mở trong bảng bên phải, tự động đóng bảng đó lại
-    const closeRightDrawerBtn = document.getElementById('closeRightDrawerBtn');
-    if (closeRightDrawerBtn) closeRightDrawerBtn.click();
-    
-    // Chuyển toàn bộ màn hình sang tab Focus
-    if (typeof switchTab === 'function') switchTab('focus');
-  });
-}
+// Drawer launcher: start a session (or return to the running one) in the Focus view
+document.getElementById('drawerFocusBtn')?.addEventListener('click', () => {
+  document.getElementById('closeRightDrawerBtn')?.click();
+  if (isTimerRunning) switchTab('focus');
+  else startFocusSession();
+});
 
 // ---- Quotes Carousel & Audio Player ----
-const quotes = [
-  { text: 'Việc của bạn là khám phá thế giới của mình, rồi dốc hết lòng mà sống cho nó.', author: 'Đức Phật' },
-  { text: 'Tâm hồn luôn biết cách tự chữa lành. Thử thách là làm cho tâm trí lặng yên.', author: 'Caroline Myss' },
-  { text: 'Giữa khó khăn luôn ẩn chứa cơ hội.', author: 'Albert Einstein' },
-  { text: 'Tĩnh lặng là nguồn của sức mạnh lớn lao.', author: 'Lão Tử' },
-  { text: 'Con người càng an tĩnh, thành công càng lớn.', author: 'James Allen' }
-];
-
-let currentQuoteIdx = 0;
+let currentQuoteId = null;
 const relaxingAudio = document.getElementById('relaxingAudio');
 const playBtn = document.getElementById('playBtn');
 
-// Built-in sounds are synthesized by ambient.js; 'custom' streams the user's URL
+// Built-in sounds are synthesized by ambient.js. Two kinds play a file through the <audio>
+// element instead: 'custom' (the user's own URL) and 'music' (ZenTab's bundled track).
+const MUSIC_SRC = 'sounds/zentab-music.m4a';
+const MUSIC_VOLUME = 0.6;
+const isStream = kind => kind === 'custom' || kind === 'music';
 const ambientPlayer = {
   kind: 'forest',
   isPlaying() {
-    return this.kind === 'custom' ? !!relaxingAudio && !relaxingAudio.paused : !!window.ZenAmbient && ZenAmbient.isPlaying();
+    return isStream(this.kind) ? !!relaxingAudio && !relaxingAudio.paused : !!window.ZenAmbient && ZenAmbient.isPlaying();
   },
   play() {
-    if (this.kind === 'custom') return relaxingAudio ? relaxingAudio.play() : Promise.reject(new Error('No audio element'));
-    return window.ZenAmbient ? ZenAmbient.play(this.kind) : Promise.reject(new Error('Audio unavailable'));
+    if (!isStream(this.kind)) return window.ZenAmbient ? ZenAmbient.play(this.kind) : Promise.reject(new Error('Audio unavailable'));
+    if (!relaxingAudio) return Promise.reject(new Error('No audio element'));
+    if (this.kind === 'music') {
+      if (!relaxingAudio.src.endsWith(MUSIC_SRC)) relaxingAudio.src = MUSIC_SRC;
+      // ease in rather than start at full volume
+      relaxingAudio.volume = 0;
+      const t0 = performance.now();
+      const ramp = () => {
+        const k = Math.min(1, (performance.now() - t0) / 1500);
+        relaxingAudio.volume = MUSIC_VOLUME * k;
+        if (k < 1 && !relaxingAudio.paused) requestAnimationFrame(ramp);
+      };
+      return relaxingAudio.play().then(() => requestAnimationFrame(ramp));
+    }
+    relaxingAudio.volume = 1;
+    return relaxingAudio.play();
   },
   pause() {
     if (relaxingAudio) relaxingAudio.pause();
@@ -1550,35 +2222,59 @@ const ambientPlayer = {
   },
   setKind(kind) {
     const wasPlaying = this.isPlaying();
-    if (wasPlaying && (kind === 'custom' || this.kind === 'custom')) this.pause();
+    if (wasPlaying && (isStream(kind) || isStream(this.kind))) this.pause();
     this.kind = kind;
     if (wasPlaying) this.play().catch(e => console.warn(e));
   }
 };
 
-function displayQuoteAt(index) {
-  if (!quotes || quotes.length === 0) return;
-  const q = quotes[index];
+function displayQuote(q, hint) {
+  if (!q) return;
+  currentQuoteId = q.id;
   const textEl = document.getElementById('quoteText');
   const authEl = document.getElementById('quoteAuthor');
   if (textEl) {
     textEl.textContent = `"${q.text}"`;
     textEl.classList.remove('expanded');
+    textEl.dataset.source = 'quote';
+    if (hint) textEl.title = hint; else textEl.removeAttribute('title');
   }
-  if (authEl) authEl.textContent = q.author;
-  const expandBtn = document.getElementById('expandQuoteBtn');
-  if (expandBtn) expandBtn.textContent = 'Xem đầy đủ';
+  if (authEl) authEl.textContent = q.author ? `— ${q.author}` : '';
+  syncQuoteActions();
+  updateQuoteExpand();
 }
 
-document.getElementById('prevQuoteBtn').addEventListener('click', () => {
-  currentQuoteIdx = (currentQuoteIdx - 1 + quotes.length) % quotes.length;
-  displayQuoteAt(currentQuoteIdx);
-});
+// ‹ › step through every quote the reader hasn't hidden, from the one on screen
+function stepQuote(dir) {
+  const list = ZenQuotes.all();
+  if (!list.length) return;
+  const i = list.findIndex(q => q.id === currentQuoteId);
+  displayQuote(list[((i < 0 ? 0 : i + dir) + list.length) % list.length]);
+}
+document.getElementById('prevQuoteBtn').addEventListener('click', () => stepQuote(-1));
+document.getElementById('nextQuoteBtn').addEventListener('click', () => stepQuote(1));
 
-document.getElementById('nextQuoteBtn').addEventListener('click', () => {
-  currentQuoteIdx = (currentQuoteIdx + 1) % quotes.length;
-  displayQuoteAt(currentQuoteIdx);
+// ♡ keeps a quote (it comes back now and then); Ẩn retires it for good
+const quoteFavBtn = document.getElementById('quoteFavBtn');
+const quoteHideBtn = document.getElementById('quoteHideBtn');
+function syncQuoteActions() {
+  const isQuote = document.getElementById('quoteText')?.dataset.source === 'quote' && currentQuoteId;
+  [quoteFavBtn, quoteHideBtn].forEach(b => { if (b) b.hidden = !isQuote; });
+  if (!isQuote || !quoteFavBtn) return;
+  const on = ZenQuotes.isFav(currentQuoteId);
+  quoteFavBtn.classList.toggle('active', on);
+  quoteFavBtn.setAttribute('aria-pressed', on);
+  quoteFavBtn.title = on ? 'Đã giữ lại · bấm để bỏ' : 'Giữ lại câu này';
+}
+if (quoteFavBtn) quoteFavBtn.addEventListener('click', () => { ZenQuotes.toggleFav(currentQuoteId); syncQuoteActions(); });
+if (quoteHideBtn) quoteHideBtn.addEventListener('click', () => {
+  const id = currentQuoteId;
+  stepQuote(1);
+  ZenQuotes.hide(id);
 });
+document.addEventListener('zenquotes:change', syncQuoteActions);
+
+showChosenQuote();
 
 if (playBtn) {
   playBtn.addEventListener('click', () => {
@@ -1647,12 +2343,16 @@ function switchTab(tab) {
   
   const targetView = document.getElementById(`view-${tab}`);
   if (targetView) {
-    targetView.style.display = (tab === 'focus' || tab === 'ai') ? 'flex' : 'block';
+    targetView.style.display = (tab === 'focus' || tab === 'ai' || tab === 'journal') ? 'flex' : 'block';
     // Reflow trigger
     void targetView.offsetWidth;
     targetView.classList.add('active');
   }
   
+  // Zen only applies to Home; other views keep the sidebar for navigation
+  const appLayout = document.querySelector('.app-layout');
+  if (appLayout) appLayout.dataset.view = tab;
+
   // Save to storage
   chrome.storage.local.set({ activeTab: tab });
   
@@ -1665,11 +2365,29 @@ function switchTab(tab) {
     initAiView();
   } else if (tab === 'stats') {
     initStatsView();
+  } else if (tab === 'journal') {
+    window.ZenJournal?.open();
   }
 }
 
 // Focus View Specific Initializer
+function renderFocusHoangDao() {
+  const el = document.getElementById('focusHoangDao');
+  if (!el) return;
+  chrome.storage.sync.get('birth', ({ birth }) => {
+    el.hidden = !birth;
+    if (!birth) return;
+    const { now, next, hours } = hoangDaoNow(new Date());
+    el.title = 'Giờ hoàng đạo hôm nay: ' + hours.map(h => `${h.name} ${h.range}`).join(', ');
+    el.innerHTML = now
+      ? `<span class="hd-dot" aria-hidden="true"></span>Giờ hoàng đạo <b>${now.name}</b> · đến ${now.range.split('–')[1]}`
+      : `Hoàng đạo tiếp theo: <b>${next.name}</b> ${next.range}`;
+  });
+}
+setInterval(() => { if (document.getElementById('view-focus')?.classList.contains('active')) renderFocusHoangDao(); }, 60000);
+
 function initFocusView() {
+  renderFocusHoangDao();
   renderFocusIntention();
   renderFocusSessions();
   syncFocusModes();
@@ -1695,24 +2413,16 @@ const closeAstroDetailsBtn = document.getElementById('closeAstroDetailsBtn');
 
 if (openAstroDetailsBtn && astroDetailsModal && closeAstroDetailsBtn) {
   openAstroDetailsBtn.addEventListener('click', () => {
-    const modalZodiac = document.getElementById('modalZodiacInfo');
-    const modalTuvi = document.getElementById('modalTuviInfo');
-    const zodiacSource = document.getElementById('zodiacInfo');
-    const tuviSource = document.getElementById('tuviInfo');
-    
-    if (modalZodiac && zodiacSource) {
-      if (zodiacSource.innerHTML.trim() === "") {
-        modalZodiac.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-muted);font-size:13px;">Vui lòng thiết lập ngày sinh trong Cài đặt để hiển thị thông tin Bát Tự & Tử Vi chi tiết.</div>';
-      } else {
-        modalZodiac.innerHTML = zodiacSource.innerHTML;
-      }
-    }
-    
-    if (modalTuvi && tuviSource) {
-      modalTuvi.innerHTML = tuviSource.innerHTML;
-    }
-    
-    astroDetailsModal.style.display = 'flex';
+    chrome.storage.sync.get('birth', async ({ birth }) => {
+      if (birth) await loadIztro().catch(() => {});
+      renderChartModal(birth);
+      // Copied date-only markup loses listeners: rebind the "add birth hour" shortcut
+      document.querySelector('#modalZodiacInfo .astro-add-hour')?.addEventListener('click', () => {
+        astroDetailsModal.style.display = 'none';
+        openSettingsAt('birthHour');
+      });
+      astroDetailsModal.style.display = 'flex';
+    });
   });
   
   closeAstroDetailsBtn.addEventListener('click', () => {
@@ -1733,6 +2443,29 @@ if (intentionSubmitBtn) {
       saveJournalEntry(journalInput.value);
     }
   });
+}
+
+// Ideas carry their mind-map nodes, which outgrow storage.sync's 8 KB-per-item limit,
+// so they live in storage.local. Existing users' ideas are moved over once.
+function getIdeasWith(syncKeys, cb) {
+  chrome.storage.sync.get(syncKeys, (syncData) => {
+    chrome.storage.local.get('quickIdeas', ({ quickIdeas }) => {
+      if (quickIdeas) return cb({ ...syncData, quickIdeas });
+      chrome.storage.sync.get('quickIdeas', ({ quickIdeas: legacy }) => {
+        if (legacy) chrome.storage.local.set({ quickIdeas: legacy }, () => chrome.storage.sync.remove('quickIdeas'));
+        cb({ ...syncData, quickIdeas: legacy || [] });
+      });
+    });
+  });
+}
+
+// Starter habits shown until the user saves their own list
+function defaultHabits(todayStr) {
+  return [
+    { text: 'Thiền định (10 phút)', done: false, date: todayStr },
+    { text: 'Uống đủ nước', done: false, date: todayStr },
+    { text: 'Đọc sách (30 phút)', done: false, date: todayStr }
+  ];
 }
 
 // ---- Quick Tools Interactivity (Notes, Habits, Ideas, Charts) ----
@@ -1775,9 +2508,12 @@ function loadToolContent(tool) {
       if (notesArea) notesArea.value = data.quickNotes || '';
     });
     
-    notesArea.addEventListener('input', () => {
-      chrome.storage.sync.set({ quickNotes: notesArea.value });
-    });
+    // storage.sync allows only ~120 writes a minute: save once typing pauses, and on leave
+    let notesTimer = null;
+    const saveNotes = () => { clearTimeout(notesTimer); notesTimer = null; chrome.storage.sync.set({ quickNotes: notesArea.value }); };
+    notesArea.addEventListener('input', () => { clearTimeout(notesTimer); notesTimer = setTimeout(saveNotes, 800); });
+    notesArea.addEventListener('blur', () => { if (notesTimer) saveNotes(); });
+    window.addEventListener('pagehide', () => { if (notesTimer) saveNotes(); });
     
   } else if (tool === 'ideas') {
     quickToolTitle.textContent = 'Ý tưởng';
@@ -1797,7 +2533,8 @@ function loadToolContent(tool) {
     const ideaAddBtn = document.getElementById('ideaAddBtn');
     
     function renderIdeas() {
-      chrome.storage.sync.get('quickIdeas', (data) => {
+      getIdeasWith(['labsMindmap'], (data) => {
+        const mindmapOn = !!data.labsMindmap;
         const ideas = data.quickIdeas || [];
         
         // Data Upgrader: Convert plain strings to mindmap objects
@@ -1817,7 +2554,7 @@ function loadToolContent(tool) {
         });
         
         if (needsSave) {
-          chrome.storage.sync.set({ quickIdeas: upgradedIdeas });
+          chrome.storage.local.set({ quickIdeas: upgradedIdeas });
         }
         
         const listEl = document.getElementById('ideaList');
@@ -1829,16 +2566,17 @@ function loadToolContent(tool) {
         }
         
         listEl.innerHTML = upgradedIdeas.map((idea, i) => `
-          <div class="tool-item" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;" data-idx="${i}">
+          <div class="tool-item" style="${mindmapOn ? 'cursor:pointer;' : ''}display:flex;justify-content:space-between;align-items:center;" data-idx="${i}" ${mindmapOn ? 'title="Mở sơ đồ ý tưởng"' : ''}>
             <div class="tool-item-left" style="flex:1;overflow:hidden;">
-              <span class="tool-item-text" style="color:var(--accent);font-weight:400;">💡 ${escapeHtml(idea.text)}</span>
+              <span class="tool-item-text" style="font-weight:400;">💡 ${escapeHtml(idea.text)}</span>
             </div>
+            ${mindmapOn ? '<span class="idea-open-hint" aria-hidden="true">Sơ đồ ›</span>' : ''}
             <button class="tool-del-btn" data-idx="${i}" style="pointer-events:auto;">✕</button>
           </div>
         `).join('');
         
         // Click to open Mindmap
-        listEl.querySelectorAll('.tool-item').forEach(item => {
+        if (mindmapOn) listEl.querySelectorAll('.tool-item').forEach(item => {
           item.onclick = (e) => {
             // If click was on delete button, do nothing
             if (e.target.classList.contains('tool-del-btn')) return;
@@ -1852,7 +2590,7 @@ function loadToolContent(tool) {
             e.stopPropagation();
             const idx = parseInt(delBtn.dataset.idx);
             upgradedIdeas.splice(idx, 1);
-            chrome.storage.sync.set({ quickIdeas: upgradedIdeas }, renderIdeas);
+            chrome.storage.local.set({ quickIdeas: upgradedIdeas }, renderIdeas);
           };
         });
       });
@@ -1861,7 +2599,7 @@ function loadToolContent(tool) {
     function addIdea() {
       const text = ideaInput.value.trim();
       if (!text) return;
-      chrome.storage.sync.get('quickIdeas', (data) => {
+      getIdeasWith([], (data) => {
         const ideas = data.quickIdeas || [];
         const newIdea = {
           id: 'idea-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
@@ -1871,7 +2609,7 @@ function loadToolContent(tool) {
           ]
         };
         ideas.push(newIdea);
-        chrome.storage.sync.set({ quickIdeas: ideas }, () => {
+        chrome.storage.local.set({ quickIdeas: ideas }, () => {
           renderIdeas();
           ideaInput.value = '';
         });
@@ -1904,11 +2642,7 @@ function loadToolContent(tool) {
     
     function renderHabits() {
       chrome.storage.sync.get('habits', (data) => {
-        let habits = data.habits || [
-          { text: 'Thiền định (10 phút)', done: false, date: todayStr },
-          { text: 'Uống đủ nước', done: false, date: todayStr },
-          { text: 'Đọc sách (30 phút)', done: false, date: todayStr }
-        ];
+        let habits = data.habits || defaultHabits(todayStr);
         
         let needsSave = false;
         habits.forEach(h => {
@@ -1973,88 +2707,6 @@ function loadToolContent(tool) {
     habitAddBtn.onclick = addHabit;
     renderHabits();
     
-  } else if (tool === 'charts') {
-    quickToolTitle.textContent = 'Biểu đồ';
-    quickToolBody.innerHTML = `
-      <div class="charts-container">
-        <!-- Task Completion Chart -->
-        <div class="chart-section">
-          <div class="chart-visual">
-            <svg class="chart-svg" viewBox="0 0 50 50">
-              <circle class="chart-track" cx="25" cy="25" r="22" />
-              <circle class="chart-fill" id="taskChartRing" cx="25" cy="25" r="22" />
-            </svg>
-            <div class="chart-value" id="taskChartVal">0%</div>
-          </div>
-          <div class="chart-info">
-            <span class="chart-title">Năng suất công việc</span>
-            <span class="chart-desc" id="taskChartDesc">Đang tải dữ liệu...</span>
-          </div>
-        </div>
-        
-        <!-- Habit Completion Chart -->
-        <div class="chart-section">
-          <div class="chart-info" style="gap:2px">
-            <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
-              <span class="chart-title">Thói quen hôm nay</span>
-              <span class="chart-value" style="position:static;transform:none" id="habitChartVal">0%</span>
-            </div>
-            <span class="chart-desc" id="habitChartDesc" style="margin-bottom:4px">Đang tải thói quen...</span>
-            <div class="habit-bar-visual">
-              <div class="habit-bar-fill" id="habitChartBarFill"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    chrome.storage.sync.get(['tasks', 'habits'], (data) => {
-      const currentTasks = data.tasks || [];
-      const totalTasks = currentTasks.length;
-      const doneTasks = currentTasks.filter(t => t.done).length;
-      const taskPercent = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
-      
-      const taskRing = document.getElementById('taskChartRing');
-      const taskVal = document.getElementById('taskChartVal');
-      const taskDesc = document.getElementById('taskChartDesc');
-      
-      if (taskRing) {
-        const circumference = 138.2;
-        const offset = circumference * (1 - (taskPercent / 100));
-        taskRing.style.strokeDashoffset = offset;
-      }
-      if (taskVal) taskVal.textContent = `${taskPercent}%`;
-      if (taskDesc) {
-        taskDesc.textContent = totalTasks > 0 
-          ? `Đã hoàn thành ${doneTasks}/${totalTasks} nhiệm vụ của hôm nay.` 
-          : 'Không có nhiệm vụ nào được đặt ra hôm nay.';
-      }
-      
-      const todayStr = getDateStr(new Date());
-      let currentHabits = data.habits || [
-        { text: 'Thiền định (10 phút)', done: false, date: todayStr },
-        { text: 'Uống đủ nước', done: false, date: todayStr },
-        { text: 'Đọc sách (30 phút)', done: false, date: todayStr }
-      ];
-      
-      const totalHabits = currentHabits.length;
-      const doneHabits = currentHabits.filter(h => h.done).length;
-      const habitPercent = totalHabits > 0 ? Math.round((doneHabits / totalHabits) * 100) : 0;
-      
-      const habitVal = document.getElementById('habitChartVal');
-      const habitDesc = document.getElementById('habitChartDesc');
-      const habitBarFill = document.getElementById('habitChartBarFill');
-      
-      if (habitVal) habitVal.textContent = `${habitPercent}%`;
-      if (habitDesc) {
-        habitDesc.textContent = totalHabits > 0
-          ? `Đã tích lũy ${doneHabits}/${totalHabits} thói quen tốt hôm nay.`
-          : 'Không có danh sách thói quen nào.';
-      }
-      if (habitBarFill) {
-        habitBarFill.style.width = `${habitPercent}%`;
-      }
-    });
   }
 }
 
@@ -2093,11 +2745,11 @@ function renderKanban() {
     card.innerHTML = `
       <span class="kanban-card-text">${escapeHtml(t.text)}</span>
       <div class="kanban-card-footer">
-        <span class="kanban-card-time">${t.time || '09:00'}</span>
         <div class="kanban-card-actions">
-          ${showLeft ? `<button class="kanban-action-btn move-left" data-idx="${i}">◀</button>` : ''}
-          ${showRight ? `<button class="kanban-action-btn move-right" data-idx="${i}">▶</button>` : ''}
-          <button class="kanban-action-btn del" data-idx="${i}">✕</button>
+          ${status !== 'completed' ? `<button class="kanban-focus-btn" data-idx="${i}" title="Tập trung vào việc này"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>Tập trung</button>` : ''}
+          ${showLeft ? `<button class="kanban-action-btn move-left" data-idx="${i}" title="${status === 'completed' ? 'Chuyển về Đang làm' : 'Chuyển về Cần làm'}" aria-label="${status === 'completed' ? 'Chuyển về Đang làm' : 'Chuyển về Cần làm'}">←</button>` : ''}
+          ${showRight ? `<button class="kanban-action-btn move-right" data-idx="${i}" title="${status === 'todo' ? 'Chuyển sang Đang làm' : 'Chuyển sang Đã xong'}" aria-label="${status === 'todo' ? 'Chuyển sang Đang làm' : 'Chuyển sang Đã xong'}">→</button>` : ''}
+          <button class="kanban-action-btn del" data-idx="${i}" title="Xoá việc này" aria-label="Xoá việc này">✕</button>
         </div>
       </div>
     `;
@@ -2130,13 +2782,21 @@ function renderKanban() {
   if (progressCountEl) progressCountEl.textContent = progressCount;
   if (completedCountEl) completedCountEl.textContent = completedCount;
   
-  document.querySelectorAll('.kanban-action-btn.del').forEach(btn => {
+  document.querySelectorAll('.kanban-focus-btn').forEach(btn => {
     btn.onclick = () => {
-      const idx = parseInt(btn.dataset.idx);
-      tasks.splice(idx, 1);
+      const t = tasks[parseInt(btn.dataset.idx)];
+      t.status = 'progress';
+      t.done = false;
       saveTasks();
       renderTasks();
       renderKanban();
+      startFocusOnTask(t.text);
+    };
+  });
+
+  document.querySelectorAll('.kanban-action-btn.del').forEach(btn => {
+    btn.onclick = () => {
+      deleteTaskWithUndo(parseInt(btn.dataset.idx));
     };
   });
   
@@ -2197,8 +2857,6 @@ function renderKanban() {
 
 function setupKanbanInputs() {
   const todoInput = document.getElementById('kanbanTodoInput');
-  const progressInput = document.getElementById('kanbanProgressInput');
-  const completedInput = document.getElementById('kanbanCompletedInput');
   
   const setupInput = (inputEl, status) => {
     if (!inputEl) return;
@@ -2242,8 +2900,6 @@ function setupKanbanInputs() {
   };
   
   setupInput(todoInput, 'todo');
-  setupInput(progressInput, 'progress');
-  setupInput(completedInput, 'completed');
 }
 
 // ---------------- VIEW 4: AI MENTOR CONTROLLER ----------------
@@ -2265,21 +2921,16 @@ function initAiView() {
     
     if (zodiacSource && zodiacSource.innerHTML.trim() !== '') {
       html += `<div class="context-section">
-        <div class="context-section-title">Bản Mệnh Chiêm Tinh</div>
+        <div class="context-section-title">Bản mệnh chiêm tinh</div>
         <div class="context-astro-content" style="font-size:11px;display:flex;flex-direction:column;gap:6px;color:var(--text-dim)">
           ${zodiacSource.innerHTML}
         </div>
-      </div>`;
-    } else {
-      html += `<div class="context-section">
-        <div class="context-section-title">Bản Mệnh Chiêm Tinh</div>
-        <div style="color:var(--text-muted);font-style:italic;font-size:11px">Vui lòng thiết lập ngày sinh trong Cài đặt để hiển thị Tử Vi.</div>
       </div>`;
     }
 
     if (tuviInfo && tuviInfo.innerHTML.trim() !== '') {
       html += `<div class="context-section">
-        <div class="context-section-title">Cung Mệnh & Lá Số</div>
+        <div class="context-section-title">Cung mệnh & lá số</div>
         <div class="context-astro-content" style="font-size:11px;display:flex;flex-direction:column;gap:6px;color:var(--text-dim)">
           ${tuviInfo.innerHTML}
         </div>
@@ -2295,12 +2946,12 @@ function initAiView() {
         ${todoTasks.length === 0 ? '<div style="font-style:italic;color:var(--text-muted)">Không có việc chưa hoàn thành.</div>' : 
           todoTasks.map((t, idx) => `
             <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.02);padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)">
-              <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;" title="${escapeHtml(t.text)}">${escapeHtml(t.text)}</span>
+              <span style="flex:1;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;" title="${escapeHtml(t.text)}">${escapeHtml(t.text)}</span>
               <button class="task-astro-btn" data-task="${escapeHtml(t.text)}" title="Tư vấn Giờ Hoàng Đạo">☯</button>
             </div>
           `).join('')
         }
-        <div style="margin-top:4px;color:var(--text-muted)">Đã xong: <strong style="color:#34d399">${completedTasks.length}</strong></div>
+        <div style="margin-top:4px;color:var(--text-muted)">Đã xong: <strong style="color:var(--text)">${completedTasks.length}</strong></div>
       </div>
     </div>`;
     
@@ -2319,6 +2970,7 @@ function initAiView() {
     }, 100);
   }
   
+  refreshAiStatus();
   loadAiChatHistory();
   setupChatInputField();
   initQuickActionChips();
@@ -2365,10 +3017,15 @@ function initQuickActionChips() {
   const chipsContainer = document.getElementById('chatQuickChips');
   if (!chipsContainer) return;
   
+  chrome.storage.sync.get('birth', ({ birth }) => {
+  // Work first; the astrology prompt only appears once there is a chart to read
   const chipsData = [
-    { text: 'Hãy phân tích ngày hôm nay cát hung thế nào, tôi nên làm việc gì lành và kỵ việc gì theo lá số bản mệnh của tôi?', label: '🔮 Xem Cát Hung Ngày Nay' },
-    { text: 'Hôm nay sao chủ mệnh và ngũ hành của tôi tác động thế nào đến tâm trạng và năng suất làm việc của tôi?', label: '⚔️ Năng Lượng Bản Mệnh' },
-    { text: 'Gợi ý cho tôi một bài thực hành tĩnh tâm hoặc thiền định ngắn phù hợp với ngày hôm nay.', label: '🧘 Tĩnh Tâm Cân Bằng' }
+    { text: 'Dựa trên danh sách nhiệm vụ của tôi, hãy sắp xếp thứ tự ưu tiên cho hôm nay và chia thành các phiên Pomodoro ' + timerDurations.pomodoro + ' phút.', label: '🗂 Lên kế hoạch hôm nay' },
+    { text: 'Việc nào trong danh sách của tôi đang lớn hoặc khó bắt đầu nhất? Hãy chia nó thành các bước nhỏ, mỗi bước làm được trong một phiên ' + timerDurations.pomodoro + ' phút.', label: '✂️ Chia nhỏ việc khó' },
+    { text: 'Nếu hôm nay tôi chỉ làm được một việc, đó nên là việc gì và vì sao?', label: '🎯 Việc quan trọng nhất' },
+    birth
+      ? { text: 'Theo lá số của tôi, hôm nay cát hung thế nào và giờ nào hợp để làm việc cần tập trung cao?', label: '🔮 Cát hung hôm nay' }
+      : { text: 'Tôi đang trì hoãn và khó tập trung. Gợi ý cho tôi một cách bắt đầu ngay trong 2 phút.', label: '🌱 Vượt trì hoãn' }
   ];
   
   chipsContainer.innerHTML = chipsData.map(chip => `
@@ -2379,9 +3036,42 @@ function initQuickActionChips() {
   
   chipsContainer.querySelectorAll('.quick-chip').forEach(chipEl => {
     chipEl.onclick = () => {
-      const prompt = chipEl.dataset.prompt;
-      sendUserMessage(prompt);
+      // Without a key there is nobody to answer: go straight to where the key goes
+      if (document.querySelector('.ai-chat-board')?.classList.contains('needs-key')) return openSettingsAt('geminiKey');
+      sendUserMessage(chipEl.dataset.prompt);
     };
+  });
+  });
+}
+
+// Status + greeting only claim what the mentor actually has access to
+function refreshAiStatus() {
+  const statusEl = document.querySelector('.ai-status');
+  if (!statusEl) return;
+  chrome.storage.sync.get('geminiKey', (data) => {
+    const ready = !!data.geminiKey;
+    statusEl.textContent = ready ? 'Sẵn sàng' : 'Chưa kết nối';
+    statusEl.classList.toggle('offline', !ready);
+    document.querySelector('.ai-chat-board')?.classList.toggle('needs-key', !ready);
+    const field = document.getElementById('chatInputField');
+    if (field) field.placeholder = ready ? 'Hỏi AI Mentor về công việc hôm nay...' : 'Thêm API key để bắt đầu trò chuyện…';
+  });
+}
+
+function renderAiGreeting(thread) {
+  chrome.storage.sync.get(['geminiKey', 'birth'], (data) => {
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble ai';
+    if (!data.geminiKey) {
+      bubble.innerHTML = parseMarkdownToHtml('Xin chào! Để trò chuyện, AI Mentor cần một **Gemini API key** (miễn phí, lấy trong 1 phút).') +
+        '<button type="button" class="glass-btn ai-setup-btn">Thêm API key</button>';
+      bubble.querySelector('.ai-setup-btn').onclick = () => openSettingsAt('geminiKey');
+    } else {
+      const sources = data.birth ? 'danh sách nhiệm vụ hôm nay và lá số Tử Vi của bạn' : 'danh sách nhiệm vụ hôm nay của bạn';
+      bubble.innerHTML = parseMarkdownToHtml(`Xin chào! Tôi là **AI Mentor**. Tôi có thể xem ${sources} để giúp bạn lên kế hoạch và giữ tập trung. Bạn cần gì nào?`);
+    }
+    thread.innerHTML = '';
+    thread.appendChild(bubble);
   });
 }
 
@@ -2392,13 +3082,7 @@ function loadAiChatHistory() {
   chrome.storage.local.get('aiChatHistory', (data) => {
     const history = data.aiChatHistory || [];
     if (history.length === 0) {
-      thread.innerHTML = `
-        <div class="chat-bubble ai">
-          Xin chào! Tôi là **Đại Sư Tử Vi Đông Phương** của bạn. Tôi đã đọc qua lá số Tử Vi, Bát Tự cũng như danh sách nhiệm vụ của bạn hôm nay. Hãy hỏi tôi bất cứ điều gì bạn cần tư vấn để làm việc hanh thông cát lành và cân bằng cuộc sống nhé!
-        </div>
-      `;
-      // Render formatting on greeting
-      thread.querySelector('.chat-bubble.ai').innerHTML = parseMarkdownToHtml(thread.querySelector('.chat-bubble.ai').innerText);
+      renderAiGreeting(thread);
       return;
     }
     
@@ -2448,7 +3132,7 @@ async function sendUserMessage(text) {
   const loadingBubble = document.createElement('div');
   loadingBubble.className = 'chat-bubble ai loading';
   loadingBubble.id = loadingId;
-  loadingBubble.innerHTML = `Đang chiêm nghiệm tinh tú... <div class="dot-typing"><span></span><span></span><span></span></div>`;
+  loadingBubble.innerHTML = `Đang suy nghĩ... <div class="dot-typing"><span></span><span></span><span></span></div>`;
   thread.appendChild(loadingBubble);
   thread.scrollTop = thread.scrollHeight;
   
@@ -2461,7 +3145,9 @@ async function sendUserMessage(text) {
     if (!apiKey) {
       if (loadingEl) {
         loadingEl.className = 'chat-bubble ai';
-        loadingEl.innerHTML = parseMarkdownToHtml('Vui lòng điền **Gemini API Key** trong phần Cài đặt để bắt đầu trò chuyện với Đại Sư Tử Vi. 💜');
+        loadingEl.innerHTML = parseMarkdownToHtml('Cần **Gemini API key** để trả lời. Thêm key trong Cài đặt rồi gửi lại câu hỏi nhé.') +
+          '<button type="button" class="glass-btn ai-setup-btn">Thêm API key</button>';
+        loadingEl.querySelector('.ai-setup-btn').onclick = () => openSettingsAt('geminiKey');
       }
       return;
     }
@@ -2487,18 +3173,23 @@ async function sendUserMessage(text) {
         });
       });
       
-      const model = 'gemini-2.5-flash';
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify({
-          contents,
-          generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
-        })
-      });
+      let res = null;
+      for (const model of await getGeminiModels(apiKey)) {
+        res = await fetch(`${GEMINI_API}/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify({
+            contents,
+            generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
+          })
+        });
+        if (res.ok) break;
+        if (res.status === 404) forgetGeminiModels();
+        else break; // only a missing model is worth trying the next one
+      }
       
-      if (!res.ok) {
-        throw new Error(`API error: ${res.status}`);
+      if (!res || !res.ok) {
+        throw new Error(`API error: ${res ? res.status : 'no model'}`);
       }
       
       const resData = await res.json();
@@ -2527,26 +3218,34 @@ async function sendUserMessage(text) {
 }
 
 function buildAiPromptContext() {
-  const zodiacSource = document.getElementById('zodiacInfo')?.innerText || 'Chưa có thông tin';
-  const astroDateTitle = document.getElementById('astroDateTitle')?.textContent || 'Bính Tý';
-  const nhPill = document.getElementById('nhPill')?.textContent || 'Mộc';
-  const tuviInfoText = document.getElementById('tuviInfo')?.innerText || 'Chưa có thông tin';
-  
-  const taskSummary = tasks.map((t, idx) => `- [${t.done ? 'x' : ' '}] ${t.text} (${t.category || 'Chung'})`).join('\n');
-  
-  return `Bạn là một Đại Sư Tử Vi Đông Phương hiền triết, có kiến thức thâm sâu về Tử Vi Đẩu Số, Bát Tự, và Phong Thủy. 
-Thông tin ngày hôm nay: ngày Can Chi là ${astroDateTitle} (Ngũ hành ngày: ${nhPill}).
-Thông tin bản mệnh Tử Vi của gia chủ:
+  const hasChart = !!document.getElementById('zodiacInfo')?.innerHTML.trim();
+  const intentionEl = document.getElementById('journalTodayEntry');
+  const intention = intentionEl && intentionEl.style.display !== 'none' ? intentionEl.textContent.replace(/[“”]/g, '') : '';
+  const taskSummary = tasks.map(t => `- [${t.done ? 'x' : ' '}] ${t.text} (${t.category || 'Chung'})`).join('\n');
+
+  let astro = '';
+  if (hasChart) {
+    const zodiacSource = document.getElementById('zodiacInfo')?.innerText || '';
+    const astroDateTitle = document.getElementById('astroDateTitle')?.textContent || '';
+    const nhPill = document.getElementById('nhPill')?.textContent || '';
+    const tuviInfoText = document.getElementById('tuviInfo')?.innerText || '';
+    astro = `
+Người dùng có quan tâm Tử Vi. Hôm nay là ngày ${astroDateTitle} (${nhPill}).
 - Con giáp & Tây Phương: ${zodiacSource}
 - Lá số Tử Vi & Mệnh Cục: ${tuviInfoText}
+Chỉ đưa góc nhìn Tử Vi khi người dùng hỏi hoặc khi nó thực sự giúp ích, và giữ ngắn gọn.`;
+  }
 
-Danh sách công việc cần làm hôm nay của gia chủ:
+  return `Bạn là AI Mentor trong ZenTab, một người cố vấn năng suất điềm tĩnh và thực tế.
+Việc của bạn: giúp người dùng chọn việc quan trọng, chia nhỏ việc khó, lập kế hoạch theo phiên Pomodoro ${timerDurations.pomodoro} phút, vượt trì hoãn và giữ tâm bình an.
+
+Ý định hôm nay của người dùng: ${intention || 'chưa đặt'}
+Danh sách công việc:
 ${taskSummary || 'Chưa có công việc nào.'}
-
-Hãy phân tích cát hung ngày hôm nay, sự hợp kỵ giữa ngày hiện tại với bản mệnh của gia chủ. Hãy tư vấn bằng giọng văn thông thái, hiền triết, thấu cảm, đậm chất chiêm tinh cổ truyền nhưng vẫn thiết thực để gia chủ lập kế hoạch công việc tối ưu, vượt qua trì hoãn, chọn giờ hoàng đạo tốt và duy trì tĩnh tâm.
-Xưng hô là "Ta" hoặc "AI Mentor" và gọi người dùng là "Gia chủ" hoặc "Bạn".
-Trả lời bằng tiếng Việt, ngắn gọn dưới 300 từ, định dạng có phân dòng/đoạn rõ ràng.`;
+${astro}
+Xưng "mình", gọi người dùng là "bạn". Trả lời bằng tiếng Việt, dưới 250 từ, dùng gạch đầu dòng khi liệt kê, kết thúc bằng một bước cụ thể có thể làm ngay.`;
 }
+
 function saveChatBubble(role, text) {
   chrome.storage.local.get('aiChatHistory', (data) => {
     const history = data.aiChatHistory || [];
@@ -2558,64 +3257,118 @@ function saveChatBubble(role, text) {
 
 // ---------------- VIEW 5: STATS CONTROLLER ----------------
 function initStatsView() {
-  const totalTasksEl = document.getElementById('statsTotalTasks');
-  const completedTasksEl = document.getElementById('statsCompletedTasks');
-  const pendingTasksEl = document.getElementById('statsPendingTasks');
-  const taskPercentEl = document.getElementById('statsTaskPercent');
-  const taskRingEl = document.getElementById('statsTaskRing');
-  
-  const totalCount = tasks.length;
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const today = new Date();
+  const todayStr = getDateStr(today);
+
+  // Tasks
   const completedCount = tasks.filter(t => t.done).length;
-  const pendingCount = totalCount - completedCount;
-  const taskPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-  
-  if (totalTasksEl) totalTasksEl.textContent = totalCount;
-  if (completedTasksEl) completedTasksEl.textContent = completedCount;
-  if (pendingTasksEl) pendingTasksEl.textContent = pendingCount;
-  if (taskPercentEl) taskPercentEl.textContent = `${taskPercent}%`;
-  
-  if (taskRingEl) {
-    const circumference = 138.2;
-    const offset = circumference * (1 - (taskPercent / 100));
-    taskRingEl.style.strokeDashoffset = offset;
-  }
-  
-  // Render Habits Analytics list
-  const habitsListEl = document.getElementById('statsHabitsList');
-  const todayStr = getDateStr(new Date());
-  
-  chrome.storage.sync.get('habits', (data) => {
-    let currentHabits = data.habits || [
-      { text: 'Thiền định (10 phút)', done: false, date: todayStr },
-      { text: 'Uống đủ nước', done: false, date: todayStr },
-      { text: 'Đọc sách (30 phút)', done: false, date: todayStr }
-    ];
-    
-    if (habitsListEl) {
-      if (currentHabits.length === 0) {
-        habitsListEl.innerHTML = '<div style="color:var(--text-muted);font-style:italic;font-size:12px;padding:20px 0;">Chưa thiết lập thói quen.</div>';
-      } else {
-        habitsListEl.innerHTML = currentHabits.map(h => `
-          <div class="habits-analytics-item">
-            <div style="display:flex;justify-content:space-between;font-size:12px">
-              <span style="color:var(--text-dim);font-weight:300">${escapeHtml(h.text)}</span>
-              <span style="color:${h.done ? '#34d399' : 'var(--text-muted)'};font-weight:500">${h.done ? 'Đã hoàn thành' : 'Chưa làm'}</span>
-            </div>
-            <div class="habit-bar-visual" style="margin-top:2px">
-              <div class="habit-bar-fill" style="width:${h.done ? '100%' : '0%'};background:${h.done ? 'linear-gradient(90deg, #a78bfa 0%, #ec4899 100%)' : 'rgba(255,255,255,0.06)'}"></div>
-            </div>
-          </div>
-        `).join('');
-      }
+  setText('statsTasksDone', completedCount);
+  setText('statsTasksTotal', ` / ${tasks.length}`);
+  setText('statsTasksSub', tasks.length === 0 ? 'Chưa có nhiệm vụ'
+    : completedCount === tasks.length ? 'Xong hết rồi, tuyệt!' : `Còn ${tasks.length - completedCount} việc`);
+
+  // Focus: today, streak, last 7 days
+  getFocusHistory((history) => {
+    const minutesOn = (d) => (history[getDateStr(d)] || {}).minutes || 0;
+    const t = history[todayStr] || { sessions: 0, minutes: 0 };
+    setText('statsFocusToday', t.minutes);
+    chrome.storage.local.get('relaxStats', ({ relaxStats }) => {
+      const relaxed = relaxStats && relaxStats.date === todayStr ? relaxStats.count : 0;
+      setText('statsFocusSessions', (t.sessions ? `${t.sessions} phiên Pomodoro` : 'Chưa có phiên nào') +
+        (relaxed ? ` · ${relaxed} lần nghỉ thư giãn` : ''));
+    });
+
+    // A streak survives until the end of today, so start counting from yesterday if today is still empty
+    let streak = 0;
+    const d = new Date(today);
+    if (!minutesOn(d)) d.setDate(d.getDate() - 1);
+    while (minutesOn(d) > 0) { streak++; d.setDate(d.getDate() - 1); }
+    setText('statsStreak', streak);
+    setText('statsStreakSub', streak === 0 ? 'Hoàn thành 1 phiên để bắt đầu chuỗi'
+      : t.minutes ? 'Giữ vững nhé!' : 'Tập trung hôm nay để giữ chuỗi');
+
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const day = new Date(today); day.setDate(day.getDate() - i);
+      days.push({ date: day, minutes: minutesOn(day), isToday: i === 0 });
     }
-    
-    // Update stats metrics highlights
-    const statsTasksDoneCount = document.getElementById('statsTasksDoneCount');
-    const statsActiveHabitsCount = document.getElementById('statsActiveHabitsCount');
-    if (statsTasksDoneCount) statsTasksDoneCount.textContent = completedCount;
-    if (statsActiveHabitsCount) statsActiveHabitsCount.textContent = currentHabits.filter(h => h.done).length;
+    const weekTotal = days.reduce((sum, x) => sum + x.minutes, 0);
+    setText('statsWeekTotal', weekTotal ? `Tổng ${weekTotal} phút` : '');
+    renderWeekChart(days);
+  });
+
+  // Daily intentions: how many were honored (answered "Rồi")
+  chrome.storage.sync.get('journal', (data) => {
+    const el = document.getElementById('statsIntentions');
+    if (!el) return;
+    const answered = (data.journal || []).filter(e => e.honored === true || e.honored === false);
+    if (answered.length === 0) {
+      el.innerHTML = '<p class="stats-empty">Đặt ý định ở Trang chủ mỗi sáng. Hôm sau ZenTab sẽ hỏi bạn đã làm được chưa.</p>';
+      return;
+    }
+    const kept = answered.filter(e => e.honored).length;
+    const pct = Math.round(kept / answered.length * 100);
+    const recent = answered.slice(0, 7).map(e => `
+      <li class="intent-row">
+        <span class="intent-mark ${e.honored ? 'kept' : ''}" aria-label="${e.honored ? 'Đã làm được' : 'Chưa làm được'}">${e.honored ? '✓' : '–'}</span>
+        <span class="intent-text">${escapeHtml(e.entry)}</span>
+        <span class="intent-date">${e.date.slice(8)}/${e.date.slice(5, 7)}</span>
+      </li>`).join('');
+    el.innerHTML = `
+      <div class="intent-summary"><strong>${kept}/${answered.length}</strong> ý định đã làm được <span>(${pct}%)</span></div>
+      <ul class="intent-list">${recent}</ul>`;
+  });
+
+  // Habits today
+  const habitsListEl = document.getElementById('statsHabitsList');
+  chrome.storage.sync.get('habits', (data) => {
+    const currentHabits = data.habits || defaultHabits(todayStr);
+    if (!habitsListEl) return;
+    if (currentHabits.length === 0) {
+      habitsListEl.innerHTML = '<p class="stats-empty">Chưa có thói quen. Thêm trong Tập trung &amp; Tiện ích → Thói quen.</p>';
+      return;
+    }
+    const done = currentHabits.filter(h => h.done && h.date === todayStr).length;
+    habitsListEl.innerHTML = `<div class="intent-summary"><strong>${done}/${currentHabits.length}</strong> thói quen hôm nay</div>` +
+      currentHabits.map(h => {
+        const isDone = h.done && h.date === todayStr;
+        return `<div class="intent-row">
+          <span class="intent-mark ${isDone ? 'kept' : ''}" aria-label="${isDone ? 'Đã làm' : 'Chưa làm'}">${isDone ? '✓' : ''}</span>
+          <span class="intent-text">${escapeHtml(h.text)}</span>
+        </div>`;
+      }).join('');
   });
 }
+
+// Single-series bar chart: one accent hue, today labelled directly, every bar has a tooltip
+function renderWeekChart(days) {
+  const chart = document.getElementById('statsWeekChart');
+  if (!chart) return;
+  const weekday = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  const max = Math.max(25, ...days.map(d => d.minutes));
+  chart.setAttribute('aria-label', 'Phút tập trung 7 ngày qua: ' +
+    days.map(d => `${weekday[d.date.getDay()]} ${d.minutes} phút`).join(', '));
+  // Nothing yet: faint placeholder bars behind an invitation, rather than a blank card
+  const empty = days.every(d => !d.minutes);
+  const ghost = [16, 28, 20, 36, 24, 32, 18];
+  chart.classList.toggle('is-empty', empty);
+  const emptyEl = document.getElementById('statsWeekEmpty');
+  if (emptyEl) emptyEl.hidden = !empty;
+  chart.innerHTML = days.map((d, i) => {
+    const label = `${weekday[d.date.getDay()]} ${d.date.getDate()}/${d.date.getMonth() + 1}`;
+    const h = empty ? ghost[i] : d.minutes ? Math.max(4, d.minutes / max * 100) : 0;
+    return `<div class="week-col ${d.isToday ? 'today' : ''}" tabindex="0" data-tip="${label}: ${d.minutes} phút">
+      <div class="week-bar-wrap">
+        ${d.isToday && d.minutes ? `<span class="week-value">${d.minutes}</span>` : ''}
+        <div class="week-bar" style="height:${h}%"></div>
+      </div>
+      <span class="week-day">${d.isToday ? 'Hôm nay' : weekday[d.date.getDay()]}</span>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('statsWeekStart')?.addEventListener('click', () => switchTab('focus'));
 
 function getRecentChatHistory() {
   return new Promise((resolve) => {
@@ -2659,14 +3412,16 @@ function initAmbientSoundSelector() {
   selectEl.addEventListener('change', () => {
     const val = selectEl.value;
 
-    if (val === 'custom') {
+    if (val === 'music') {
+      ambientPlayer.setKind('music');
+    } else if (val === 'custom') {
       chrome.storage.sync.get('customAudioUrl', (data) => {
         const customUrl = data.customAudioUrl;
         if (customUrl && customUrl.trim() !== '') {
           if (relaxingAudio.src !== customUrl) relaxingAudio.src = customUrl;
           ambientPlayer.setKind('custom');
         } else {
-          alert('Vui lòng cấu hình URL nhạc nền cá nhân trong phần Cài đặt trước.');
+          zenToast('Chưa có link nhạc cá nhân', { actionLabel: 'Mở Cài đặt', onAction: () => openSettingsAt('customAudioUrl') });
           selectEl.value = ambientPlayer.kind === 'custom' ? 'forest' : ambientPlayer.kind;
         }
       });
@@ -2678,27 +3433,56 @@ function initAmbientSoundSelector() {
 
 initAmbientSoundSelector();
 
+// ---- Settings → Âm thanh → "Nhạc nền ZenTab" ----
+// On: the track joins the dock player and the Focus sound picker, and starts now (the
+// switch is the user's gesture). Off: it stops and leaves both. It never autoplays on a
+// new tab — tabs open all day.
+(function initBundledMusic() {
+  const sw = document.getElementById('musicEnabled');
+  const selectEl = document.getElementById('ambientSoundSelect');
+  const opt = document.getElementById('musicOpt');
+  const pill = document.querySelector('#focusSounds [data-sound="music"]');
+  if (!sw || !selectEl || !opt) return;
+  const show = on => { opt.hidden = !on; opt.disabled = !on; if (pill) pill.hidden = !on; };
+  chrome.storage.sync.get('musicEnabled', ({ musicEnabled }) => { sw.checked = !!musicEnabled; show(!!musicEnabled); });
+  sw.addEventListener('change', () => {
+    const on = sw.checked;
+    chrome.storage.sync.set({ musicEnabled: on });
+    show(on);
+    if (on) {
+      selectEl.value = 'music';
+      selectEl.dispatchEvent(new Event('change'));
+      if (!ambientPlayer.isPlaying()) playBtn.click();
+    } else if (ambientPlayer.kind === 'music') {
+      if (ambientPlayer.isPlaying()) playBtn.click();
+      selectEl.value = 'forest';
+      selectEl.dispatchEvent(new Event('change'));
+    }
+  });
+})();
+
 // ---------------- VIEW 3 ADD-ON: MINDMAP CANVAS CONTROLLER ----------------
 
 // Reusable Gemini helper for Mindmap (reuses the key stored in Settings)
-function callMindmapGemini(prompt, temperature) {
+// Shared Gemini caller (mind map, chart reading): retries on 429/503, falls back across models
+function callGemini(prompt, temperature, maxTokens) {
   return new Promise((resolve) => {
     chrome.storage.sync.get('geminiKey', async (data) => {
       const apiKey = data.geminiKey;
       if (!apiKey) { resolve({ error: 'no-key' }); return; }
-      const models = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+      const models = await getGeminiModels(apiKey);
       const delays = [5000, 15000, 30000];
       let result = null;
       let errorMsg = null;
       for (const model of models) {
         for (let i = 0; i < 3; i++) {
           try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`, {
+            const res = await fetch(`${GEMINI_API}/models/${model}:generateContent`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
               body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { temperature: temperature || 0.7, maxOutputTokens: 4096 }
+                generationConfig: { temperature: temperature || 0.7, maxOutputTokens: maxTokens || 4096 }
               })
             });
             const body = await res.text();
@@ -2706,7 +3490,11 @@ function callMindmapGemini(prompt, temperature) {
               if (i < 2) await new Promise(r => setTimeout(r, delays[i]));
               continue;
             }
-            if (!res.ok) { errorMsg = `${res.status}: ${body.slice(0, 200)}`; break; }
+            if (!res.ok) {
+              errorMsg = `${res.status}: ${body.slice(0, 200)}`;
+              if (res.status === 404) forgetGeminiModels();
+              break;
+            }
             const parsed = JSON.parse(body);
             result = parsed?.candidates?.[0]?.content?.parts?.[0]?.text || null;
             if (result) break;
@@ -2757,7 +3545,7 @@ function openMindmap(idx) {
   activeIdeaIndex = idx;
   if (!mindmapModal || !mindmapViewport) return;
   
-  chrome.storage.sync.get('quickIdeas', (data) => {
+  getIdeasWith([], (data) => {
     const ideas = data.quickIdeas || [];
     const currentIdea = ideas[activeIdeaIndex];
     if (!currentIdea) return;
@@ -3073,11 +3861,11 @@ function autoLayoutMindmap() {
 }
 
 function updateIdeaMainText(newText) {
-  chrome.storage.sync.get('quickIdeas', (data) => {
+  getIdeasWith([], (data) => {
     const ideas = data.quickIdeas || [];
     if (ideas[activeIdeaIndex]) {
       ideas[activeIdeaIndex].text = newText;
-      chrome.storage.sync.set({ quickIdeas: ideas });
+      chrome.storage.local.set({ quickIdeas: ideas });
       
       const listEl = document.getElementById('ideaList');
       if (listEl) {
@@ -3091,11 +3879,11 @@ function updateIdeaMainText(newText) {
 }
 
 function saveMindmapState() {
-  chrome.storage.sync.get('quickIdeas', (data) => {
+  getIdeasWith([], (data) => {
     const ideas = data.quickIdeas || [];
     if (ideas[activeIdeaIndex]) {
       ideas[activeIdeaIndex].nodes = mindmapNodesList;
-      chrome.storage.sync.set({ quickIdeas: ideas });
+      chrome.storage.local.set({ quickIdeas: ideas });
     }
   });
 }
@@ -3294,7 +4082,7 @@ async function expandNodeScamper(nodeId) {
 SCAMPER = Substitute, Combine, Adapt, Modify, Put to other use, Eliminate, Reverse.
 
 Trả về đúng 7 dòng, mỗi dòng bắt đầu bằng tên chữ cái viết hoa (S, C, A, M, P, E, R), dấu hai chấm, rồi MỘT ý tưởng con cụ thể bằng tiếng Việt, ngắn gọn dưới 15 từ. Không giải thích, không đề mục khác.`;
-  const res = await callMindmapGemini(prompt, 0.8);
+  const res = await callGemini(prompt, 0.8);
   if (res.error) { mindmapAiStatus(res.error === 'no-key' ? '⚠ Chưa có Gemini Key (Cài đặt)' : '⚠ Lỗi: ' + res.error, true); return; }
   const lines = res.text.split('\n').map(l => l.trim()).filter(Boolean);
   pushUndo();
@@ -3335,7 +4123,7 @@ Trả về đúng 6 dòng, mỗi dòng bắt đầu bằng một trong: TRẮNG:
 - XANH LÁ: hướng sáng tạo, cải tiến
 - XANH DƯƠNG: kết luận và bước hành động tiếp theo
 Không thêm dòng khác.`;
-  const res = await callMindmapGemini(prompt, 0.6);
+  const res = await callGemini(prompt, 0.6);
   if (res.error) { mindmapAiStatus(res.error === 'no-key' ? '⚠ Chưa có Gemini Key (Cài đặt)' : '⚠ Lỗi: ' + res.error, true); return; }
   const lines = res.text.split('\n').map(l => l.trim()).filter(Boolean);
   pushUndo();
@@ -3597,13 +4385,49 @@ window.addEventListener('keydown', (e) => {
 
   if (!toggleLeftBtn || !leftDrawer) return;
 
-  // Load saved state on start
-  chrome.storage.local.get(['zenActive', 'leftDrawerActive', 'rightDrawerActive', 'tasksDrawerActive'], (data) => {
-    if (data.zenActive) {
+  // Zen chrome (header + dock) fades out after the mouse rests, and comes back on movement
+  const ZEN_IDLE_MS = 2500;
+  let zenIdleTimer;
+  function markZenIdle() {
+    clearTimeout(zenIdleTimer);
+    appLayout.classList.add('zen-idle');
+  }
+  function wakeZenChrome() {
+    appLayout.classList.remove('zen-idle');
+    clearTimeout(zenIdleTimer);
+    if (appLayout.classList.contains('zen-active')) zenIdleTimer = setTimeout(markZenIdle, ZEN_IDLE_MS);
+  }
+  document.addEventListener('mousemove', wakeZenChrome, { passive: true });
+
+  // One-time hint so first-time users know the tools are still there
+  function showZenHint() {
+    const hint = document.getElementById('zenHint');
+    if (!hint) return;
+    hint.hidden = false;
+    toggleZenBtn.classList.add('is-hinted');
+    requestAnimationFrame(() => hint.classList.add('visible'));
+    const dismiss = () => {
+      hint.classList.remove('visible');
+      toggleZenBtn.classList.remove('is-hinted');
+      setTimeout(() => { hint.hidden = true; }, 400);
+      chrome.storage.local.set({ zenHintSeen: true });
+    };
+    setTimeout(dismiss, 9000);
+    toggleZenBtn.addEventListener('click', dismiss, { once: true });
+  }
+
+  // Load saved state on start. New users (no saved choice) start in Zen.
+  chrome.storage.local.get(['zenActive', 'zenHintSeen', 'leftDrawerActive', 'rightDrawerActive', 'tasksDrawerActive'], (data) => {
+    if (data.zenActive ?? true) {
       appLayout.classList.add('zen-active');
       toggleZenBtn.classList.add('active');
+      toggleZenBtn.setAttribute('aria-pressed', 'true');
+      // First visit: the tools stay on screen with the hint, then fade like any other day
+      if (!data.zenHintSeen) { showZenHint(); zenIdleTimer = setTimeout(markZenIdle, 9000); }
+      else markZenIdle();
     } else {
-      if (data.leftDrawerActive) {
+      const roomForTwo = window.innerWidth >= 1440;
+      if (data.leftDrawerActive && (roomForTwo || !(data.rightDrawerActive || data.tasksDrawerActive))) {
         leftDrawer.classList.add('active');
         toggleLeftBtn.classList.add('active');
       }
@@ -3623,27 +4447,31 @@ window.addEventListener('keydown', (e) => {
   function toggleDrawer(drawer, button, storageKey) {
     // If Zen mode is active, turn it off first when opening a drawer
     if (appLayout.classList.contains('zen-active')) {
-      appLayout.classList.remove('zen-active');
+      appLayout.classList.remove('zen-active', 'zen-idle');
       toggleZenBtn.classList.remove('active');
+      toggleZenBtn.setAttribute('aria-pressed', 'false');
       chrome.storage.local.set({ zenActive: false });
     }
 
     const isActive = drawer.classList.toggle('active');
     button.classList.toggle('active', isActive);
 
-    // Right and tasks drawers occupy the same edge: opening one closes the other
-    if (isActive && (drawer === rightDrawer || drawer === tasksDrawer)) {
-      const other = drawer === rightDrawer ? tasksDrawer : rightDrawer;
-      const otherBtn = drawer === rightDrawer ? toggleTasksBtn : toggleRightBtn;
-      if (other.classList.contains('active')) {
+    // Right and tasks drawers share the right edge, so they never coexist. On narrower
+    // screens any two drawers would cover the clock and intention: keep just one open.
+    if (isActive) {
+      const all = [[leftDrawer, toggleLeftBtn, 'leftDrawerActive'], [rightDrawer, toggleRightBtn, 'rightDrawerActive'], [tasksDrawer, toggleTasksBtn, 'tasksDrawerActive']];
+      const sameEdge = d => (drawer === rightDrawer || drawer === tasksDrawer) && (d === rightDrawer || d === tasksDrawer);
+      all.forEach(([other, otherBtn, key]) => {
+        if (other === drawer || !other.classList.contains('active')) return;
+        if (!sameEdge(other) && window.innerWidth >= 1440) return;
         other.classList.remove('active');
         otherBtn.classList.remove('active');
         if (other === rightDrawer) {
           const qp = document.getElementById('quickToolPanel');
           if (qp) qp.style.display = 'none';
         }
-        chrome.storage.local.set({ [other === rightDrawer ? 'rightDrawerActive' : 'tasksDrawerActive']: false });
-      }
+        chrome.storage.local.set({ [key]: false });
+      });
     }
     
     // Close quickToolPanel if closing the right drawer
@@ -3695,7 +4523,9 @@ window.addEventListener('keydown', (e) => {
   toggleZenBtn.addEventListener('click', () => {
     const isZen = appLayout.classList.toggle('zen-active');
     toggleZenBtn.classList.toggle('active', isZen);
+    toggleZenBtn.setAttribute('aria-pressed', String(isZen));
     chrome.storage.local.set({ zenActive: isZen });
+    wakeZenChrome();
 
     if (isZen) {
       // Close all drawers
@@ -3721,6 +4551,9 @@ window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if ([...document.querySelectorAll('.modal-overlay')].some(m => m.style.display !== 'none')) return;
     if (e.target.matches('input, textarea, select')) { e.target.blur(); return; }
+    // An open quick tool steps back to the drawer first
+    const openTool = document.getElementById('quickToolPanel');
+    if (openTool && openTool.style.display !== 'none') { document.getElementById('closeQuickToolBtn')?.click(); return; }
     [[leftDrawer, toggleLeftBtn, 'leftDrawerActive'], [rightDrawer, toggleRightBtn, 'rightDrawerActive'], [tasksDrawer, toggleTasksBtn, 'tasksDrawerActive']]
       .forEach(([drawer, btn, key]) => {
         if (!drawer.classList.contains('active')) return;
@@ -3772,10 +4605,10 @@ window.addEventListener('keydown', (e) => {
       chrome.storage.local.get(['customOfflineBg', 'customBgBlur'], (data) => {
         if (data.customOfflineBg) {
           bgFileResetBtn.style.display = 'block';
-          bgFileName.textContent = 'Đang dùng ảnh nền cá nhân';
+          bgFileName.textContent = '';
         } else {
           bgFileResetBtn.style.display = 'none';
-          bgFileName.textContent = 'Chưa chọn ảnh';
+          bgFileName.textContent = '';
         }
         
         const blurVal = (data.customBgBlur !== undefined) ? data.customBgBlur : 2;
@@ -3803,7 +4636,7 @@ window.addEventListener('keydown', (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    bgFileName.textContent = 'Đang xử lý ảnh...';
+    bgFileName.textContent = 'Đang xử lý ảnh…';
 
     const reader = new FileReader();
     reader.onload = function(event) {
@@ -3837,27 +4670,27 @@ window.addEventListener('keydown', (e) => {
           
           chrome.storage.local.set({ customOfflineBg: compressedDataUrl }, () => {
             document.body.style.backgroundImage = `url(${compressedDataUrl})`;
-            if (window.ZenAppearance) ZenAppearance.setCustomActive(true);
+            if (window.ZenAppearance) ZenAppearance.setCustomActive(true, compressedDataUrl);
             syncAppearanceUI();
-            bgFileName.textContent = file.name;
+            bgFileName.textContent = '';
             bgFileResetBtn.style.display = 'block';
             bgFileInput.value = ''; // Reset file input
           });
         } catch (err) {
           console.error('Lỗi khi nén ảnh nền:', err);
-          bgFileName.textContent = 'Lỗi nén ảnh';
+          bgFileName.textContent = 'Không dùng được ảnh này, hãy thử ảnh khác.';
         }
       };
       
       img.onerror = function() {
-        bgFileName.textContent = 'Lỗi đọc tệp ảnh';
+        bgFileName.textContent = 'Không đọc được ảnh này, hãy thử ảnh khác.';
       };
       
       img.src = event.target.result;
     };
     
     reader.onerror = function() {
-      bgFileName.textContent = 'Lỗi đọc tệp';
+      bgFileName.textContent = 'Không đọc được tệp, hãy thử lại.';
     };
     
     reader.readAsDataURL(file);
@@ -3871,7 +4704,7 @@ window.addEventListener('keydown', (e) => {
       document.body.style.backgroundImage = '';
       if (window.ZenAppearance) ZenAppearance.setCustomActive(false);
       syncAppearanceUI();
-      bgFileName.textContent = 'Chưa chọn ảnh';
+      bgFileName.textContent = '';
       bgFileResetBtn.style.display = 'none';
       bgFileInput.value = '';
     });
@@ -4023,28 +4856,35 @@ function initWeather(forceRefresh = false) {
             setWeatherError('Lỗi kết nối định vị');
           });
       } else {
-        // Auto Geolocation
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            fetchWeatherFromApi(pos.coords.latitude, pos.coords.longitude, 'Vị trí của bạn', '');
-          },
-          () => {
-            // Fallback to IP Geolocation
-            fetchIpLocation();
-          },
-          { timeout: 4000 }
-        );
+        // No city set: guess it from the IP. (navigator.geolocation needs the "geolocation"
+        // permission in an extension, and its install warning isn't worth it for weather.)
+        fetchIpLocation();
       }
     });
   });
 }
 
+// The guessed city rarely changes, and ipapi.co's free tier rate-limits (HTTP 429):
+// keep the guess for a day instead of asking on every weather refresh
+const IP_LOCATION_TTL = 24 * 60 * 60 * 1000;
 function fetchIpLocation() {
+  chrome.storage.local.get('ipLocation', ({ ipLocation }) => {
+    if (ipLocation && Date.now() - ipLocation.timestamp < IP_LOCATION_TTL) {
+      fetchWeatherFromApi(ipLocation.latitude, ipLocation.longitude, ipLocation.city, '');
+      return;
+    }
+    requestIpLocation();
+  });
+}
+
+function requestIpLocation() {
   fetch('https://ipapi.co/json/')
-    .then(res => res.json())
+    .then(res => res.ok ? res.json() : {})
     .then(data => {
       if (data.latitude && data.longitude) {
-        fetchWeatherFromApi(data.latitude, data.longitude, data.city || 'Vị trí của bạn', '');
+        const city = data.city || 'Vị trí của bạn';
+        chrome.storage.local.set({ ipLocation: { latitude: data.latitude, longitude: data.longitude, city, timestamp: Date.now() } });
+        fetchWeatherFromApi(data.latitude, data.longitude, city, '');
       } else {
         // Hard fallback to Hanoi
         fetchWeatherFromApi(21.0285, 105.8542, 'Hà Nội', '');
@@ -4126,6 +4966,12 @@ function renderWeather(cache) {
   const info = getWeatherZenInfo(cache.weatherCode);
 
   // Update minimal view
+  const widget = document.getElementById('weatherWidget');
+  if (widget) {
+    widget.classList.remove('is-error');
+    widget.title = 'Xem chi tiết thời tiết';
+    widget.removeAttribute('aria-label');
+  }
   if (tempDisplay) tempDisplay.textContent = `${cache.cityName}, ${cache.temp}°C`;
   if (descDisplay) descDisplay.textContent = `· ${info.desc}`;
   if (iconEmoji) iconEmoji.textContent = info.emoji;
@@ -4152,10 +4998,18 @@ function renderWeather(cache) {
 }
 
 function setWeatherError(msg) {
+  const widget = document.getElementById('weatherWidget');
   const tempDisplay = document.getElementById('weatherTempDisplay');
   const descDisplay = document.getElementById('weatherDescDisplay');
-  if (tempDisplay) tempDisplay.textContent = msg;
+  const iconEmoji = document.getElementById('weatherIconEmoji');
+  if (tempDisplay) tempDisplay.textContent = '';
   if (descDisplay) descDisplay.textContent = '';
+  if (iconEmoji) iconEmoji.textContent = '🌫️';
+  if (widget) {
+    widget.classList.add('is-error');
+    widget.title = `${msg}. Kiểm tra mạng hoặc "Địa phương" trong Cài đặt.`;
+    widget.setAttribute('aria-label', msg);
+  }
 }
 
 // Initialise Weather
@@ -4187,10 +5041,21 @@ function syncAppearanceUI() {
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-checked', on);
   });
-  document.querySelectorAll('.wallpaper-tile').forEach(tile => {
+  document.querySelectorAll('.wallpaper-tile[data-wallpaper]').forEach(tile => {
     const on = tile.dataset.wallpaper === wallpaper;
     tile.classList.toggle('active', on);
     tile.setAttribute('aria-checked', on);
+  });
+  // The last tile is the user's own photo: a "+" until there is one, then its thumbnail
+  const customTile = document.getElementById('bgFileSelectBtn');
+  const swatch = document.getElementById('wallpaperCustomSwatch');
+  if (!customTile || !swatch) return;
+  customTile.classList.toggle('active', customActive);
+  customTile.setAttribute('aria-checked', customActive);
+  customTile.classList.toggle('has-photo', customActive);
+  if (!customActive) { swatch.style.backgroundImage = ''; return; }
+  chrome.storage.local.get('customOfflineBg', ({ customOfflineBg }) => {
+    if (customOfflineBg && document.documentElement.hasAttribute('data-custom-bg')) swatch.style.backgroundImage = `url(${customOfflineBg})`;
   });
 }
 
@@ -4204,7 +5069,7 @@ function syncAppearanceUI() {
     });
   });
 
-  document.querySelectorAll('.wallpaper-tile').forEach(tile => {
+  document.querySelectorAll('.wallpaper-tile[data-wallpaper]').forEach(tile => {
     tile.addEventListener('click', () => {
       ZenAppearance.setWallpaper(tile.dataset.wallpaper);
       // Picking a preset replaces an uploaded photo
@@ -4214,7 +5079,7 @@ function syncAppearanceUI() {
           const resetBtn = document.getElementById('bgFileResetBtn');
           const fileName = document.getElementById('bgFileName');
           if (resetBtn) resetBtn.style.display = 'none';
-          if (fileName) fileName.textContent = 'Chưa chọn ảnh';
+          if (fileName) fileName.textContent = '';
         }
       });
       document.body.style.backgroundImage = '';
@@ -4256,6 +5121,8 @@ function syncFocusModes() {
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-checked', on);
   });
+  // Relaxation is offered only on breaks
+  window.ZenRelax?.syncInvite();
 }
 
 function setTimerMode(mode) {
@@ -4294,17 +5161,43 @@ function renderFocusSessions() {
   });
 }
 
+// Per-day focus totals, kept for 120 days: { 'YYYY-MM-DD': { sessions, minutes } }
+const FOCUS_HISTORY_DAYS = 120;
+function recordFocusHistory(date, stats) {
+  chrome.storage.local.get('focusHistory', ({ focusHistory }) => {
+    const history = focusHistory || {};
+    history[date] = { sessions: stats.sessions, minutes: stats.minutes };
+    const keep = Object.keys(history).sort().slice(-FOCUS_HISTORY_DAYS);
+    chrome.storage.local.set({ focusHistory: Object.fromEntries(keep.map(d => [d, history[d]])) });
+  });
+}
+
+function getFocusHistory(cb) {
+  chrome.storage.local.get(['focusHistory', 'focusStats'], ({ focusHistory, focusStats }) => {
+    const history = { ...(focusHistory || {}) };
+    // Sessions logged before history existed
+    if (focusStats && focusStats.sessions && !history[focusStats.date]) {
+      history[focusStats.date] = { sessions: focusStats.sessions, minutes: focusStats.minutes };
+    }
+    cb(history);
+  });
+}
+
 // Called when a countdown reaches zero: log focus time, then queue the next mode
 function onTimerComplete(finishedMode) {
   if (finishedMode !== 'pomodoro') {
+    window.ZenRelax?.onBreakEnd();
     setTimerMode('pomodoro');
     return;
   }
   getFocusStats((stats) => {
+    const minutes = Math.round(getModeDuration('pomodoro') / 60);
     stats.sessions += 1;
-    stats.minutes += Math.round(getModeDuration('pomodoro') / 60);
+    stats.minutes += minutes;
     chrome.storage.local.set({ focusStats: stats }, renderFocusSessions);
+    recordFocusHistory(stats.date, stats);
     setTimerMode(stats.sessions % FOCUS_CYCLE === 0 ? 'long' : 'short');
+    showChosenQuote({ justFocused: true });
   });
 }
 
@@ -4314,10 +5207,12 @@ function renderFocusIntention() {
   const input = document.getElementById('focusIntentionInput');
   if (!display || !input) return;
   chrome.storage.sync.get('journal', (data) => {
+   chrome.storage.local.get('focusTask', ({ focusTask }) => {
     const today = getDateStr(new Date());
     const entry = (data.journal || []).find(e => e.date === today);
-    if (entry && entry.entry) {
-      display.textContent = entry.entry;
+    const label = focusTask && focusTask.date === today ? focusTask.text : entry && entry.entry;
+    if (label) {
+      display.textContent = label;
       display.hidden = false;
       input.hidden = true;
     } else {
@@ -4325,7 +5220,35 @@ function renderFocusIntention() {
       input.hidden = false;
       input.value = '';
     }
+    renderFocusSuggestions(label, entry && entry.entry);
+   });
   });
+}
+
+// While the line is open: this morning's intention and up to three open tasks, one tap away
+function renderFocusSuggestions(current, intention) {
+  const box = document.getElementById('focusSuggest');
+  const input = document.getElementById('focusIntentionInput');
+  if (!box || !input) return;
+  const seen = new Set([current]);
+  const items = [];
+  if (intention && !seen.has(intention)) { items.push({ text: intention, intention: true }); seen.add(intention); }
+  (typeof tasks !== 'undefined' ? tasks : []).filter(t => !t.done && t.text && !seen.has(t.text)).slice(0, 3)
+    .forEach(t => { items.push({ text: t.text }); seen.add(t.text); });
+  box.replaceChildren(...items.map(item => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = item.intention ? `☀ ${item.text}` : item.text;
+    b.title = item.intention ? 'Ý định sáng nay' : 'Việc chưa xong';
+    b.addEventListener('pointerdown', e => e.preventDefault()); // keep the input's focus
+    b.addEventListener('click', () => {
+      // The intention is today's journal entry; a task labels the session without replacing it
+      if (item.intention) chrome.storage.local.remove('focusTask', renderFocusIntention);
+      else chrome.storage.local.set({ focusTask: { text: item.text, date: getDateStr(new Date()) } }, renderFocusIntention);
+    });
+    return b;
+  }));
+  box.hidden = input.hidden || !items.length;
 }
 
 (function initFocusIntention() {
@@ -4333,21 +5256,30 @@ function renderFocusIntention() {
   const input = document.getElementById('focusIntentionInput');
   if (!display || !input) return;
   display.addEventListener('click', () => {
-    input.value = display.textContent;
+    const current = display.textContent;
+    input.value = current;
     display.hidden = true;
     input.hidden = false;
     input.focus();
     input.select();
+    chrome.storage.sync.get('journal', ({ journal }) => {
+      const entry = (journal || []).find(e => e.date === getDateStr(new Date()));
+      renderFocusSuggestions(current, entry && entry.entry);
+    });
   });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && input.value.trim()) {
+      chrome.storage.local.remove('focusTask');
       saveJournalEntry(input.value);
       setTimeout(renderFocusIntention, 150);
     } else if (e.key === 'Escape') {
       renderFocusIntention();
     }
   });
-  input.addEventListener('blur', () => setTimeout(renderFocusIntention, 150));
+  input.addEventListener('blur', () => setTimeout(() => {
+    // tabbing onto a suggestion keeps the line open
+    if (!document.getElementById('focusSuggest')?.contains(document.activeElement)) renderFocusIntention();
+  }, 150));
 })();
 
 // ---- Ambient sound pills: drive the existing dock player so both stay in sync ----
@@ -4357,8 +5289,39 @@ function syncFocusSounds() {
     const on = btn.dataset.sound === active;
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-checked', on);
+    if (on) {
+      const label = document.getElementById('soundPickerLabel');
+      if (label) label.textContent = btn.textContent.trim();
+    }
   });
 }
+
+// Focus footer popovers (sound picker, keyboard shortcuts): one open at a time,
+// closed by a second click, a click outside or Esc
+(function initFocusPopovers() {
+  const pairs = [['soundPickerBtn', 'focusSounds'], ['kbdHelpBtn', 'focusKbdHint']]
+    .map(([b, p]) => [document.getElementById(b), document.getElementById(p)])
+    .filter(([b, p]) => b && p);
+  const closeAll = except => pairs.forEach(([b, p]) => {
+    if (p === except) return;
+    p.hidden = true;
+    b.setAttribute('aria-expanded', 'false');
+  });
+  pairs.forEach(([btn, pop]) => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const open = pop.hidden;
+      closeAll(pop);
+      pop.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+    });
+    pop.addEventListener('click', e => e.stopPropagation());
+  });
+  document.addEventListener('click', () => closeAll());
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
+  // Picking a sound closes the picker
+  document.querySelectorAll('#focusSounds [data-sound]').forEach(b => b.addEventListener('click', () => setTimeout(() => closeAll(), 150)));
+})();
 
 (function initFocusSounds() {
   const selectEl = document.getElementById('ambientSoundSelect');
