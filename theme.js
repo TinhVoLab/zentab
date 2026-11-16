@@ -20,6 +20,9 @@
     senngoc:  { name: 'Sen ngọc',   tone: 'dark' }
   };
 
+  // What a new tab shows until the user picks a wallpaper
+  const DEFAULT_WALLPAPER = 'senngoc';
+
   function read(key, fallback) {
     try { return localStorage.getItem(key) || fallback; } catch (e) { return fallback; }
   }
@@ -78,8 +81,9 @@
   }
 
   function applyWallpaper(id) {
-    const wp = WALLPAPERS[id] || WALLPAPERS.lotus;
-    root.dataset.wallpaper = WALLPAPERS[id] ? id : 'lotus';
+    if (!WALLPAPERS[id]) id = DEFAULT_WALLPAPER;
+    const wp = WALLPAPERS[id];
+    root.dataset.wallpaper = id;
     root.dataset.wpTone = wp.tone;
     root.style.removeProperty('--scrim-a');
     if (root.dataset.wallpaper === 'lotus') {
@@ -92,7 +96,7 @@
   }
 
   applyTheme(read('zt-theme', 'auto'));
-  applyWallpaper(read('zt-wallpaper', 'lotus'));
+  applyWallpaper(read('zt-wallpaper', DEFAULT_WALLPAPER));
   // An uploaded photo is applied later by script.js; use its last known reading meanwhile
   // so a bright photo doesn't flash white text first
   try { const custom = JSON.parse(read('zt-photo-custom', 'null')); if (custom) applyPhoto(custom); } catch (e) {}
@@ -100,13 +104,13 @@
   window.ZenAppearance = {
     WALLPAPERS,
     getTheme: () => read('zt-theme', 'auto'),
-    getWallpaper: () => read('zt-wallpaper', 'lotus'),
+    getWallpaper: () => read('zt-wallpaper', DEFAULT_WALLPAPER),
     setTheme(theme) { write('zt-theme', theme); applyTheme(theme); },
     setWallpaper(id) { write('zt-wallpaper', id); applyWallpaper(id); },
     // An uploaded photo: its own reading decides the text tone and shade strength
     setCustomActive(active, src) {
       root.toggleAttribute('data-custom-bg', !!active);
-      if (!active) { write('zt-photo-custom', ''); applyWallpaper(read('zt-wallpaper', 'lotus')); return; }
+      if (!active) { write('zt-photo-custom', ''); applyWallpaper(read('zt-wallpaper', DEFAULT_WALLPAPER)); return; }
       if (src) analyze(src).then(r => { write('zt-photo-custom', JSON.stringify(r)); if (root.hasAttribute('data-custom-bg')) applyPhoto(r); });
     }
   };
