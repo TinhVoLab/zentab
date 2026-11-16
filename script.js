@@ -1751,7 +1751,6 @@ ADVICE:`;
       for (const model of models) {
         for (let i = 0; i < 3; i++) {
           try {
-            console.log(`ZenTab: calling ${model} (attempt ${i+1})`);
             const res = await fetch(`${GEMINI_API}/models/${model}:generateContent`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
@@ -1774,10 +1773,7 @@ ADVICE:`;
             }
             const data = JSON.parse(body);
             result = data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
-            if (result) {
-              console.log(`ZenTab: ${model} success`);
-              break;
-            }
+            if (result) break;
           } catch (e) {
             console.warn(`ZenTab: ${model} error:`, e.message);
             if (i < 2) await new Promise(r => setTimeout(r, delays[i]));
