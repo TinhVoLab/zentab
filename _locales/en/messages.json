@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "ZenTab: Minimalist Focus",
+    "description": "Extension name shown in Chrome and the Web Store"
+  },
+  "extDescription": {
+    "message": "A calm new tab for deep focus: daily intention, Pomodoro timer, journal, tasks and a quiet corner to breathe. Vietnamese UI.",
+    "description": "Short description, max 132 characters"
+  }
+}

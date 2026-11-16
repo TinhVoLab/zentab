@@ -4,14 +4,16 @@ Gói tải lên: chạy `./scripts/package.sh` → `dist/zentab-1.3.0.zip`.
 
 ## Thông tin cửa hàng (Store listing)
 
-**Tên:** ZenTab: Minimalist Focus
+Tên và mô tả ngắn lấy từ `_locales/<lang>/messages.json` (tối đa 132 ký tự); `default_locale` là `en`, nên mọi ngôn ngữ khác ngoài tiếng Việt thấy bản tiếng Anh. Trên Dashboard, thêm hai ngôn ngữ cho listing: **Tiếng Việt** (bên dưới) và **English** (mục *English listing* ở cuối file).
 
-**Mô tả ngắn** (lấy từ `manifest.json`, tối đa 132 ký tự):
-Transform your new tab into a sanctuary of focus and productivity.
+**Tên (vi):** ZenTab: Tập trung tối giản
 
-**Danh mục:** Productivity (Năng suất) · **Ngôn ngữ:** Tiếng Việt
+**Mô tả ngắn (vi):**
+Biến tab mới thành góc tĩnh lặng: ý định mỗi ngày, Pomodoro, nhật ký, nhiệm vụ, góc thư giãn và lá số Tử Vi.
 
-**Mô tả chi tiết:**
+**Danh mục:** Productivity (Năng suất) · **Ngôn ngữ giao diện:** Tiếng Việt
+
+**Mô tả chi tiết (vi):**
 
 ```
 ZenTab biến tab mới thành một góc tĩnh lặng giúp bạn tập trung vào điều quan trọng nhất trong ngày.
@@ -77,4 +79,56 @@ Xác nhận cả ba cam kết: không bán dữ liệu cho bên thứ ba; không
 ```
 Không cần tài khoản. Mở một tab mới để thấy ZenTab.
 Tính năng AI là tuỳ chọn và dùng khoá Gemini API của chính người dùng (Cài đặt → AI Mentor); mọi tính năng khác hoạt động không cần khoá.
+```
+
+## English listing
+
+**Name:** ZenTab: Minimalist Focus
+
+**Short description:**
+A calm new tab for deep focus: daily intention, Pomodoro timer, journal, tasks and a quiet corner to breathe. Vietnamese UI.
+
+**Detailed description:**
+
+```
+ZenTab turns every new tab into a quiet place to focus on what matters most today.
+
+Note: the interface is in Vietnamese for now. An English interface is planned.
+
+☀ ONE INTENTION A DAY
+Each new tab asks one question: "What matters most today?" Write a single line (suggestions included), then start a focus session. A small row of shortcuts sits underneath.
+
+⏱ FOCUS (POMODORO)
+Choose your session length, short and long breaks, full screen, keyboard shortcuts, and a 7-day chart of focused minutes.
+
+📓 JOURNAL
+A notebook with real page turning, two paper styles, mood dots, an evening question, search, #tags, Markdown export, monthly printing and backup.
+
+✅ TASKS, NOTES, HABITS, MIND MAP
+Deleted something by mistake? Undo it.
+
+💬 DAILY WORDS
+A quote that follows the time of day: keep the ones you love, hide the rest, add your own. Once a day, a gentle check-in asks how you are.
+
+🌿 A CORNER TO BREATHE
+Guided breathing, a squishy stress ball, a zen sand garden, floating lanterns and stone balancing, each able to fill the screen. Rain, waves and forest wind generated in the browser, plus an optional ZenTab music track.
+
+🪷 WALLPAPERS
+Hand-drawn scenes (moon, mist, three lotus ponds) or your own photo. Text adjusts its contrast to the image.
+
+☯ VIETNAMESE ASTROLOGY & LUNAR CALENDAR
+Tử Vi chart, Bát Tự, lucky hours and the lunar date, calculated on your device.
+
+✨ AI MENTOR (OPTIONAL)
+Bring your own Gemini API key for daily advice based on your tasks and chart.
+
+🔒 PRIVATE
+No servers, no account, no ads, no tracking. One permission: storage.
+```
+
+**Reviewer notes (English):**
+
+```
+No account needed. Open a new tab to see ZenTab. The interface is in Vietnamese.
+AI features are optional and use the user's own Gemini API key (Settings → AI Mentor); everything else works without a key.
 ```

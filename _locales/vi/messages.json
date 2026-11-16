@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "ZenTab: Tập trung tối giản",
+    "description": "Extension name shown in Chrome and the Web Store"
+  },
+  "extDescription": {
+    "message": "Biến tab mới thành góc tĩnh lặng: ý định mỗi ngày, Pomodoro, nhật ký, nhiệm vụ, góc thư giãn và lá số Tử Vi.",
+    "description": "Short description, max 132 characters"
+  }
+}
